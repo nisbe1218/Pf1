@@ -37,18 +37,20 @@ services:
       - DB_PORT=5432
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:3b-instruct
-      - OLLAMA_PREPROCESS_MODEL=qwen2.5:3b-instruct
-      - OLLAMA_FALLBACK_MODEL=qwen2.5:3b-instruct
+      - OLLAMA_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_PREPROCESS_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_FALLBACK_MODEL=qwen2.5:7b-instruct
       - OLLAMA_TIMEOUT_SECONDS=420
-      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=180
-      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=240
-      - OLLAMA_NUM_PREDICT=32
-      - OLLAMA_RETRY_NUM_PREDICT=24
+      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=240
+      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=360
+      - OLLAMA_NUM_PREDICT=2048
+      - OLLAMA_RETRY_NUM_PREDICT=1024
       - OLLAMA_MAX_COLUMNS=40
       - OLLAMA_PREVIEW_ROWS=3
       - OLLAMA_RETRY_MAX_COLUMNS=20
       - OLLAMA_RETRY_PREVIEW_ROWS=2
+      - LLM_MAX_PRIORITY_COLUMNS=25
+      - OLLAMA_NUM_CTX=16384
     env_file:
       - ./backend/.env
     depends_on:
@@ -87,18 +89,20 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:3b-instruct
-      - OLLAMA_PREPROCESS_MODEL=qwen2.5:3b-instruct
-      - OLLAMA_FALLBACK_MODEL=qwen2.5:3b-instruct
+      - OLLAMA_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_PREPROCESS_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_FALLBACK_MODEL=qwen2.5:7b-instruct
       - OLLAMA_TIMEOUT_SECONDS=420
-      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=180
-      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=240
-      - OLLAMA_NUM_PREDICT=32
-      - OLLAMA_RETRY_NUM_PREDICT=24
+      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=240
+      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=360
+      - OLLAMA_NUM_PREDICT=2048
+      - OLLAMA_RETRY_NUM_PREDICT=1024
       - OLLAMA_MAX_COLUMNS=40
       - OLLAMA_PREVIEW_ROWS=3
       - OLLAMA_RETRY_MAX_COLUMNS=20
       - OLLAMA_RETRY_PREVIEW_ROWS=2
+      - LLM_MAX_PRIORITY_COLUMNS=25
+      - OLLAMA_NUM_CTX=16384
     env_file:
       - ./backend/.env
     depends_on:

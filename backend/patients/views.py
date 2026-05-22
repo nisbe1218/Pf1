@@ -5,6 +5,7 @@ import json
 import ast
 import os
 import io
+import logging
 from datetime import datetime, timedelta
 from http.client import RemoteDisconnected
 from urllib import request as urllib_request
@@ -15,7 +16,7 @@ from django.db import connection
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 from django.http import HttpResponse
 from openpyxl import Workbook, load_workbook
 from rest_framework import status
@@ -29,7 +30,10 @@ from audit.models import AuditLog
 
 from .models import Patient, PatientFormField, PatientFormTemplate
 from .serializers import PatientFormTemplateSerializer, PatientSerializer
-from .preprocess_rag import _env_int, build_rag_context, estimate_route
+from .preprocess_rag import _env_int, build_medical_rag_context, build_rag_context, estimate_route
+
+
+logger = logging.getLogger(__name__)
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -1329,6 +1333,38 @@ def _load_preprocess_session(session_id):
         return json.load(handle)
 
 
+def _append_preprocess_event(session_payload, event_type, event_data=None):
+    if not isinstance(session_payload, dict):
+        return session_payload
+    events = session_payload.get('event_log')
+    if not isinstance(events, list):
+        events = []
+    event = {
+        'timestamp': timezone.now().isoformat(),
+        'event_type': str(event_type or 'unknown_event'),
+    }
+    if isinstance(event_data, dict):
+        event.update(_safe_json_value(event_data))
+    events.append(event)
+    session_payload['event_log'] = events
+    return session_payload
+
+
+def _iter_preprocess_sessions():
+    _ensure_preprocess_session_dir()
+    for file_name in os.listdir(PREPROCESS_SESSION_DIR):
+        if not file_name.endswith('.json'):
+            continue
+        path = os.path.join(PREPROCESS_SESSION_DIR, file_name)
+        try:
+            with open(path, 'r', encoding='utf-8') as handle:
+                payload = json.load(handle)
+            if isinstance(payload, dict):
+                yield payload
+        except Exception:
+            continue
+
+
 def _to_json_compatible(value):
     if value is None:
         return None
@@ -1400,10 +1436,13 @@ def _build_technical_profile(dataframe):
         non_null_series = series.dropna()
         missing_count = int(series.isna().sum())
         non_null_count = int(series.notna().sum())
-        sample_values = []
-        for value in non_null_series.astype(str).head(3).tolist():
-            if value not in sample_values:
-                sample_values.append(value)
+        # Collect diverse samples: head + mid + tail to expose rare/aberrant values
+        n = len(non_null_series)
+        sample_indices = list(dict.fromkeys(
+            [0, 1, n // 4, n // 2, 3 * n // 4, n - 1]
+        )) if n > 3 else list(range(n))
+        raw_samples = non_null_series.astype(str).iloc[sample_indices].tolist()
+        sample_values = list(dict.fromkeys(raw_samples))[:5]
 
         column_profile = {
             'column': str(column),
@@ -1424,6 +1463,13 @@ def _build_technical_profile(dataframe):
                 lower_bound = q1 - (1.5 * iqr)
                 upper_bound = q3 + (1.5 * iqr)
                 outlier_count = int(((numeric_series < lower_bound) | (numeric_series > upper_bound)).sum())
+                # Detect sentinel/coded values used as missing (e.g. 999, -1, -99)
+                common_sentinels = (-1, -99, -999, 999, 9999, 99999)
+                sentinel_counts = {
+                    str(int(s)): int((numeric_series == s).sum())
+                    for s in common_sentinels
+                    if int((numeric_series == s).sum()) > 0
+                }
                 numeric_columns_profile.append({
                     'column': str(column),
                     'count': int(numeric_series.count()),
@@ -1435,6 +1481,7 @@ def _build_technical_profile(dataframe):
                     'q3': round(q3, 4),
                     'max': round(float(numeric_series.max()), 4),
                     'outlier_count': outlier_count,
+                    'sentinel_counts': sentinel_counts,
                 })
         else:
             top_values = non_null_series.astype(str).value_counts().head(5)
@@ -1788,6 +1835,58 @@ def _repair_json_text(response_text):
         except Exception:
             return None
 
+    def _auto_close_and_parse(s):
+        """Try to recover truncated JSON by closing dangling string/brackets."""
+        if not s:
+            return None
+
+        variants = [s]
+
+        # If we likely ended inside a string token, first close the quote.
+        quote_count = len(re.findall(r'(?<!\\)"', s))
+        if quote_count % 2 == 1:
+            variants.append(s + '"')
+
+        # If likely ended after a separator, also try trimming at the last comma.
+        last_comma = s.rfind(',')
+        if last_comma > 0:
+            variants.append(s[:last_comma])
+
+        for base in variants:
+            stack = []
+            in_string = False
+            escape = False
+            for ch in base:
+                if in_string:
+                    if escape:
+                        escape = False
+                    elif ch == '\\':
+                        escape = True
+                    elif ch == '"':
+                        in_string = False
+                    continue
+                if ch == '"':
+                    in_string = True
+                    continue
+                if ch in '{[':
+                    stack.append(ch)
+                elif ch in '}]' and stack:
+                    if (stack[-1] == '{' and ch == '}') or (stack[-1] == '[' and ch == ']'):
+                        stack.pop()
+
+            closers = []
+            while stack:
+                opener = stack.pop()
+                closers.append('}' if opener == '{' else ']')
+
+            attempt = base + ''.join(closers)
+            attempt = re.sub(r',\s*([}\]])', r'\1', attempt)
+            parsed = try_parse(attempt)
+            if parsed is not None:
+                return parsed, attempt
+
+        return None
+
     for c in uniq_candidates:
         cand = c['text']
         # 1) try direct parse
@@ -1846,38 +1945,10 @@ def _repair_json_text(response_text):
         closes = cand.count('}') + cand.count(']')
         needed = opens - closes
         if needed > 0:
-            # produce closers by scanning from end to find which types remain
-            # simple heuristic: close '}' for each '{' and ']' for each '[' in occurrence order
-            # compute stack of unmatched openers
-            stack = []
-            in_string = False
-            escape = False
-            for ch in cand:
-                if in_string:
-                    if escape:
-                        escape = False
-                    elif ch == '\\':
-                        escape = True
-                    elif ch == '"':
-                        in_string = False
-                    continue
-                if ch == '"':
-                    in_string = True
-                    continue
-                if ch in '{[':
-                    stack.append(ch)
-                elif ch in '}]' and stack:
-                    if (stack[-1] == '{' and ch == '}') or (stack[-1] == '[' and ch == ']'):
-                        stack.pop()
-            closers = []
-            while stack:
-                opener = stack.pop()
-                closers.append('}' if opener == '{' else ']')
-            attempt = cand + ''.join(closers)
-            attempt = re.sub(r',\s*([}\]])', r'\1', attempt)
-            parsed = try_parse(attempt)
-            if parsed is not None:
-                plen = len(re.sub(r"\s+","", attempt))
+            auto = _auto_close_and_parse(cand)
+            if auto is not None:
+                parsed, attempt = auto
+                plen = len(re.sub(r"\s+", "", attempt))
                 base_score = min(1.0, plen / original_len)
                 depth_factor = min(1.0, float(c.get('depth', 0)) / 10.0)
                 keys_found = 0
@@ -2154,6 +2225,17 @@ def _parse_llm_analysis_response(raw_response):
     fallback_output['summary'] = response_text[:1200]
     fallback_output['limitations'] = ['Le modele a repondu, mais le JSON est invalide.']
     fallback_output['raw_response'] = response_text
+    fallback_output['failure_type'] = 'hard'
+    fallback_output['domain_gate'] = False
+    fallback_output['trusted'] = False
+    fallback_output['structure_type'] = 'invalid_json'
+    fallback_output['structure_score'] = 0.0
+    fallback_output['domain_score'] = 0.0
+    fallback_output['presence_score'] = 0.0
+    fallback_output['completeness_score'] = 0.0
+    fallback_output['recovery_score'] = 0.0
+    fallback_output['method_used'] = 'fallback_invalid_json'
+    fallback_output['is_partial'] = True
     return fallback_output
 
 
@@ -2188,15 +2270,15 @@ def _build_llm_payload(dataframe, technical_profile):
 
     compact_columns_profile = []
     for column_meta in technical_profile.get('columns_profile', []):
-        column_name = str(column_meta.get('name', ''))
+        column_name = str(column_meta.get('name') or column_meta.get('column') or '')
         if column_name not in selected_columns:
             continue
         compact_columns_profile.append({
             'name': column_name,
             'dtype': column_meta.get('dtype'),
             'missing_count': column_meta.get('missing_count'),
-            'missing_ratio': column_meta.get('missing_ratio'),
-            'unique_values': column_meta.get('unique_values'),
+            'missing_ratio': column_meta.get('missing_ratio', column_meta.get('missing_pct')),
+            'unique_values': column_meta.get('unique_values', column_meta.get('non_null_count')),
         })
 
     compact_profile = {
@@ -2430,27 +2512,37 @@ def _validate_preprocess_llm_output(analysis_result, stage_name, available_colum
         return True
 
     schema_ok = True
-    schema_ok &= _require_dict('dataset_summary')
-    schema_ok &= _require_dict('medical_analysis')
-    schema_ok &= _require_dict('missing_values_analysis')
-    schema_ok &= _require_dict('outliers_analysis')
-    schema_ok &= _require_dict('duplicate_analysis')
-    schema_ok &= _require_list('corrections_applied')
-    schema_ok &= _require_list('suspect_values')
-    schema_ok &= _require_list('remaining_risks')
-    schema_ok &= _require_list('recommendations')
-    schema_ok &= _require_list('cleaned_dataset_preview')
-    schema_ok &= _require_dict('processing_statistics')
-    schema_ok &= _require_dict('quality_score')
+    is_pass2 = stage_name.startswith('pass2') or stage_name.startswith('single_pass')
 
-    if not isinstance(analysis_result.get('summary'), str):
-        issues.append('Champ summary invalide ou manquant (string attendu).')
-        schema_ok = False
+    if is_pass2:
+        # Pass2 only returns {summary, correction_plan} — skip full pass1 schema
+        if not isinstance(analysis_result.get('summary'), str):
+            issues.append('Champ summary invalide ou manquant (string attendu).')
+            schema_ok = False
+        if analysis_result.get('correction_plan') is not None and not isinstance(analysis_result.get('correction_plan'), dict):
+            issues.append('Champ correction_plan invalide (dict attendu).')
+            schema_ok = False
+    else:
+        schema_ok &= _require_dict('dataset_summary')
+        schema_ok &= _require_dict('medical_analysis')
+        schema_ok &= _require_dict('missing_values_analysis')
+        schema_ok &= _require_dict('outliers_analysis')
+        schema_ok &= _require_dict('duplicate_analysis')
+        schema_ok &= _require_list('corrections_applied')
+        schema_ok &= _require_list('suspect_values')
+        schema_ok &= _require_list('remaining_risks')
+        schema_ok &= _require_list('recommendations')
+        schema_ok &= _require_list('cleaned_dataset_preview')
+        schema_ok &= _require_dict('processing_statistics')
+        schema_ok &= _require_dict('quality_score')
 
-    # Optional but expected for traceability
-    if analysis_result.get('correction_plan') is not None and not isinstance(analysis_result.get('correction_plan'), dict):
-        issues.append('Champ correction_plan invalide (dict attendu).')
-        schema_ok = False
+        if not isinstance(analysis_result.get('summary'), str):
+            issues.append('Champ summary invalide ou manquant (string attendu).')
+            schema_ok = False
+
+        if analysis_result.get('correction_plan') is not None and not isinstance(analysis_result.get('correction_plan'), dict):
+            issues.append('Champ correction_plan invalide (dict attendu).')
+            schema_ok = False
 
     if not schema_ok:
         return False, {
@@ -2487,6 +2579,10 @@ def _validate_preprocess_llm_output(analysis_result, stage_name, available_colum
         business_ok &= _check_numeric_range('medical_confidence', analysis_result.get('medical_confidence'), 0.0, 1.0)
 
     merge_safe = True
+    # For pass2, available_columns reflects only the compact pack (≤20 cols).
+    # LLM may reference any column from the diagnostic — skip existence check for pass2.
+    strict_column_check = available_columns and not is_pass2
+
     if correction_plan:
         required_plan_fields = [
             'rename_columns', 'drop_columns', 'value_mappings', 'fill_missing',
@@ -2499,14 +2595,28 @@ def _validate_preprocess_llm_output(analysis_result, stage_name, available_colum
                 issues.append(f'Champ correction_plan.{field_name} invalide (type {expected.__name__} attendu).')
                 merge_safe = False
 
+        # Medical safety policy: never auto-drop columns from LLM plans.
+        if correction_plan.get('drop_columns'):
+            issues.append('Champ correction_plan.drop_columns non autorise (desactive pour securite medicale).')
+            merge_safe = False
+
         rename_columns = correction_plan.get('rename_columns') or {}
         drop_columns = correction_plan.get('drop_columns') or []
+        allowed_type_cast_targets = {
+            'numeric', 'number', 'float', 'decimal',
+            'integer', 'int',
+            'date', 'datetime',
+            'string', 'text',
+        }
+        allowed_fill_strategies = {
+            'constant', 'mode', 'mean', 'median', 'forward_fill', 'backward_fill'
+        }
         if isinstance(rename_columns, dict):
             rename_targets = [str(value) for value in rename_columns.values() if value not in [None, '']]
             if len(rename_targets) != len(set(rename_targets)):
                 issues.append('Conflit de renommage: plusieurs colonnes sources ciblent le meme nom.')
                 merge_safe = False
-            if available_columns:
+            if strict_column_check:
                 for source_name, target_name in rename_columns.items():
                     source_name = str(source_name)
                     target_name = str(target_name)
@@ -2516,6 +2626,51 @@ def _validate_preprocess_llm_output(analysis_result, stage_name, available_colum
                     if target_name in available_columns and target_name != source_name:
                         issues.append(f'Conflit merge: cible de renommage deja existante ({target_name}).')
                         merge_safe = False
+
+        if strict_column_check and isinstance(rename_columns, dict):
+            for source_name in rename_columns.keys():
+                if str(source_name) not in available_columns:
+                    issues.append(f'Renommage invalide: colonne source introuvable ({source_name}).')
+                    merge_safe = False
+
+        type_casts = correction_plan.get('type_casts') or {}
+        if isinstance(type_casts, dict):
+            for column_name, target_type in type_casts.items():
+                if strict_column_check and str(column_name) not in available_columns:
+                    issues.append(f'type_casts invalide: colonne introuvable ({column_name}).')
+                    merge_safe = False
+                if str(target_type).lower() not in allowed_type_cast_targets:
+                    issues.append(f'type_casts invalide: type non autorise ({target_type}) pour {column_name}.')
+                    merge_safe = False
+
+        parse_dates = correction_plan.get('parse_dates') or []
+        if isinstance(parse_dates, list):
+            for column_name in parse_dates:
+                if strict_column_check and str(column_name) not in available_columns:
+                    issues.append(f'parse_dates invalide: colonne introuvable ({column_name}).')
+                    merge_safe = False
+
+        fill_missing = correction_plan.get('fill_missing') or {}
+        if isinstance(fill_missing, dict):
+            for column_name, strategy_spec in fill_missing.items():
+                if strict_column_check and str(column_name) not in available_columns:
+                    issues.append(f'fill_missing invalide: colonne introuvable ({column_name}).')
+                    merge_safe = False
+                    continue
+                if isinstance(strategy_spec, dict):
+                    strategy_name = str(strategy_spec.get('strategy', '')).lower()
+                    if strategy_name and strategy_name not in allowed_fill_strategies:
+                        issues.append(f'fill_missing invalide: strategie non autorisee ({strategy_name}) pour {column_name}.')
+                        merge_safe = False
+                    if strategy_name == 'constant' and 'value' not in strategy_spec:
+                        issues.append(f'fill_missing invalide: strategy constant sans value pour {column_name}.')
+                        merge_safe = False
+                elif isinstance(strategy_spec, (str, int, float, bool)) or strategy_spec is None:
+                    # scalar default accepted for backward compatibility
+                    pass
+                else:
+                    issues.append(f'fill_missing invalide: specification non supportee pour {column_name}.')
+                    merge_safe = False
 
     if 'limitations' in analysis_result and not isinstance(analysis_result.get('limitations'), list):
         issues.append('Champ limitations invalide (liste attendue).')
@@ -2545,6 +2700,233 @@ def _validate_preprocess_llm_output(analysis_result, stage_name, available_colum
         'available_columns': available_columns[:60],
     }
     return valid, validation_status, issues
+
+
+def _compute_normalization_severity_score(normalization_notes):
+    if not isinstance(normalization_notes, list) or not normalization_notes:
+        return 0
+
+    major_markers = (
+        'invalid_',
+        'non_dict_',
+        'coercion_failed',
+        'forced_empty',
+    )
+    major_count = 0
+    for note in normalization_notes:
+        text = str(note)
+        if any(marker in text for marker in major_markers):
+            major_count += 1
+
+    if major_count >= 3 or len(normalization_notes) >= 8:
+        return 3
+    if major_count >= 1:
+        return 2
+    return 1
+
+
+def _normalize_correction_plan(analysis_result, available_columns=None):
+    """
+    Try to coerce and normalize the `correction_plan` structure returned by the LLM
+    into the expected schema. This is defensive: the LLM may return slightly
+    different types or small structural deviations (strings, lists of pairs,
+    etc.). We attempt best-effort conversions so valid plans aren't rejected
+    by strict validation.
+    """
+    if not isinstance(analysis_result, dict):
+        return analysis_result
+
+    original_cp = analysis_result.get('correction_plan')
+    cp = analysis_result.get('correction_plan')
+    if cp is None:
+        analysis_result['correction_plan'] = {}
+        analysis_result['normalization_notes'] = []
+        analysis_result['normalization_severity_score'] = 0
+        return analysis_result
+
+    normalization_notes = []
+
+    # If correction_plan is a JSON string, try to parse it
+    if isinstance(cp, str):
+        try:
+            parsed = json.loads(cp)
+            if isinstance(parsed, dict):
+                cp = parsed
+                normalization_notes.append('parsed_correction_plan_json_string')
+        except Exception:
+            # leave as-is and continue coercions
+            cp = {}
+            normalization_notes.append('invalid_correction_plan_json_string_replaced_with_empty')
+
+    if not isinstance(cp, dict):
+        # replace with empty dict to avoid validation hard-failure
+        cp = {}
+        normalization_notes.append('non_dict_correction_plan_replaced_with_empty')
+
+    # Ensure expected top-level keys exist with proper types
+    expected = {
+        'rename_columns': dict,
+        'drop_columns': list,
+        'value_mappings': dict,
+        'fill_missing': dict,
+        'type_casts': dict,
+        'parse_dates': list,
+        'trim_whitespace_columns': list,
+        'default_values': dict,
+    }
+
+    normalized = {}
+    for key, typ in expected.items():
+        val = cp.get(key)
+        if val is None:
+            normalized[key] = {} if typ is dict else []
+            continue
+
+        # If val is a JSON string, try parse
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                val = parsed
+                normalization_notes.append(f'{key}_parsed_from_json_string')
+            except Exception:
+                # fallback: wrap single values into list/dict
+                if typ is list:
+                    val = [val]
+                    normalization_notes.append(f'{key}_wrapped_string_into_list')
+                elif typ is dict:
+                    val = {}
+                    normalization_notes.append(f'{key}_invalid_string_replaced_with_empty_dict')
+
+        # If val is list but dict expected, try convert list of pairs
+        if typ is dict and isinstance(val, list):
+            try:
+                conv = {}
+                for item in val:
+                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                        k = str(item[0])
+                        v = item[1]
+                        conv[k] = v
+                val = conv
+                normalization_notes.append(f'{key}_list_pairs_coerced_to_dict')
+            except Exception:
+                val = {}
+                normalization_notes.append(f'{key}_list_coercion_failed_replaced_with_empty_dict')
+
+        # If val is dict but list expected, convert keys to list
+        if typ is list and isinstance(val, dict):
+            try:
+                # choose values if list-like, else keys
+                list_val = []
+                for k, v in val.items():
+                    if isinstance(v, (list, tuple)):
+                        list_val.extend(v)
+                    else:
+                        list_val.append(k)
+                val = list_val
+                normalization_notes.append(f'{key}_dict_coerced_to_list')
+            except Exception:
+                val = []
+                normalization_notes.append(f'{key}_dict_coercion_failed_replaced_with_empty_list')
+
+        # Final type guard
+        if typ is dict and not isinstance(val, dict):
+            val = {}
+            normalization_notes.append(f'{key}_invalid_type_replaced_with_empty_dict')
+        if typ is list and not isinstance(val, list):
+            val = [val] if val is not None else []
+            normalization_notes.append(f'{key}_invalid_type_wrapped_into_list')
+
+        # If we have available_columns, filter column lists/maps to known columns
+        if available_columns:
+            try:
+                cols = [str(c) for c in available_columns]
+                if isinstance(val, dict):
+                    original_keys = list(val.keys())
+                    filtered = {}
+                    for k, v in val.items():
+                        if str(k) in cols:
+                            filtered[str(k)] = v
+                        else:
+                            # try normalized match
+                            for c in cols:
+                                if normalize_header(c) == normalize_header(k):
+                                    filtered[c] = v
+                                    break
+                    val = filtered
+                    if set(str(k) for k in original_keys) != set(str(k) for k in val.keys()):
+                        normalization_notes.append(f'{key}_filtered_to_available_columns')
+                elif isinstance(val, list):
+                    original_len = len(val)
+                    filtered = []
+                    for item in val:
+                        try:
+                            name = str(item)
+                        except Exception:
+                            continue
+                        if name in cols:
+                            filtered.append(name)
+                        else:
+                            for c in cols:
+                                if normalize_header(c) == normalize_header(name):
+                                    filtered.append(c)
+                                    break
+                    val = filtered
+                    if len(val) != original_len:
+                        normalization_notes.append(f'{key}_list_filtered_to_available_columns')
+            except Exception:
+                pass
+
+        # Normalize type_casts: convert pandas-style types to accepted simple types
+        if key == 'type_casts' and isinstance(val, dict):
+            _type_cast_map = {
+                'datetime64': 'datetime', 'datetime64[ns]': 'datetime',
+                'int64': 'integer', 'int32': 'integer', 'int16': 'integer', 'int8': 'integer',
+                'uint8': 'integer', 'uint16': 'integer', 'uint32': 'integer',
+                'float64': 'numeric', 'float32': 'numeric', 'float16': 'numeric',
+                'object': 'string', 'str': 'string', 'category': 'string',
+                'bool': 'integer',
+            }
+            normalized_tc = {}
+            for col_n, ttype in val.items():
+                type_str = str(ttype).lower().strip().split('[')[0]
+                mapped = _type_cast_map.get(type_str, type_str)
+                if mapped != str(ttype).lower().strip():
+                    normalization_notes.append('type_casts_pandas_type_normalized')
+                normalized_tc[col_n] = mapped
+            val = normalized_tc
+
+        # Normalize fill_missing: convert string strategies to {"strategy": ...} dicts
+        if key == 'fill_missing' and isinstance(val, dict):
+            for col_n in list(val.keys()):
+                spec = val[col_n]
+                if isinstance(spec, str) and spec:
+                    val[col_n] = {'strategy': spec}
+                    normalization_notes.append('fill_missing_string_strategy_normalized')
+
+        if key == 'drop_columns' and val:
+            # Safety policy: never drop columns automatically in medical preprocessing.
+            normalization_notes.append('drop_columns_forced_empty_by_medical_policy')
+            val = []
+
+        normalized[key] = val
+
+    analysis_result['correction_plan'] = normalized
+    dedup_notes = list(dict.fromkeys(normalization_notes))
+    analysis_result['normalization_notes'] = dedup_notes
+    analysis_result['normalization_severity_score'] = _compute_normalization_severity_score(dedup_notes)
+
+    # Log normalization deltas for traceability/audit of LLM output stability.
+    if original_cp != normalized:
+        logger.info(
+            'LLM correction_plan normalized',
+            extra={
+                'normalization_notes': dedup_notes[:20],
+                'normalization_severity_score': analysis_result.get('normalization_severity_score', 0),
+                'original_correction_plan': original_cp,
+                'normalized_correction_plan': normalized,
+            },
+        )
+    return analysis_result
 
 
 def _get_ollama_candidate_bases():
@@ -2775,14 +3157,117 @@ def _build_preprocess_instruction_block():
     )
 
 
+def _is_correction_plan_empty(correction_plan):
+    if not isinstance(correction_plan, dict):
+        return True
+    for value in correction_plan.values():
+        if isinstance(value, dict) and value:
+            return False
+        if isinstance(value, list) and len(value) > 0:
+            return False
+        if value not in [None, '', [], {}]:
+            return False
+    return True
+
+
+def _build_deterministic_correction_plan(technical_profile):
+    technical_profile = technical_profile if isinstance(technical_profile, dict) else {}
+    fill_missing = {}
+    trim_columns = []
+    parse_dates = []
+    type_casts = {}
+
+    for column_meta in technical_profile.get('columns_profile', []):
+        column_name = str(column_meta.get('name') or column_meta.get('column') or '')
+        if not column_name:
+            continue
+        dtype_name = str(column_meta.get('dtype') or '').lower()
+        missing_count = int(column_meta.get('missing_count') or 0)
+        lowered = column_name.lower()
+
+        if missing_count > 0:
+            if 'int' in dtype_name or 'float' in dtype_name:
+                fill_missing[column_name] = {'strategy': 'median'}
+            else:
+                fill_missing[column_name] = {'strategy': 'mode'}
+
+        if dtype_name in {'object', 'string'}:
+            trim_columns.append(column_name)
+        if 'date' in lowered or 'naissance' in lowered or 'visite' in lowered:
+            parse_dates.append(column_name)
+        if 'int' in dtype_name:
+            type_casts[column_name] = 'integer'
+        elif 'float' in dtype_name:
+            type_casts[column_name] = 'numeric'
+
+    return {
+        'rename_columns': {},
+        'drop_columns': [],
+        'value_mappings': {},
+        'fill_missing': fill_missing,
+        'type_casts': type_casts,
+        'parse_dates': parse_dates[:15],
+        'trim_whitespace_columns': trim_columns[:20],
+        'default_values': {},
+    }
+
+
+def _merge_correction_plans(primary_plan, supplemental_plan):
+    primary_plan = primary_plan if isinstance(primary_plan, dict) else {}
+    supplemental_plan = supplemental_plan if isinstance(supplemental_plan, dict) else {}
+
+    merged = {
+        'rename_columns': dict(primary_plan.get('rename_columns') or {}),
+        'drop_columns': list(primary_plan.get('drop_columns') or []),
+        'value_mappings': dict(primary_plan.get('value_mappings') or {}),
+        'fill_missing': dict(primary_plan.get('fill_missing') or {}),
+        'type_casts': dict(primary_plan.get('type_casts') or {}),
+        'parse_dates': list(primary_plan.get('parse_dates') or []),
+        'trim_whitespace_columns': list(primary_plan.get('trim_whitespace_columns') or []),
+        'default_values': dict(primary_plan.get('default_values') or {}),
+    }
+
+    def _merge_dict_bucket(key):
+        extra = supplemental_plan.get(key) or {}
+        if isinstance(extra, dict):
+            for item_key, item_value in extra.items():
+                merged[key].setdefault(item_key, item_value)
+
+    def _merge_list_bucket(key):
+        extra = supplemental_plan.get(key) or []
+        if isinstance(extra, list):
+            for item in extra:
+                if item not in merged[key]:
+                    merged[key].append(item)
+
+    _merge_dict_bucket('rename_columns')
+    _merge_dict_bucket('value_mappings')
+    _merge_dict_bucket('fill_missing')
+    _merge_dict_bucket('type_casts')
+    _merge_dict_bucket('default_values')
+    _merge_list_bucket('parse_dates')
+    _merge_list_bucket('trim_whitespace_columns')
+
+    # Never let a supplemental plan reintroduce automatic deletions in medical preprocessing.
+    merged['drop_columns'] = []
+    return merged
+
+
 def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=None):
+    def _safe_num_predict(value, default_value, minimum_value):
+        try:
+            parsed_value = int(value)
+        except Exception:
+            parsed_value = int(default_value)
+        return max(int(minimum_value), parsed_value)
+
     route = _determine_preprocess_route(technical_profile)
     if route.get('mode') == 'deterministic':
         route = {
             'mode': 'balanced',
             'label': 'llm_only',
             'reason': 'LLM-only mode: no deterministic pandas fallback.',
-            'primary_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct')),
+            'primary_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
             'fallback_model': os.environ.get('OLLAMA_FALLBACK_MODEL', 'qwen2.5:3b-instruct'),
             'primary_timeout_seconds': _env_int('OLLAMA_PRIMARY_TIMEOUT_SECONDS', min(_env_int('OLLAMA_TIMEOUT_SECONDS', 420), 180)),
             'fallback_timeout_seconds': _env_int('OLLAMA_FALLBACK_TIMEOUT_SECONDS', _env_int('OLLAMA_TIMEOUT_SECONDS', 420)),
@@ -2796,22 +3281,38 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
         chunks,
         technical_profile,
         stage_name='diagnostic',
-        max_chunks=int(os.environ.get('RAG_MAX_CHUNKS', '4')),
+        max_chunks=int(os.environ.get('RAG_MAX_CHUNKS', '2')),
         progress_callback=progress_callback,
     )
     technical_profile['chunk_count'] = len(chunks)
     technical_profile['chunks'] = retrieval_context.get('chunk_summaries', [])
     technical_profile['retrieved_chunks'] = retrieval_context.get('retrieved_chunks', [])
 
-    model_name = route.get('primary_model') or os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct'))
+    model_name = route.get('primary_model') or os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct'))
     timeout_seconds = int(os.environ.get('OLLAMA_TIMEOUT_SECONDS', '420'))
     primary_timeout_seconds = int(route.get('primary_timeout_seconds') or int(os.environ.get('OLLAMA_PRIMARY_TIMEOUT_SECONDS', str(min(timeout_seconds, 180)))))
     fallback_model = route.get('fallback_model') or os.environ.get('OLLAMA_FALLBACK_MODEL', 'qwen2.5:3b-instruct')
     fallback_timeout_seconds = int(route.get('fallback_timeout_seconds') or int(os.environ.get('OLLAMA_FALLBACK_TIMEOUT_SECONDS', str(timeout_seconds))))
-    retry_max_columns = int(os.environ.get('OLLAMA_RETRY_MAX_COLUMNS', '20'))
-    retry_preview_rows = int(os.environ.get('OLLAMA_RETRY_PREVIEW_ROWS', '2'))
-    retry_num_predict = int(route.get('fallback_num_predict') or os.environ.get('OLLAMA_RETRY_NUM_PREDICT', '24'))
-    pass2_num_predict = int(os.environ.get('OLLAMA_PASS2_NUM_PREDICT', str(retry_num_predict)))
+    retry_max_columns = int(os.environ.get('OLLAMA_RETRY_MAX_COLUMNS', '12'))
+    retry_preview_rows = int(os.environ.get('OLLAMA_RETRY_PREVIEW_ROWS', '1'))
+    min_pass1_predict = _env_int('OLLAMA_MIN_PASS1_NUM_PREDICT', 512)
+    min_retry_predict = _env_int('OLLAMA_MIN_RETRY_NUM_PREDICT', 384)
+    min_pass2_predict = _env_int('OLLAMA_MIN_PASS2_NUM_PREDICT', 1500)
+
+    primary_num_predict = _safe_num_predict(
+        route.get('primary_num_predict') or os.environ.get('OLLAMA_NUM_PREDICT', '32'),
+        512,
+        min_pass1_predict,
+    )
+    retry_num_predict = _safe_num_predict(
+        route.get('fallback_num_predict') or os.environ.get('OLLAMA_RETRY_NUM_PREDICT', '24'),
+        384,
+        min_retry_predict,
+    )
+
+
+    route['primary_num_predict'] = primary_num_predict
+    route['fallback_num_predict'] = retry_num_predict
     candidate_bases = _get_ollama_candidate_bases()
 
     prompt_payload = _build_llm_payload(dataframe, technical_profile)
@@ -2824,21 +3325,21 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
     }
     # Enforce a strict context budget to avoid Ollama truncation/hallucinations.
     try:
-        max_context_tokens = int(os.environ.get('MAX_CONTEXT_TOKENS', '8192'))
+        max_context_tokens = int(os.environ.get('MAX_CONTEXT_TOKENS', '4096'))
     except Exception:
-        max_context_tokens = 8192
+        max_context_tokens = 4096
     try:
-        system_prompt_tokens = int(os.environ.get('SYSTEM_PROMPT_TOKENS', '1500'))
+        system_prompt_tokens = int(os.environ.get('SYSTEM_PROMPT_TOKENS', '600'))
     except Exception:
-        system_prompt_tokens = 1500
+        system_prompt_tokens = 600
     try:
-        reserved_output_tokens = int(os.environ.get('CONTEXT_OUTPUT_TOKENS', '1000'))
+        reserved_output_tokens = int(os.environ.get('CONTEXT_OUTPUT_TOKENS', '800'))
     except Exception:
-        reserved_output_tokens = 1000
+        reserved_output_tokens = 800
     try:
-        retry_margin_tokens = int(os.environ.get('CONTEXT_RETRY_MARGIN', '500'))
+        retry_margin_tokens = int(os.environ.get('CONTEXT_RETRY_MARGIN', '300'))
     except Exception:
-        retry_margin_tokens = 500
+        retry_margin_tokens = 300
 
     available_input_tokens = max(128, max_context_tokens - system_prompt_tokens - reserved_output_tokens - retry_margin_tokens)
 
@@ -2887,25 +3388,46 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             except Exception:
                 pass
 
-    def _build_pass1_prompt(payload_for_prompt):
-        return (
-            _build_preprocess_instruction_block() + ' '
-            'Objectif passe 1: produire un diagnostic complet du dataset et une version nettoyee exploitable. '
-            'Retourne exclusivement un JSON valide. '
-            'Structure obligatoire: {"dataset_summary":{},"medical_analysis":{},"missing_values_analysis":{},"outliers_analysis":{},"duplicate_analysis":{},"corrections_applied":[],"suspect_values":[],"remaining_risks":[],"recommendations":[],"cleaned_dataset_preview":[],"processing_statistics":{},"quality_score":{}}. '
-            'Contexte: ' + json.dumps(payload_for_prompt, ensure_ascii=False, default=str)
-        )
+    def _build_single_pass_prompt(payload_for_prompt, strict=False):
+        # Extract column names to build medical RAG reference context
+        _col_names = []
+        _tp = payload_for_prompt.get('technical_profile') if isinstance(payload_for_prompt, dict) else None
+        if isinstance(_tp, dict):
+            for _c in (_tp.get('columns_with_issues') or _tp.get('columns_profile') or []):
+                _name = _c.get('col') or _c.get('name') or _c.get('column') or ''
+                if _name:
+                    _col_names.append(str(_name))
+        if not _col_names and isinstance(payload_for_prompt, dict):
+            for _c in (payload_for_prompt.get('columns_with_issues') or []):
+                _name = _c.get('col') or _c.get('name') or _c.get('column') or ''
+                if _name:
+                    _col_names.append(str(_name))
+        _medical_ref = build_medical_rag_context(_col_names)
 
-    def _build_pass2_prompt(payload_for_prompt):
-        return (
+        prompt = (
             _build_preprocess_instruction_block() + ' '
-            'Objectif passe 2: proposer un plan de correction deterministe, minimal et traçable. '
-            'Retourne exclusivement un JSON valide. '
-            'Le JSON doit reprendre la structure de la passe 1 et ajouter un champ top-level correction_plan. '
-            'Structure obligatoire: {"dataset_summary":{},"medical_analysis":{},"missing_values_analysis":{},"outliers_analysis":{},"duplicate_analysis":{},"corrections_applied":[],"suspect_values":[],"remaining_risks":[],"recommendations":[],"cleaned_dataset_preview":[],"processing_statistics":{},"quality_score":{},"correction_plan":{"rename_columns":{},"drop_columns":[],"value_mappings":{},"fill_missing":{},"type_casts":{},"parse_dates":[],"trim_whitespace_columns":[],"default_values":{}}}. '
-            'Ne jamais inventer de valeurs medicales, ne pas supprimer automatiquement les donnees critiques et ne proposer que des corrections hautement probables. '
-            'Contexte: ' + json.dumps(payload_for_prompt, ensure_ascii=False, default=str)
+            'Retourne UNIQUEMENT un JSON valide et court. '
+            'Le but prioritaire est de produire un correction_plan non vide et exploitable. '
+            'Travaille uniquement a partir de columns_with_issues et des exemples fournis. '
+            'Si une anomalie corrigeable existe, remplis au moins un des sous-blocs suivants: fill_missing, type_casts, parse_dates, trim_whitespace_columns, value_mappings ou rename_columns. '
+            'Ne reponds jamais par {} si des colonnes ont missing_pct>0, un type incorrect, un encodage incoherent ou une colonne de date. '
+            'Si tu hesites, choisis la correction prudente la plus simple. '
+            'Schema JSON attendu: '
+            '{"summary":"resume global des erreurs detectees",'
+            '"issues":[{"severity":"warning","category":"type_incorrect","column":"nom_colonne","explanation":"description courte de l erreur detectee"}],'
+            '"correction_plan":{"rename_columns":{},"drop_columns":[],"value_mappings":{},"fill_missing":{},"type_casts":{},"parse_dates":[],"trim_whitespace_columns":[],"default_values":{}}} '
+            'severity doit etre: "critical", "warning" ou "info". '
+            'Cree une entree issues pour chaque probleme detecte. '
         )
+        if _medical_ref:
+            prompt += _medical_ref + ' '
+        prompt += 'Dataset: ' + json.dumps(payload_for_prompt, ensure_ascii=False, default=str)
+        if strict:
+            prompt += (
+                ' OBLIGATOIRE: ne renvoie pas de correction_plan vide. '
+                'Remplis les champs applicables sans ajouter de texte hors JSON. '
+            )
+        return prompt
 
     def _run_stage(stage_name, primary_prompt, fallback_prompt, primary_pack, fallback_pack, primary_predict, fallback_predict):
         attempts = [
@@ -2933,6 +3455,18 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
 
         stage_errors = []
         for attempt in attempts:
+            estimated_prompt_tokens = max(1, len(str(attempt.get('prompt') or '')) // 4)
+            logger.info(
+                '[OLLAMA CALL] stage=%s label=%s model=%s prompt_estimated_tokens=%s budget_max=%s available_input_tokens=%s num_predict=%s',
+                stage_name,
+                attempt['label'],
+                attempt['model'],
+                estimated_prompt_tokens,
+                available_input_tokens,
+                available_input_tokens,
+                attempt['num_predict'],
+            )
+            num_ctx = _env_int('OLLAMA_NUM_CTX', 16384)
             request_payload = {
                 'model': attempt['model'],
                 'prompt': attempt['prompt'],
@@ -2941,6 +3475,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                 'options': {
                     'temperature': 0.1,
                     'num_predict': attempt['num_predict'],
+                    'num_ctx': num_ctx,
                 },
             }
             request_data = json.dumps(request_payload).encode('utf-8')
@@ -2983,7 +3518,9 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                                 return True
 
                         # If parsing failed to populate expected keys, consider it invalid
-                        if not resp.get('dataset_summary') and not resp.get('medical_analysis') and not resp.get('summary'):
+                        # correction_plan presence counts as signal (pass2 only returns summary + correction_plan)
+                        if (not resp.get('dataset_summary') and not resp.get('medical_analysis')
+                                and not resp.get('summary') and not resp.get('correction_plan')):
                             return True
                         return False
 
@@ -3046,6 +3583,9 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                     except Exception:
                         available_columns = []
 
+                    # Normalize the correction_plan structure (defensive):
+                    parsed_response = _normalize_correction_plan(parsed_response, available_columns)
+
                     is_valid, validation_status, validation_issues = _validate_preprocess_llm_output(
                         parsed_response,
                         stage_name=stage_name,
@@ -3056,6 +3596,16 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                             f"[{stage_name}:{attempt['label']}:{attempt['model']}] validation serveur stricte rejetee: {', '.join(validation_issues[:6])}"
                         )
                         continue
+
+                    # Guardrail: plan stages must return an actionable correction plan.
+                    if stage_name.startswith('pass2') or stage_name.startswith('single_pass'):
+                        diagnostic = attempt.get('analysis_pack', {}).get('diagnostic', {}) if isinstance(attempt.get('analysis_pack'), dict) else {}
+                        has_diagnostic_signals = bool(diagnostic.get('issues')) or bool(diagnostic.get('summary'))
+                        if has_diagnostic_signals and _is_correction_plan_empty(parsed_response.get('correction_plan')):
+                            stage_errors.append(
+                                f"[{stage_name}:{attempt['label']}:{attempt['model']}] correction_plan vide rejete (plan actionnable requis)."
+                            )
+                            continue
 
                     parsed_response['validation_status'] = validation_status
                     parsed_response['analysis_pack'] = attempt['analysis_pack']
@@ -3115,143 +3665,192 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             },
         }
 
-    _notify_progress('Analyse LLM - passe 1/2 (diagnostic)...')
-    pass1_result = _run_stage(
-        stage_name='pass1_diagnostic',
-        primary_prompt=_build_pass1_prompt(prompt_payload),
-        fallback_prompt=_build_pass1_prompt(fallback_payload),
-        primary_pack=prompt_payload,
-        fallback_pack=fallback_payload,
-        primary_predict=int(os.environ.get('OLLAMA_NUM_PREDICT', '32')),
-        fallback_predict=retry_num_predict,
-    )
+    # Scale num_predict with dataset size: ~15 tokens per column for correction_plan JSON
+    total_cols = int(technical_profile.get('columns') or len(technical_profile.get('columns_profile', [])))
+    dynamic_min_predict = min_pass2_predict + max(0, (total_cols - 50) * 15)
+    single_pass_predict = max(primary_num_predict, dynamic_min_predict)
+    single_retry_predict = max(retry_num_predict, dynamic_min_predict)
 
-    if pass1_result.get('unavailable'):
+    # Build a full-column compact payload: ALL columns in minimal format (name+dtype+missing%+1 sample).
+    # No preview rows — lets the LLM see the entire dataset structure without token overflow.
+    def _build_full_column_payload(tp):
+        # Build min/max/outlier_count/sentinel_counts lookup from numeric_columns_profile
+        num_stats = {}
+        for nc in (tp.get('numeric_columns_profile') or []):
+            col_name = str(nc.get('name') or nc.get('column') or '')
+            if col_name:
+                num_stats[col_name] = {
+                    'min': nc.get('min'),
+                    'max': nc.get('max'),
+                    'outlier_count': nc.get('outlier_count'),
+                    'sentinel_counts': nc.get('sentinel_counts') or {},
+                }
+
+        max_priority_cols = int(os.environ.get('LLM_MAX_PRIORITY_COLUMNS', '80'))
+        max_clean_cols = int(os.environ.get('LLM_MAX_CLEAN_COLUMNS', '40'))
+
+        priority_cols = []  # columns with detected issues — full detail
+        clean_cols = []     # columns with no detected issues — minimal summary
+
+        for col in (tp.get('columns_profile') or []):
+            col_name = str(col.get('name') or col.get('column') or '')
+            missing_ratio = col.get('missing_ratio')
+            missing_pct_raw = col.get('missing_pct') or col.get('missing_ratio') or 0
+            try:
+                missing_val = float(missing_pct_raw)
+                if missing_ratio is not None and missing_val <= 1.0:
+                    missing_val *= 100
+            except Exception:
+                missing_val = 0
+
+            dtype_str = str(col.get('dtype') or '').lower()
+            stats = num_stats.get(col_name, {})
+            outlier_count = stats.get('outlier_count') or 0
+            sentinel_counts = stats.get('sentinel_counts') or {}
+            is_object = 'object' in dtype_str or 'str' in dtype_str or 'category' in dtype_str
+            has_missing = missing_val > 0
+            has_outliers = outlier_count > 0
+            has_sentinels = bool(sentinel_counts)
+            is_date_col = any(kw in col_name.lower() for kw in ('date', 'naissance', 'admission', 'visite', 'debut', 'fin'))
+
+            has_issue = has_missing or has_outliers or has_sentinels or is_object or is_date_col
+
+            entry = {
+                'col': col_name,
+                'type': str(col.get('dtype') or ''),
+                'missing_pct': round(missing_val, 1),
+            }
+            if has_issue:
+                samples = col.get('sample_values') or []
+                if samples:
+                    entry['samples'] = samples[:3]
+                if stats.get('min') is not None:
+                    entry['min'] = stats['min']
+                if stats.get('max') is not None:
+                    entry['max'] = stats['max']
+                if outlier_count:
+                    entry['outliers'] = outlier_count
+                if sentinel_counts:
+                    entry['sentinels'] = sentinel_counts
+                priority_cols.append(entry)
+            else:
+                clean_cols.append({'col': col_name, 'type': str(col.get('dtype') or '')})
+
+        # Respect token budget: cap priority cols then fill remaining slots with clean cols
+        selected_priority = priority_cols[:max_priority_cols]
+        remaining_slots = max(0, max_clean_cols - max(0, len(priority_cols) - max_priority_cols))
+        selected_clean = clean_cols[:remaining_slots]
+
         return {
-            'unavailable': True,
-            'summary': pass1_result.get('summary', 'Passe 1 indisponible.'),
-            'issues': [],
-            'recommendations': [],
-            'correction_plan': {},
-            'corrected_preview_rows': [],
-            'column_assessment': [],
-            'limitations': list(dict.fromkeys((pass1_result.get('limitations') if isinstance(pass1_result.get('limitations'), list) else []) + [
-                'Mode LLM-only: aucun fallback Pandas applique.',
-            ])),
-            'analysis_pack': prompt_payload,
-            'model_used': pass1_result.get('model_used'),
-            'stage': pass1_result.get('stage', 'pass1_diagnostic'),
-            'route': route,
-            'section_analyses': retrieval_context.get('section_fusion', []),
-            'rag_context': retrieval_context,
-            'validation_status': pass1_result.get('validation_status'),
+            'rows': tp.get('rows'),
+            'columns': tp.get('columns'),
+            'missing_pct_global': tp.get('missing_pct'),
+            'duplicate_rows': tp.get('duplicate_rows'),
+            'columns_with_issues': selected_priority,
+            'clean_columns_summary': selected_clean,
+            'total_columns': len((tp.get('columns_profile') or [])),
+            'columns_with_issues_count': len(priority_cols),
+            'clean_columns_count': len(clean_cols),
         }
 
-    pass1_issues = pass1_result.get('issues') if isinstance(pass1_result.get('issues'), list) else []
-    pass1_recommendations = pass1_result.get('recommendations') if isinstance(pass1_result.get('recommendations'), list) else []
-    pass1_limitations = pass1_result.get('limitations') if isinstance(pass1_result.get('limitations'), list) else []
-
-    needs_correction_plan = bool(pass1_result.get('needs_correction_plan')) or bool(pass1_issues)
-
-    if not needs_correction_plan:
-        pass1_result['correction_plan'] = pass1_result.get('correction_plan') if isinstance(pass1_result.get('correction_plan'), dict) else {}
-        pass1_result['second_pass'] = {'status': 'skipped'}
-        pass1_result['route'] = route
-        pass1_result['section_analyses'] = retrieval_context.get('section_fusion', [])
-        pass1_result['rag_context'] = retrieval_context
-        pass1_result['pipeline'] = {
-            'stage': 'pass1_diagnostic_completed',
-            'chunks_count': len(chunks),
-            'retrieved_chunks_count': retrieval_context.get('retrieved_chunks_count', 0),
-            'retrieval': retrieval_context.get('retrieval_policy'),
-            'vector_store': retrieval_context.get('vector_store', {}),
-        }
-        return pass1_result
-
-    _notify_progress('Analyse LLM - passe 2/2 (plan de correction)...')
-    pass2_primary_payload = {
-        'analysis_pack': prompt_payload,
-        'diagnostic': {
-            'quality_score': pass1_result.get('quality_score'),
-            'summary': pass1_result.get('summary'),
-            'issues': pass1_issues[:6],
-            'recommendations': pass1_recommendations[:5],
-        },
-    }
-    pass2_fallback_payload = {
-        'analysis_pack': fallback_payload,
-        'diagnostic': pass2_primary_payload['diagnostic'],
-    }
-
-    pass2_result = _run_stage(
-        stage_name='pass2_correction_plan',
-        primary_prompt=_build_pass2_prompt(pass2_primary_payload),
-        fallback_prompt=_build_pass2_prompt(pass2_fallback_payload),
-        primary_pack=pass2_primary_payload,
-        fallback_pack=pass2_fallback_payload,
-        primary_predict=pass2_num_predict,
-        fallback_predict=min(pass2_num_predict, retry_num_predict),
+    full_compact_payload = {'technical_profile': _build_full_column_payload(technical_profile)}
+    compact_retry_payload = _shrink_llm_payload(
+        prompt_payload,
+        max_columns=20,
+        max_preview_rows=0,
+        max_samples_per_column=0,
     )
 
-    final_result = {
-        'quality_score': pass1_result.get('quality_score'),
-        'summary': pass1_result.get('summary'),
-        'issues': pass1_issues,
-        'recommendations': pass1_recommendations,
-        'correction_plan': {},
-        'corrected_preview_rows': pass1_result.get('corrected_preview_rows', []),
-        'column_assessment': pass1_result.get('column_assessment', []),
-        'limitations': pass1_limitations,
-        'analysis_pack': pass1_result.get('analysis_pack', prompt_payload),
-        'model_used': pass1_result.get('model_used'),
-        'attempt': pass1_result.get('attempt'),
-        'second_pass': {},
+    _notify_progress('Analyse LLM - generation du plan de correction...')
+    result = _run_stage(
+        stage_name='single_pass_correction',
+        primary_prompt=_build_single_pass_prompt(full_compact_payload, strict=True),
+        fallback_prompt=_build_single_pass_prompt(fallback_payload, strict=True),
+        primary_pack=full_compact_payload,
+        fallback_pack=fallback_payload,
+        primary_predict=single_pass_predict,
+        fallback_predict=single_retry_predict,
+    )
+
+    strict_retry_performed = False
+    if not result.get('unavailable'):
+        plan = result.get('correction_plan') if isinstance(result.get('correction_plan'), dict) else {}
+        if _is_correction_plan_empty(plan):
+            strict_retry_performed = True
+            _notify_progress('Plan vide detecte, relance stricte...')
+            result_retry = _run_stage(
+                stage_name='single_pass_correction_retry_strict',
+                primary_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
+                fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
+                primary_pack=compact_retry_payload,
+                fallback_pack=compact_retry_payload,
+                primary_predict=single_pass_predict,
+                fallback_predict=single_retry_predict,
+            )
+            if not result_retry.get('unavailable'):
+                result = result_retry
+
+    plan = result.get('correction_plan') if isinstance(result.get('correction_plan'), dict) else {}
+    deterministic_correction_plan = _build_deterministic_correction_plan(technical_profile)
+    if result.get('unavailable') or _is_correction_plan_empty(plan):
+        correction_plan = deterministic_correction_plan
+        llm_status = 'fallback_used'
+        if result.get('unavailable'):
+            fallback_reason = 'LLM indisponible: fallback deterministe applique.'
+        else:
+            fallback_reason = 'Plan LLM vide: le modele n a propose aucune correction, fallback deterministe applique.'
+        limitations = list(dict.fromkeys(
+            (result.get('limitations') if isinstance(result.get('limitations'), list) else []) + [
+                fallback_reason,
+            ]
+        ))
+    else:
+        correction_plan = _merge_correction_plans(plan, deterministic_correction_plan)
+        llm_status = 'retried' if strict_retry_performed else 'ok'
+        limitations = result.get('limitations') if isinstance(result.get('limitations'), list) else []
+
+    # Extract issues list returned by LLM; validate each entry is a proper dict
+    raw_issues = result.get('issues') if isinstance(result.get('issues'), list) else []
+    llm_issues = [
+        issue for issue in raw_issues
+        if isinstance(issue, dict) and issue.get('column') and issue.get('explanation')
+    ]
+
+    return {
+        'summary': result.get('summary') or '',
+        'issues': llm_issues,
+        'recommendations': [],
+        'correction_plan': correction_plan,
+        'llm_proposed_correction_plan': plan,
+        'deterministic_correction_plan': deterministic_correction_plan,
+        'corrected_preview_rows': [],
+        'column_assessment': [],
+        'limitations': limitations,
+        'analysis_pack': prompt_payload,
+        'model_used': result.get('model_used'),
+        'attempt': result.get('attempt'),
+        'llm_status': llm_status,
+        'normalization_notes': result.get('normalization_notes', []),
+        'normalization_severity_score': result.get('normalization_severity_score', 0),
+        'second_pass': {
+            'status': llm_status,
+            'strict_retry': strict_retry_performed,
+            'model_used': result.get('model_used'),
+            'attempt': result.get('attempt'),
+        },
+        'validation_status': result.get('validation_status') or {},
+        'validation_status_pass2': {},
         'route': route,
         'section_analyses': retrieval_context.get('section_fusion', []),
         'rag_context': retrieval_context,
         'pipeline': {
-            'stage': 'pass2_correction_plan',
+            'stage': 'single_pass_correction',
             'chunks_count': len(chunks),
             'retrieved_chunks_count': retrieval_context.get('retrieved_chunks_count', 0),
             'retrieval': retrieval_context.get('retrieval_policy'),
             'vector_store': retrieval_context.get('vector_store', {}),
         },
     }
-
-    final_result['validation_status'] = pass1_result.get('validation_status') or {
-        'chunk_valid': False,
-        'schema_valid': False,
-        'merge_safe': False,
-        'medical_confidence': None,
-        'stage': 'pass1_diagnostic',
-        'issues': ['Validation manquante sur la passe 1.'],
-    }
-
-    if pass2_result.get('unavailable'):
-        final_result['limitations'] = list(dict.fromkeys(final_result['limitations'] + [
-            'Passe 2 indisponible: plan de correction vide utilise.'
-        ] + (pass2_result.get('limitations') if isinstance(pass2_result.get('limitations'), list) else [])))
-        final_result['second_pass'] = {
-            'status': 'failed',
-            'model_used': pass2_result.get('model_used'),
-            'attempt': pass2_result.get('attempt'),
-        }
-        final_result['validation_status_pass2'] = pass2_result.get('validation_status')
-        return final_result
-
-    correction_plan = pass2_result.get('correction_plan') if isinstance(pass2_result.get('correction_plan'), dict) else {}
-    final_result['correction_plan'] = correction_plan
-    final_result['second_pass'] = {
-        'status': 'completed',
-        'model_used': pass2_result.get('model_used'),
-        'attempt': pass2_result.get('attempt'),
-    }
-    final_result['validation_status'] = pass2_result.get('validation_status') or final_result.get('validation_status')
-    final_result['validation_status_pass2'] = pass2_result.get('validation_status')
-    if isinstance(pass2_result.get('limitations'), list) and pass2_result.get('limitations'):
-        final_result['limitations'] = list(dict.fromkeys(final_result['limitations'] + pass2_result.get('limitations')))
-
-    return final_result
 
 
 def _resolve_llm_column_name(column_name, rename_map, available_columns):
@@ -3302,6 +3901,178 @@ def _apply_llm_fill_strategy(series, strategy_spec):
     return series.fillna(value)
 
 
+def _llm_report_values_equal(before_value, after_value):
+    try:
+        before_is_missing = pd.isna(before_value)
+        after_is_missing = pd.isna(after_value)
+        if bool(before_is_missing) and bool(after_is_missing):
+            return True
+    except Exception:
+        pass
+    return str(before_value) == str(after_value)
+
+
+def _count_series_changes(before_series, after_series):
+    changed_count = 0
+    for before_value, after_value in zip(before_series.tolist(), after_series.tolist()):
+        if not _llm_report_values_equal(before_value, after_value):
+            changed_count += 1
+    return changed_count
+
+
+def _run_bio_value_correction_pass(dataframe, progress_callback=None):
+    """
+    For each biological column matched via medical_kb, extract all unique values,
+    ask the LLM which ones are aberrant and how to correct them, then return
+    a value_mappings dict covering every row in the dataset.
+    """
+    from .preprocess_rag import _load_medical_kb
+
+    def _notify(msg):
+        try:
+            if progress_callback:
+                progress_callback(msg)
+        except Exception:
+            pass
+
+    documents = _load_medical_kb()
+    if not documents:
+        return {}, []
+
+    model_name = os.environ.get('OLLAMA_PREPROCESS_MODEL') or os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct')
+    num_ctx = _env_int('OLLAMA_NUM_CTX', 16384)
+    candidate_bases = _get_ollama_candidate_bases()
+    timeout_seconds = 60
+
+    col_names = list(dataframe.columns)
+    all_value_mappings = {}
+    all_applied = []
+
+    for doc in documents:
+        patterns = [str(p).lower() for p in doc.get('patterns', [])]
+        matched_col = None
+        for col in col_names:
+            col_lower = col.lower()
+            if any(pat in col_lower or col_lower in pat for pat in patterns):
+                matched_col = col
+                break
+        if not matched_col:
+            continue
+
+        series = dataframe[matched_col]
+        numeric_series = pd.to_numeric(series, errors='coerce')
+        unique_vals = sorted([v for v in numeric_series.dropna().unique().tolist()])
+        if not unique_vals:
+            continue
+
+        impossible_above = doc.get('impossible_above')
+        impossible_below = doc.get('impossible_below')
+        critical_high = doc.get('critical_high')
+
+        # Only call LLM if suspicious values exist
+        def _is_suspicious(v):
+            if impossible_above is not None and v > impossible_above:
+                return True
+            if impossible_below is not None and v < impossible_below:
+                return True
+            if critical_high is not None and v > critical_high * 3:
+                return True
+            return False
+
+        suspicious = [v for v in unique_vals if _is_suspicious(v)]
+        if not suspicious:
+            continue
+
+        _notify(f'Correction biologique : {matched_col} ({len(suspicious)} valeur(s) suspecte(s))...')
+
+        normal = doc.get('normal', [None, None])
+        unit = doc.get('unit', '')
+        notes = doc.get('notes', '')
+        errors = doc.get('common_errors', [])
+
+        prompt = (
+            f'Tu es un expert en nephrologie. Analyse les valeurs de la colonne "{matched_col}" '
+            f'({doc.get("label", matched_col)}, unite: {unit}). '
+            f'Plage normale: {normal[0]}-{normal[1]} {unit}. '
+            f'Valeur critique max: {critical_high}. Valeur impossible au-dessus de: {impossible_above}. '
+        )
+        if notes:
+            prompt += f'Note clinique: {notes} '
+        if errors:
+            prompt += f'Erreurs courantes: {"; ".join(errors)}. '
+        prompt += (
+            f'Voici toutes les valeurs uniques non-nulles presentes dans le dataset: {unique_vals}. '
+            f'Valeurs suspectes identifiees statistiquement: {suspicious}. '
+            'Pour chaque valeur aberrante ou biologiquement impossible, propose la valeur corrigee. '
+            'Si une valeur est simplement elevee mais cliniquement plausible, ne la corrige pas. '
+            'Reponds UNIQUEMENT avec un JSON: {"corrections": {"valeur_erronee": valeur_corrigee, ...}} '
+            'Si aucune correction n\'est necessaire: {"corrections": {}}'
+        )
+
+        request_payload = {
+            'model': model_name,
+            'prompt': prompt,
+            'stream': False,
+            'format': 'json',
+            'options': {'temperature': 0.05, 'num_predict': 256, 'num_ctx': num_ctx},
+        }
+        request_data = json.dumps(request_payload).encode('utf-8')
+
+        corrections = {}
+        for ollama_base in candidate_bases:
+            try:
+                req = urllib_request.Request(
+                    f'{ollama_base}/api/generate',
+                    data=request_data,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST',
+                )
+                with urllib_request.urlopen(req, timeout=timeout_seconds) as resp:
+                    body = resp.read().decode('utf-8')
+                raw = json.loads(body).get('response', '{}')
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
+                corrections = parsed.get('corrections') if isinstance(parsed, dict) else {}
+                if not isinstance(corrections, dict):
+                    corrections = {}
+                break
+            except Exception as exc:
+                logger.warning('[BIO_PASS] %s col=%s error=%s', ollama_base, matched_col, exc)
+                continue
+
+        if not corrections:
+            continue
+
+        # Convert keys to match actual dtype in the series
+        typed_corrections = {}
+        for raw_key, corrected_val in corrections.items():
+            try:
+                numeric_key = float(str(raw_key))
+                # Try int key too if values are integers
+                int_key = int(numeric_key) if numeric_key == int(numeric_key) else None
+                for candidate in ([numeric_key, int_key, str(raw_key), raw_key] if int_key is not None
+                                  else [numeric_key, str(raw_key), raw_key]):
+                    if candidate is None:
+                        continue
+                    typed_corrections[candidate] = corrected_val
+            except Exception:
+                typed_corrections[raw_key] = corrected_val
+
+        if typed_corrections:
+            before_series = dataframe[matched_col].copy()
+            replaced = dataframe[matched_col].replace(typed_corrections)
+            cells_changed = _count_series_changes(before_series, replaced)
+            all_value_mappings[matched_col] = typed_corrections
+            all_applied.append({
+                'action': 'bio_value_correction',
+                'column': matched_col,
+                'corrections': {str(k): v for k, v in typed_corrections.items()},
+                'cells_changed': cells_changed,
+            })
+            logger.info('[BIO_PASS] col=%s corrections=%s cells_changed=%s', matched_col, typed_corrections, cells_changed)
+
+    return all_value_mappings, all_applied
+
+
 def _apply_llm_correction_plan(dataframe, llm_analysis):
     if not isinstance(llm_analysis, dict):
         return dataframe.copy(), []
@@ -3321,49 +4092,96 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             existing_renames = {source: target for source, target in rename_map.items() if source in corrected.columns}
             if existing_renames:
                 corrected = corrected.rename(columns=existing_renames)
-                applied_actions.append({'action': 'rename_columns', 'count': len(existing_renames)})
+                applied_actions.append({
+                    'action': 'rename_columns',
+                    'count': len(existing_renames),
+                    'details': {
+                        'columns': [
+                            {'from': source, 'to': target}
+                            for source, target in existing_renames.items()
+                        ],
+                    },
+                })
 
     available_columns = list(corrected.columns)
 
     drop_columns = correction_plan.get('drop_columns') or []
     if isinstance(drop_columns, list):
-        columns_to_drop = [column for column in drop_columns if column in available_columns]
-        if columns_to_drop:
-            corrected = corrected.drop(columns=columns_to_drop)
-            applied_actions.append({'action': 'drop_columns', 'count': len(columns_to_drop)})
-            available_columns = list(corrected.columns)
+        columns_requested = [column for column in drop_columns if column in available_columns]
+        if columns_requested:
+            # Safety policy: column deletion from LLM plans is intentionally disabled.
+            applied_actions.append({
+                'action': 'drop_columns_skipped',
+                'count': len(columns_requested),
+                'reason': 'disabled_for_medical_safety',
+                'details': {
+                    'columns': [str(column) for column in columns_requested],
+                    'message': 'Suppression ignoree par securite medicale.',
+                },
+            })
 
     trim_columns = correction_plan.get('trim_whitespace_columns') or []
     if isinstance(trim_columns, list):
         trimmed_count = 0
+        trimmed_details = []
+        total_cells_changed = 0
         for column_name in trim_columns:
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
-            if not resolved or corrected[resolved].dtype != object:
+            if not resolved:
                 continue
+            if corrected[resolved].dtype != object and not pd.api.types.is_string_dtype(corrected[resolved]):
+                continue
+            before_series = corrected[resolved].copy()
             corrected[resolved] = corrected[resolved].apply(lambda value: value.strip() if isinstance(value, str) else value)
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             trimmed_count += 1
+            total_cells_changed += cells_changed
+            trimmed_details.append({'column': resolved, 'cells_changed': cells_changed})
         if trimmed_count:
-            applied_actions.append({'action': 'trim_whitespace', 'count': trimmed_count})
+            applied_actions.append({
+                'action': 'trim_whitespace',
+                'count': trimmed_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': trimmed_details},
+            })
 
     value_mappings = correction_plan.get('value_mappings') or {}
     if isinstance(value_mappings, dict):
         mapping_count = 0
+        mapping_details = []
+        total_cells_changed = 0
         for column_name, mapping in value_mappings.items():
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved or not isinstance(mapping, dict):
                 continue
+            before_series = corrected[resolved].copy()
             corrected[resolved] = corrected[resolved].replace(mapping)
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             mapping_count += 1
+            total_cells_changed += cells_changed
+            mapping_details.append({
+                'column': resolved,
+                'cells_changed': cells_changed,
+                'mapping': mapping,
+            })
         if mapping_count:
-            applied_actions.append({'action': 'value_mappings', 'count': mapping_count})
+            applied_actions.append({
+                'action': 'value_mappings',
+                'count': mapping_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': mapping_details},
+            })
 
     type_casts = correction_plan.get('type_casts') or {}
     if isinstance(type_casts, dict):
         cast_count = 0
+        cast_details = []
+        total_cells_changed = 0
         for column_name, target_type in type_casts.items():
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
+            before_series = corrected[resolved].copy()
             target = str(target_type).lower()
             if target in {'numeric', 'number', 'float', 'decimal'}:
                 corrected[resolved] = pd.to_numeric(corrected[resolved], errors='coerce')
@@ -3375,47 +4193,241 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 corrected[resolved] = parsed.dt.date
             elif target in {'string', 'text'}:
                 corrected[resolved] = corrected[resolved].astype('string')
+            else:
+                continue
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             cast_count += 1
+            total_cells_changed += cells_changed
+            cast_details.append({
+                'column': resolved,
+                'target_type': str(target_type),
+                'cells_changed': cells_changed,
+            })
         if cast_count:
-            applied_actions.append({'action': 'type_casts', 'count': cast_count})
+            applied_actions.append({
+                'action': 'type_casts',
+                'count': cast_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': cast_details},
+            })
 
     parse_dates = correction_plan.get('parse_dates') or []
     if isinstance(parse_dates, list):
         parsed_count = 0
+        parsed_details = []
+        total_cells_changed = 0
         for column_name in parse_dates:
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
-            corrected[resolved] = pd.to_datetime(corrected[resolved], errors='coerce', dayfirst=True).dt.date
+            source_series = corrected[resolved]
+            # Guard: skip binary columns (0/1) — pd.to_datetime(1) = 1970-01-01 (epoch)
+            non_null_vals = source_series.dropna()
+            if len(non_null_vals) > 0:
+                try:
+                    unique_numeric = set(pd.to_numeric(non_null_vals, errors='coerce').dropna().unique())
+                    if unique_numeric.issubset({0, 1, 0.0, 1.0}):
+                        continue
+                except Exception:
+                    pass
+            parsed_series = pd.to_datetime(source_series, errors='coerce', dayfirst=True)
+            non_null_source = int(source_series.notna().sum())
+            non_null_parsed = int(parsed_series.notna().sum())
+            # Avoid destructive date coercion when the parse confidence is very low.
+            if non_null_source > 0 and non_null_parsed < max(1, int(non_null_source * 0.5)):
+                continue
+            before_series = corrected[resolved].copy()
+            corrected[resolved] = parsed_series.dt.date
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             parsed_count += 1
+            total_cells_changed += cells_changed
+            parsed_details.append({
+                'column': resolved,
+                'cells_changed': cells_changed,
+                'parsed_values': non_null_parsed,
+                'source_values': non_null_source,
+            })
         if parsed_count:
-            applied_actions.append({'action': 'parse_dates', 'count': parsed_count})
+            applied_actions.append({
+                'action': 'parse_dates',
+                'count': parsed_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': parsed_details},
+            })
 
     fill_missing = correction_plan.get('fill_missing') or {}
     if isinstance(fill_missing, dict):
         filled_count = 0
+        fill_details = []
+        total_cells_changed = 0
         for column_name, strategy_spec in fill_missing.items():
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
+            # Guard: reject non-numeric constant fill on numeric columns (e.g. LLM proposes "x")
+            if isinstance(strategy_spec, dict) and strategy_spec.get('strategy') == 'constant':
+                fill_val = strategy_spec.get('value')
+                if fill_val is not None and pd.api.types.is_numeric_dtype(corrected[resolved]):
+                    try:
+                        float(str(fill_val))
+                    except (ValueError, TypeError):
+                        continue
+            elif not isinstance(strategy_spec, dict):
+                # strategy_spec is a bare value
+                if pd.api.types.is_numeric_dtype(corrected[resolved]):
+                    try:
+                        float(str(strategy_spec))
+                    except (ValueError, TypeError):
+                        continue
+            before_series = corrected[resolved].copy()
             corrected[resolved] = _apply_llm_fill_strategy(corrected[resolved], strategy_spec)
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             filled_count += 1
+            total_cells_changed += cells_changed
+            fill_details.append({
+                'column': resolved,
+                'strategy': strategy_spec,
+                'cells_changed': cells_changed,
+            })
         if filled_count:
-            applied_actions.append({'action': 'fill_missing', 'count': filled_count})
+            applied_actions.append({
+                'action': 'fill_missing',
+                'count': filled_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': fill_details},
+            })
 
     default_values = correction_plan.get('default_values') or {}
     if isinstance(default_values, dict):
         default_count = 0
+        default_details = []
+        total_cells_changed = 0
         for column_name, default_value in default_values.items():
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
+            before_series = corrected[resolved].copy()
             corrected[resolved] = corrected[resolved].fillna(default_value)
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
             default_count += 1
+            total_cells_changed += cells_changed
+            default_details.append({
+                'column': resolved,
+                'default_value': default_value,
+                'cells_changed': cells_changed,
+            })
         if default_count:
-            applied_actions.append({'action': 'default_values', 'count': default_count})
+            applied_actions.append({
+                'action': 'default_values',
+                'count': default_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': default_details},
+            })
 
     return corrected, applied_actions
+
+
+LLM_FOLLOWUP_REQUIRED_MESSAGE = 'Sortie LLM partielle ou non fiable; passe 2 requise pour proposer un plan de correction.'
+
+
+
+def _sanitize_llm_limitations(limitations, suppress_invalid_json=False, suppress_followup=False):
+    cleaned = []
+    for limitation in limitations if isinstance(limitations, list) else []:
+        text = str(limitation)
+        lowered = text.lower()
+        if suppress_followup and text == LLM_FOLLOWUP_REQUIRED_MESSAGE:
+            continue
+        if suppress_invalid_json and 'json' in lowered and ('invalide' in lowered or 'invalid' in lowered or 'non valide' in lowered):
+            continue
+        cleaned.append(limitation)
+    return list(dict.fromkeys(cleaned))
+
+
+def _is_llm_followup_trigger_issue(issue):
+    if not isinstance(issue, dict):
+        return False
+    message = str(issue.get('message') or issue.get('explanation') or '')
+    return bool(issue.get('internal_trigger')) or message == LLM_FOLLOWUP_REQUIRED_MESSAGE
+
+
+def _normalize_preprocess_issue(issue):
+    if not isinstance(issue, dict):
+        return None
+    normalized = dict(issue)
+    message = str(normalized.get('message') or normalized.get('explanation') or '').strip()
+    if message:
+        normalized['message'] = message
+    normalized.setdefault('type', 'generic_issue')
+    normalized.setdefault('category', 'general')
+    normalized.setdefault('severity', 'info')
+    if 'ui_visible' not in normalized:
+        normalized['ui_visible'] = not bool(normalized.get('internal_trigger'))
+    return normalized
+
+
+def _partition_preprocess_issues(issues):
+    normalized_issues = []
+    for issue in issues or []:
+        normalized = _normalize_preprocess_issue(issue)
+        if normalized is not None:
+            normalized_issues.append(normalized)
+    visible_issues = [issue for issue in normalized_issues if bool(issue.get('ui_visible', True))]
+    internal_issues = [issue for issue in normalized_issues if not bool(issue.get('ui_visible', True))]
+    # Single-source-of-truth invariant:
+    # all_issues must always be the union of visible + internal issues.
+    all_issues = [*visible_issues, *internal_issues]
+    return all_issues, visible_issues, internal_issues
+
+
+def _compute_llm_confidence_contract(llm_analysis, visible_issues, internal_issues):
+    llm_analysis = llm_analysis if isinstance(llm_analysis, dict) else {}
+    validation_status = llm_analysis.get('validation_status') if isinstance(llm_analysis.get('validation_status'), dict) else {}
+    validation_status_pass2 = llm_analysis.get('validation_status_pass2') if isinstance(llm_analysis.get('validation_status_pass2'), dict) else {}
+    second_pass = llm_analysis.get('second_pass') if isinstance(llm_analysis.get('second_pass'), dict) else {}
+
+    confidence_candidates = []
+    for key in ('domain_score', 'recovery_score', 'medical_confidence'):
+        value = llm_analysis.get(key)
+        if isinstance(value, (int, float)):
+            confidence_candidates.append(float(value))
+    quality_score = llm_analysis.get('quality_score')
+    if isinstance(quality_score, (int, float)):
+        confidence_candidates.append(max(0.0, min(1.0, float(quality_score) / 100.0)))
+
+    if confidence_candidates:
+        confidence_score = max(0.0, min(1.0, sum(confidence_candidates) / len(confidence_candidates)))
+    else:
+        confidence_score = 0.0
+
+    if validation_status and not bool(validation_status.get('schema_valid', False)):
+        confidence_score = min(confidence_score, 0.35)
+    if second_pass.get('status') == 'failed':
+        confidence_score = min(confidence_score, 0.35)
+    if llm_analysis.get('unavailable'):
+        confidence_score = min(confidence_score, 0.2)
+
+    visible_count = len(visible_issues)
+    internal_count = len(internal_issues)
+    if confidence_score < 0.35 or visible_count > 0 or second_pass.get('status') == 'failed':
+        risk_level = 'high'
+    elif confidence_score < 0.7 or internal_count > 0:
+        risk_level = 'medium'
+    else:
+        risk_level = 'low'
+
+    requires_review = (
+        risk_level != 'low'
+        or not bool(validation_status.get('schema_valid', False))
+        or not bool(validation_status.get('merge_safe', False))
+        or bool(validation_status_pass2 and validation_status_pass2.get('issues'))
+    )
+
+    return {
+        'confidence_score': round(confidence_score, 3),
+        'risk_level': risk_level,
+        'requires_review': bool(requires_review),
+    }
 
 
 def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, corrected_df=None, applied_actions=None):
@@ -3426,9 +4438,15 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
     issues = llm_analysis.get('issues') if isinstance(llm_analysis, dict) else []
     if not isinstance(issues, list):
         issues = []
+    issues = [
+        issue for issue in issues
+        if not _is_llm_followup_trigger_issue(issue)
+    ]
+    all_issues, visible_issues, internal_issues = _partition_preprocess_issues(issues)
+    confidence_contract = _compute_llm_confidence_contract(llm_analysis, visible_issues, internal_issues)
 
     severity_count = {'critical': 0, 'warning': 0, 'info': 0}
-    for item in issues:
+    for item in visible_issues:
         severity = str(item.get('severity', 'info')).lower()
         severity_count[severity] = severity_count.get(severity, 0) + 1
 
@@ -3455,20 +4473,41 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
             'rows': int(len(dataframe.index)),
             'columns': int(len(dataframe.columns)),
             'quality_score': quality_score,
-            'total_issues': len(issues),
+            'total_issues': len(visible_issues),
             'severity_count': severity_count,
             'corrected_rows': int(len(corrected_df.index)),
             'applied_corrections_count': len(applied_actions),
+            'internal_issues_count': len(internal_issues),
         },
         'dataset_profile': technical_profile,
-        'issues': issues,
+        'issues': visible_issues,
+        'internal_issues': internal_issues,
+        'all_issues': all_issues,
         'recommendations': recommendations,
         'correction_plan': llm_analysis.get('correction_plan') or {},
+        'normalization_notes': (llm_analysis.get('normalization_notes') if isinstance(llm_analysis, dict) else []) or [],
+        'normalization_severity_score': int((llm_analysis.get('normalization_severity_score') if isinstance(llm_analysis, dict) else 0) or 0),
         'applied_corrections': applied_actions,
         'llm_analysis': llm_analysis,
         'corrected_preview_rows': corrected_preview_rows,
         'llm_preview_rows': llm_analysis.get('corrected_preview_rows') if isinstance(llm_analysis, dict) else [],
         'analysis_pack': llm_analysis.get('analysis_pack') if isinstance(llm_analysis, dict) else None,
+        'llm_internal_status': {
+            'has_internal_warnings': len(internal_issues) > 0,
+            'internal_issues_count': len(internal_issues),
+            'llm_status': str(llm_analysis.get('llm_status') or 'ok') if isinstance(llm_analysis, dict) else 'ok',
+            'second_pass': (llm_analysis.get('second_pass') if isinstance(llm_analysis, dict) else {}) or {},
+            'validation_status': (llm_analysis.get('validation_status') if isinstance(llm_analysis, dict) else {}) or {},
+            'validation_status_pass2': (llm_analysis.get('validation_status_pass2') if isinstance(llm_analysis, dict) else {}) or {},
+            'normalization_notes': (llm_analysis.get('normalization_notes') if isinstance(llm_analysis, dict) else []) or [],
+            'normalization_severity_score': int(llm_analysis.get('normalization_severity_score', 0)) if isinstance(llm_analysis, dict) else 0,
+            'raw_response_present': bool(str(llm_analysis.get('raw_response') or '').strip()) if isinstance(llm_analysis, dict) else False,
+            'raw_response_snippet': (str(llm_analysis.get('raw_response') or '')[:300] if isinstance(llm_analysis, dict) else ''),
+            'raw_response_length': len(str(llm_analysis.get('raw_response') or '')) if isinstance(llm_analysis, dict) else 0,
+            'confidence_contract': confidence_contract,
+            # Guardrail: debug/internal metadata must never drive control flow.
+            'control_flow_source': 'backend_orchestrator_only',
+        },
     }
 
 
@@ -3830,7 +4869,17 @@ class PatientPreprocessAnalyzeView(APIView):
             'status': 'pending',
             'error': None,
             'progress_message': 'Initialisation du traitement...',
+            'event_log': [],
         }
+        _append_preprocess_event(
+            session,
+            event_type='analysis_requested',
+            event_data={
+                'status': 'pending',
+                'source_file_name': source_file_name,
+                'use_llm': str(request.data.get('use_llm', 'true')).lower() not in ['0', 'false', 'no', 'non'],
+            },
+        )
         _save_preprocess_session(session)
 
         # Dispatcher la task Celery de manière asynchrone
@@ -3841,6 +4890,13 @@ class PatientPreprocessAnalyzeView(APIView):
                 user_id=request.user.id,
                 use_llm=str(request.data.get('use_llm', 'true')).lower() not in ['0', 'false', 'no', 'non']
             )
+            queued_session = _load_preprocess_session(session_id) or session
+            _append_preprocess_event(
+                queued_session,
+                event_type='analysis_dispatched',
+                event_data={'status': 'pending'},
+            )
+            _save_preprocess_session(queued_session)
         except Exception as error:
             print(f"Erreur lors du lancement de la task Celery: {error}")
             session['status'] = 'error'
@@ -3871,6 +4927,7 @@ class PatientPreprocessStatusView(APIView):
 
         if session.get('status') == 'completed':
             report = session.get('report', {})
+            llm_internal_status = report.get('llm_internal_status', {}) if isinstance(report, dict) else {}
             return Response(
                 {
                     'preprocess_id': preprocess_id,
@@ -3883,6 +4940,8 @@ class PatientPreprocessStatusView(APIView):
                     'corrected_preview_rows': report.get('corrected_preview_rows', [])[:20],
                     'dataset_profile': {'columns': len(session.get('columns', [])), 'rows': len(session.get('corrected_rows', []))},
                     'source_file_name': session.get('source_file_name'),
+                    'llm_internal_status': llm_internal_status,
+                    'event_log_tail': (session.get('event_log') or [])[-20:],
                 },
                 status=status.HTTP_200_OK,
             )
@@ -3903,6 +4962,7 @@ class PatientPreprocessStatusView(APIView):
                     'status': session.get('status', 'pending'),
                     'progress_message': session.get('progress_message', 'Traitement en cours...'),
                     'message': 'Analyse en cours, veuillez patienter...',
+                    'event_log_tail': (session.get('event_log') or [])[-20:],
                 },
                 status=status.HTTP_200_OK,
             )
@@ -3915,7 +4975,7 @@ class PatientPreprocessHealthView(APIView):
     def get(self, request):
         timeout_seconds = int(os.environ.get('OLLAMA_HEALTH_TIMEOUT_SECONDS', '8'))
         health = _check_ollama_health(timeout_seconds=timeout_seconds)
-        model_name = os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct')
+        model_name = os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')
         if health.get('connected'):
             return Response(
                 {
@@ -3946,6 +5006,141 @@ class PatientPreprocessHealthView(APIView):
         )
 
 
+class PatientPreprocessMetricsTimelineView(APIView):
+    permission_classes = [CanViewPatients]
+
+    def get(self, request):
+        try:
+            window_days = max(1, int(request.query_params.get('days', '30')))
+        except Exception:
+            window_days = 30
+
+        now = timezone.now()
+        window_start = now - timedelta(days=window_days)
+
+        timeline = {}
+        totals = {
+            'sessions_count': 0,
+            'completed_count': 0,
+            'error_count': 0,
+            'pending_count': 0,
+            'pass2_required_count': 0,
+            'pass2_failed_count': 0,
+            'visible_issues_total': 0,
+            'internal_issues_total': 0,
+        }
+
+        for session in _iter_preprocess_sessions():
+            created_at_raw = session.get('created_at')
+            created_at = parse_datetime(created_at_raw) if isinstance(created_at_raw, str) else None
+            if created_at is None:
+                continue
+            if timezone.is_naive(created_at):
+                created_at = timezone.make_aware(created_at, timezone.get_current_timezone())
+            if created_at < window_start:
+                continue
+
+            day_key = created_at.date().isoformat()
+            bucket = timeline.setdefault(
+                day_key,
+                {
+                    'date': day_key,
+                    'sessions_count': 0,
+                    'completed_count': 0,
+                    'error_count': 0,
+                    'pending_count': 0,
+                    'pass2_required_count': 0,
+                    'pass2_failed_count': 0,
+                    'visible_issues_total': 0,
+                    'internal_issues_total': 0,
+                    'confidence_score_sum': 0.0,
+                    'confidence_score_count': 0,
+                    'risk_low_count': 0,
+                    'risk_medium_count': 0,
+                    'risk_high_count': 0,
+                    'events_count': 0,
+                },
+            )
+
+            totals['sessions_count'] += 1
+            bucket['sessions_count'] += 1
+
+            session_status = str(session.get('status') or 'pending').lower()
+            if session_status == 'completed':
+                totals['completed_count'] += 1
+                bucket['completed_count'] += 1
+            elif session_status == 'error':
+                totals['error_count'] += 1
+                bucket['error_count'] += 1
+            else:
+                totals['pending_count'] += 1
+                bucket['pending_count'] += 1
+
+            report = session.get('report') if isinstance(session.get('report'), dict) else {}
+            summary = report.get('summary') if isinstance(report.get('summary'), dict) else {}
+            llm_internal = report.get('llm_internal_status') if isinstance(report.get('llm_internal_status'), dict) else {}
+            confidence_contract = llm_internal.get('confidence_contract') if isinstance(llm_internal.get('confidence_contract'), dict) else {}
+
+            visible_issues_count = int(summary.get('total_issues') or 0)
+            internal_issues_count = int(summary.get('internal_issues_count') or 0)
+            totals['visible_issues_total'] += visible_issues_count
+            totals['internal_issues_total'] += internal_issues_count
+            bucket['visible_issues_total'] += visible_issues_count
+            bucket['internal_issues_total'] += internal_issues_count
+
+            second_pass = llm_internal.get('second_pass') if isinstance(llm_internal.get('second_pass'), dict) else {}
+            second_pass_status = str(second_pass.get('status') or '').lower()
+            if second_pass_status in {'completed', 'failed'}:
+                totals['pass2_required_count'] += 1
+                bucket['pass2_required_count'] += 1
+            if second_pass_status == 'failed':
+                totals['pass2_failed_count'] += 1
+                bucket['pass2_failed_count'] += 1
+
+            confidence_score = confidence_contract.get('confidence_score')
+            if isinstance(confidence_score, (int, float)):
+                bucket['confidence_score_sum'] += float(confidence_score)
+                bucket['confidence_score_count'] += 1
+
+            risk_level = str(confidence_contract.get('risk_level') or '').lower()
+            if risk_level == 'low':
+                bucket['risk_low_count'] += 1
+            elif risk_level == 'medium':
+                bucket['risk_medium_count'] += 1
+            elif risk_level == 'high':
+                bucket['risk_high_count'] += 1
+
+            events = session.get('event_log')
+            if isinstance(events, list):
+                bucket['events_count'] += len(events)
+
+        timeline_points = []
+        for day_key in sorted(timeline.keys()):
+            point = timeline[day_key]
+            if point['confidence_score_count'] > 0:
+                point['confidence_score_avg'] = round(point['confidence_score_sum'] / point['confidence_score_count'], 4)
+            else:
+                point['confidence_score_avg'] = None
+            point.pop('confidence_score_sum', None)
+            point.pop('confidence_score_count', None)
+            timeline_points.append(point)
+
+        return Response(
+            {
+                'window_days': window_days,
+                'window_start': window_start.isoformat(),
+                'window_end': now.isoformat(),
+                'totals': totals,
+                'timeline': timeline_points,
+                'governance': {
+                    'control_metric_policy': 'No metric should influence decision flow unless explicitly declared as control metric.',
+                    'confidence_contract_policy': 'confidence_score is NOT a correctness guarantee and must not be used alone for clinical decisions.',
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class PatientPreprocessSessionView(APIView):
     permission_classes = [CanViewPatients]
 
@@ -3962,6 +5157,7 @@ class PatientPreprocessSessionView(APIView):
                 'row_count': len(session.get('corrected_rows', [])),
                 'preview_rows': session.get('corrected_rows', [])[:50],
                 'change_log': session.get('change_log', [])[-20:],
+                'event_log_tail': (session.get('event_log') or [])[-50:],
             },
             status=status.HTTP_200_OK,
         )

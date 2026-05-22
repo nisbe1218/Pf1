@@ -222,6 +222,174 @@ export default function Preprocessing() {
     return null;
   })();
 
+  const visibleIssues = Array.isArray(report?.issues)
+    ? report.issues.filter((issue) => {
+        if (typeof issue?.ui_visible === 'boolean') {
+          return issue.ui_visible === true;
+        }
+        return !issue?.internal_trigger;
+      })
+    : [];
+
+  const reportIssues = Array.isArray(report?.all_issues)
+    ? report.all_issues
+    : Array.isArray(report?.issues)
+      ? report.issues
+      : [];
+
+  const appliedCorrections = Array.isArray(report?.applied_corrections)
+    ? report.applied_corrections
+    : [];
+
+  const correctionPlan = report?.correction_plan && typeof report.correction_plan === 'object'
+    ? report.correction_plan
+    : {};
+
+  const datasetColumnsProfile = Array.isArray(datasetProfile?.columns_profile)
+    ? datasetProfile.columns_profile
+    : [];
+
+  const plannedColumnStatus = {};
+  const registerPlannedStatus = (columnName, label) => {
+    if (!columnName) return;
+    const key = String(columnName);
+    if (!plannedColumnStatus[key]) plannedColumnStatus[key] = [];
+    if (!plannedColumnStatus[key].includes(label)) plannedColumnStatus[key].push(label);
+  };
+
+  Object.entries(correctionPlan?.fill_missing || {}).forEach(([columnName, spec]) => {
+    registerPlannedStatus(columnName, `fill_missing${spec?.strategy ? `:${spec.strategy}` : ''}`);
+  });
+  Object.entries(correctionPlan?.type_casts || {}).forEach(([columnName, targetType]) => {
+    registerPlannedStatus(columnName, `type_cast:${targetType}`);
+  });
+  (correctionPlan?.parse_dates || []).forEach((columnName) => registerPlannedStatus(columnName, 'parse_dates'));
+  (correctionPlan?.trim_whitespace_columns || []).forEach((columnName) => registerPlannedStatus(columnName, 'trim_whitespace'));
+  Object.entries(correctionPlan?.value_mappings || {}).forEach(([columnName]) => {
+    registerPlannedStatus(columnName, 'value_mappings');
+  });
+  Object.entries(correctionPlan?.rename_columns || {}).forEach(([fromColumn, toColumn]) => {
+    registerPlannedStatus(fromColumn, `rename_to:${toColumn}`);
+  });
+  Object.entries(correctionPlan?.default_values || {}).forEach(([columnName]) => {
+    registerPlannedStatus(columnName, 'default_values');
+  });
+
+  const appliedColumnStatus = {};
+  const registerAppliedStatus = (columnName, label) => {
+    if (!columnName) return;
+    const key = String(columnName);
+    if (!appliedColumnStatus[key]) appliedColumnStatus[key] = [];
+    if (!appliedColumnStatus[key].includes(label)) appliedColumnStatus[key].push(label);
+  };
+
+  appliedCorrections.forEach((item) => {
+    const action = String(item?.action || 'correction');
+    const details = item?.details || {};
+    const columns = Array.isArray(details.columns) ? details.columns : [];
+    if (action === 'rename_columns') {
+      columns.forEach((column) => {
+        if (column?.from) registerAppliedStatus(column.from, `rename_to:${column.to || ''}`.replace(/:$/, ''));
+      });
+      return;
+    }
+    if (action === 'parse_dates' || action === 'trim_whitespace' || action === 'value_mappings' || action === 'fill_missing' || action === 'type_casts') {
+      columns.forEach((column) => {
+        if (column?.column) registerAppliedStatus(column.column, action);
+      });
+      return;
+    }
+    columns.forEach((column) => {
+      if (typeof column === 'string') registerAppliedStatus(column, action);
+      else if (column?.column || column?.name) registerAppliedStatus(column.column || column.name, action);
+    });
+  });
+
+  const columnRows = datasetColumnsProfile.map((column) => {
+    const columnName = String(column?.column || column?.name || '');
+    const planned = plannedColumnStatus[columnName] || [];
+    const applied = appliedColumnStatus[columnName] || [];
+    const missingPct = column?.missing_pct;
+    const dtype = column?.dtype || column?.type || '-';
+    let statusLabel = 'Aucune modification';
+    let statusColor = 'default';
+
+    if (applied.length > 0) {
+      statusLabel = planned.length > 0 ? 'Corrigée' : 'Corrigée (hors plan)';
+      statusColor = 'success';
+    } else if (planned.length > 0) {
+      statusLabel = 'Proposée';
+      statusColor = 'warning';
+    }
+
+    return {
+      columnName,
+      dtype,
+      missingPct,
+      examples: Array.isArray(column?.sample_values) ? column.sample_values.join(' | ') : '',
+      planned: planned.join(', '),
+      applied: applied.join(', '),
+      statusLabel,
+      statusColor,
+    };
+  });
+
+  const planHasConcreteActions = Object.values(correctionPlan).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (value && typeof value === 'object') return Object.keys(value).length > 0;
+    return Boolean(value);
+  });
+
+  const formatCorrectionDetail = (item) => {
+    const details = item?.details || {};
+    const columns = Array.isArray(details.columns) ? details.columns : [];
+
+    if (item?.action === 'rename_columns') {
+      return columns.map((column) => `${column.from} -> ${column.to}`).join(', ');
+    }
+
+    if (item?.action === 'drop_columns_skipped') {
+      return details.message || `Colonnes ignorees: ${columns.join(', ')}`;
+    }
+
+    if (columns.length > 0) {
+      return columns.map((column) => {
+        if (typeof column === 'string') return column;
+        const name = column.column || column.name || '';
+        const parts = [name].filter(Boolean);
+        if (column.target_type) parts.push(`type: ${column.target_type}`);
+        if (column.cells_changed !== undefined) parts.push(`${column.cells_changed} cellule(s)`);
+        if (column.mapping) parts.push(`mapping: ${JSON.stringify(column.mapping)}`);
+        if (column.strategy) parts.push(`strategie: ${JSON.stringify(column.strategy)}`);
+        if (column.default_value !== undefined) parts.push(`defaut: ${JSON.stringify(column.default_value)}`);
+        return parts.join(' - ');
+      }).join('; ');
+    }
+
+    if (item?.reason) return item.reason;
+    return JSON.stringify(details || {});
+  };
+
+  const correctionDiffs = [];
+  const rowCount = Math.min(originalPreviewRows.length, correctedPreviewRows.length);
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const originalRow = originalPreviewRows[rowIndex] || {};
+    const correctedRow = correctedPreviewRows[rowIndex] || {};
+    const fields = new Set([...Object.keys(originalRow), ...Object.keys(correctedRow)]);
+    fields.forEach((field) => {
+      const before = originalRow[field];
+      const after = correctedRow[field];
+      if (String(before ?? '') !== String(after ?? '')) {
+        correctionDiffs.push({
+          row: rowIndex + 1,
+          field,
+          before: before ?? '',
+          after: after ?? '',
+        });
+      }
+    });
+  }
+
   const handleExport = async () => {
     if (!session) return;
     try {
@@ -306,7 +474,7 @@ export default function Preprocessing() {
 
         {(loading || report?.pipeline || currentStageLabel) && (
           <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1">Pipeline d’analyse</Typography>
+            <Typography variant="subtitle1">Pipeline d'analyse</Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
               {pipelineStages.map((stage) => {
                 const isDone = ['profile', 'chunking', 'retrieval', 'llm1', 'llm2', 'merge'].indexOf(stage.key) <
@@ -405,11 +573,11 @@ export default function Preprocessing() {
           </Box>
         )}
 
-        {Array.isArray(report?.issues) && report.issues.length > 0 && (
+        {visibleIssues.length > 0 && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle1">Problèmes détectés</Typography>
             <List dense>
-              {report.issues.map((issue, index) => (
+              {visibleIssues.map((issue, index) => (
                 <ListItem key={index} sx={{ display: 'block' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {`${issue.severity || 'info'} • ${issue.category || 'general'}${issue.column ? ` • ${issue.column}` : ''}`}
@@ -488,30 +656,290 @@ export default function Preprocessing() {
           </Box>
         )}
 
-        {correctedPreviewRows && correctedPreviewRows.length > 0 && (
+        {report && (
           <Box sx={{ mt: 3 }}>
-            <Typography variant="subtitle1">Version corrigée proposée</Typography>
-            <Alert severity="info" sx={{ mt: 1, mb: 2 }}>
-              Cette version correspond au plan de correction proposé par le modèle local avant validation finale.
-            </Alert>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {Object.keys(correctedPreviewRows[0]).map((k) => (
-                    <TableCell key={k}>{k}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {correctedPreviewRows.map((row, idx) => (
-                  <TableRow key={idx}>
-                    {Object.keys(row).map((k) => (
-                      <TableCell key={k}>{String(row[k] ?? '')}</TableCell>
+            <Typography variant="h6" sx={{ mb: 1 }}>Rapport de correction LLM</Typography>
+            <Stack spacing={2}>
+              <Alert severity={report?.summary ? 'success' : 'info'}>
+                {report?.summary
+                  ? (appliedCorrections.length > 0 || correctionDiffs.length > 0
+                    ? 'Analyse terminée. Le rapport ci-dessous synthétise les corrections appliquées par le backend à partir du plan du LLM.'
+                    : "Analyse terminée. Le backend n'a appliqué aucune correction sur cette session : le dataset est resté inchangé.")
+                  : 'Aucun rapport disponible.'}
+              </Alert>
+
+              {/* Erreurs détectées */}
+              {reportIssues.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                    Erreurs détectées ({reportIssues.length})
+                  </Typography>
+                  <Stack spacing={1}>
+                    {reportIssues.map((issue, index) => {
+                      const sev = String(issue?.severity || 'info').toLowerCase();
+                      const sevColor = sev === 'critical' ? '#d32f2f' : sev === 'warning' ? '#ed6c02' : '#0288d1';
+                      return (
+                        <Box key={index} sx={{ borderLeft: `4px solid ${sevColor}`, pl: 1.5, py: 0.75, bgcolor: 'grey.50', borderRadius: 1 }}>
+                          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" sx={{ mb: 0.4 }}>
+                            <Chip label={sev} size="small" sx={{ bgcolor: sevColor, color: '#fff', fontWeight: 700, height: 20, fontSize: 11 }} />
+                            {issue?.category && <Chip label={issue.category} size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />}
+                            {issue?.column && (
+                              <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>{issue.column}</Typography>
+                            )}
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary">{issue?.explanation || issue?.message || ''}</Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
+              {/* Corrections appliquées — une card par action */}
+              {appliedCorrections.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                    Corrections appliquées ({appliedCorrections.length} action{appliedCorrections.length > 1 ? 's' : ''})
+                  </Typography>
+                  <Stack spacing={1}>
+                    {appliedCorrections.map((item, index) => {
+                      const action = String(item?.action || 'action');
+                      const details = item?.details || {};
+                      const cols = Array.isArray(details.columns) ? details.columns : [];
+                      const count = item?.count ?? item?.rows ?? null;
+                      const cellsChanged = item?.cells_changed ?? null;
+                      return (
+                        <Paper key={index} variant="outlined" sx={{ p: 1.5 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: cols.length ? 0.75 : 0 }}>
+                            <Chip label={action} size="small" color="primary" sx={{ fontWeight: 700 }} />
+                            {count !== null && (
+                              <Typography variant="caption" color="text.secondary">{count} colonne(s)</Typography>
+                            )}
+                            {cellsChanged !== null && (
+                              <Typography variant="caption" color="text.secondary">{cellsChanged} cellule(s) modifiée(s)</Typography>
+                            )}
+                          </Stack>
+                          {action === 'rename_columns' && cols.length > 0 && (
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                              {cols.map((c, i) => (
+                                <Chip key={i} label={`${c.from} → ${c.to}`} size="small" variant="outlined" />
+                              ))}
+                            </Stack>
+                          )}
+                          {action !== 'rename_columns' && cols.length > 0 && (
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                              {cols.map((c, i) => {
+                                const colName = typeof c === 'string' ? c : (c.column || c.name || '');
+                                const extra = c.target_type
+                                  ? ` → ${c.target_type}`
+                                  : c.cells_changed !== undefined
+                                    ? ` (${c.cells_changed})`
+                                    : '';
+                                return <Chip key={i} label={`${colName}${extra}`} size="small" variant="outlined" />;
+                              })}
+                            </Stack>
+                          )}
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
+              {appliedCorrections.length === 0 && correctionDiffs.length === 0 && (
+                <Alert severity="info">Aucune correction n'a été appliquée par le backend pour cette session.</Alert>
+              )}
+              {appliedCorrections.length === 0 && !planHasConcreteActions && (
+                <Alert severity="warning">
+                  Le LLM a renvoyé un plan vide. Le backend ne peut appliquer que les actions réellement présentes dans ce plan.
+                </Alert>
+              )}
+
+              {/* Plan proposé par le LLM — sections structurées */}
+              {planHasConcreteActions && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Plan proposé par le LLM</Typography>
+                  <Stack spacing={1}>
+                    {Object.keys(correctionPlan.fill_missing || {}).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Valeurs manquantes (fill_missing)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {Object.entries(correctionPlan.fill_missing).map(([col, spec]) => (
+                            <Chip key={col} label={`${col} — ${spec?.strategy || spec || '?'}`} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    {Object.keys(correctionPlan.type_casts || {}).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Conversions de type (type_casts)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {Object.entries(correctionPlan.type_casts).map(([col, type]) => (
+                            <Chip key={col} label={`${col} → ${type}`} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    {(correctionPlan.parse_dates || []).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Colonnes date (parse_dates)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {correctionPlan.parse_dates.map((col) => (
+                            <Chip key={col} label={col} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    {(correctionPlan.trim_whitespace_columns || []).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Nettoyage espaces (trim_whitespace)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {correctionPlan.trim_whitespace_columns.map((col) => (
+                            <Chip key={col} label={col} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    {Object.keys(correctionPlan.value_mappings || {}).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Mappings de valeurs (value_mappings)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {Object.entries(correctionPlan.value_mappings).map(([col]) => (
+                            <Chip key={col} label={col} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    {Object.keys(correctionPlan.rename_columns || {}).length > 0 && (
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 0.5 }}>
+                          Renommage (rename_columns)
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                          {Object.entries(correctionPlan.rename_columns).map(([from, to]) => (
+                            <Chip key={from} label={`${from} → ${to}`} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                  </Stack>
+                </Box>
+              )}
+
+              {/* Diff aperçu brut vs corrigé */}
+              {correctionDiffs.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Changements détectés entre la version brute et la version corrigée</Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Ligne</TableCell>
+                        <TableCell>Champ</TableCell>
+                        <TableCell>Avant</TableCell>
+                        <TableCell>Après</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {correctionDiffs.map((item, index) => (
+                        <TableRow key={`${item.row}-${item.field}-${index}`}>
+                          <TableCell>{item.row}</TableCell>
+                          <TableCell>{item.field}</TableCell>
+                          <TableCell>{String(item.before)}</TableCell>
+                          <TableCell>{String(item.after)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {Array.isArray(report?.recommendations) && report.recommendations.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2">Recommandations du modèle</Typography>
+                  <List dense>
+                    {report.recommendations.map((item, index) => (
+                      <ListItem key={`${item}-${index}`} sx={{ px: 0 }}>{item}</ListItem>
                     ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  </List>
+                </Box>
+              )}
+
+              {correctedPreviewRows && correctedPreviewRows.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Aperçu de la version corrigée</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                    <Button size="small" variant="outlined" onClick={handleExport} disabled={!session || loading}>Télécharger corrigé</Button>
+                  </Box>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        {Object.keys(correctedPreviewRows[0]).map((k) => (
+                          <TableCell key={k}>{k}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {correctedPreviewRows.slice(0, 10).map((row, idx) => (
+                        <TableRow key={idx}>
+                          {Object.keys(row).map((k) => (
+                            <TableCell key={k}>{String(row[k] ?? '')}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {columnRows.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Vue complète des colonnes</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {columnRows.length} colonnes détectées. Le statut indique si une correction a été proposée par le LLM ou appliquée par le backend.
+                  </Typography>
+                  <Box sx={{ overflowX: 'auto' }}>
+                    <Table size="small" stickyHeader sx={{ minWidth: 1100 }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Colonne</TableCell>
+                          <TableCell>Type</TableCell>
+                          <TableCell>Manquants</TableCell>
+                          <TableCell>Plan LLM</TableCell>
+                          <TableCell>Appliqué</TableCell>
+                          <TableCell>Statut</TableCell>
+                          <TableCell>Exemples</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {columnRows.map((row) => (
+                          <TableRow key={row.columnName} hover>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.columnName}</TableCell>
+                            <TableCell>{row.dtype}</TableCell>
+                            <TableCell>{row.missingPct ?? '-'}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.planned || '-'}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.applied || '-'}</TableCell>
+                            <TableCell>
+                              <Chip size="small" label={row.statusLabel} color={row.statusColor} variant={row.statusColor === 'default' ? 'outlined' : 'filled'} />
+                            </TableCell>
+                            <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.examples || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Box>
+              )}
+            </Stack>
           </Box>
         )}
       </Paper>

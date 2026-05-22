@@ -12,6 +12,65 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     chromadb = None
 
+_MEDICAL_KB_PATH = os.path.join(os.path.dirname(__file__), 'medical_kb.json')
+_medical_kb_cache = None
+
+
+def _load_medical_kb():
+    global _medical_kb_cache
+    if _medical_kb_cache is not None:
+        return _medical_kb_cache
+    try:
+        with open(_MEDICAL_KB_PATH, encoding='utf-8') as fh:
+            _medical_kb_cache = json.load(fh).get('documents', [])
+    except Exception:
+        _medical_kb_cache = []
+    return _medical_kb_cache
+
+
+def build_medical_rag_context(column_names, max_entries=8):
+    """Return a compact medical reference block for column_names, or '' if nothing matched."""
+    documents = _load_medical_kb()
+    if not documents or not column_names:
+        return ''
+
+    normalized_columns = [str(c).lower() for c in column_names]
+    matched = []
+    for doc in documents:
+        patterns = [str(p).lower() for p in doc.get('patterns', [])]
+        if any(
+            pat in col or col in pat
+            for pat in patterns
+            for col in normalized_columns
+        ):
+            matched.append(doc)
+        if len(matched) >= max_entries:
+            break
+
+    if not matched:
+        return ''
+
+    lines = ['Normes medicales de reference (nephrologie/dialyse):']
+    for doc in matched:
+        normal = doc.get('normal', [None, None])
+        unit = doc.get('unit', '')
+        label = doc.get('label', doc.get('id', ''))
+        crit_low = doc.get('critical_low')
+        crit_high = doc.get('critical_high')
+        notes = doc.get('notes', '')
+        errors = doc.get('common_errors', [])
+
+        parts = [f'- {label}: Normal {normal[0]}-{normal[1]} {unit}.']
+        if crit_low is not None and crit_high is not None:
+            parts.append(f'Critique < {crit_low} ou > {crit_high}.')
+        if notes:
+            parts.append(notes)
+        if errors:
+            parts.append('Erreurs courantes: ' + '; '.join(errors[:2]) + '.')
+        lines.append(' '.join(parts))
+
+    return '\n'.join(lines)
+
 
 def _normalize_text(value):
     text = str(value or '').strip().lower()
@@ -165,6 +224,18 @@ def _summarize_chunk(dataframe, chunk, technical_profile):
         f'samples={compact_samples}',
     ])
 
+    # Limit embedding text length to avoid Ollama / embedding failures due to excessive context.
+    # Configurable via environment variable EMBEDDING_MAX_CHARS (default 2000 characters).
+    try:
+        max_embed_chars = int(os.environ.get('EMBEDDING_MAX_CHARS', 2000))
+    except Exception:
+        max_embed_chars = 2000
+
+    embedding_truncated = False
+    if max_embed_chars and isinstance(embedding_text, str) and len(embedding_text) > max_embed_chars:
+        embedding_text = embedding_text[:max_embed_chars]
+        embedding_truncated = True
+
     if critical_signals and technical_profile.get('missing_pct'):
         deterministic_summary += f' Signaux critiques: {", ".join(critical_signals[:4])}.'
 
@@ -183,7 +254,12 @@ def _summarize_chunk(dataframe, chunk, technical_profile):
         'critical_signals': critical_signals,
         'deterministic_summary': deterministic_summary,
         'embedding_text': embedding_text,
+        'embedding_truncated': embedding_truncated,
+        'estimated_chars': int(chunk.get('estimated_chars') or 0),
+        'patient_id_column': chunk.get('patient_id_column'),
+        'units': chunk.get('units') or {},
     }
+
 
 
 def _embed_texts_with_ollama(texts):
@@ -598,12 +674,12 @@ def estimate_route(technical_profile):
         return {
             'mode': 'advanced',
             'label': 'advanced_medical',
-            'reason': 'Dataset medical complexe ou ambigu: modele 14B priorisé.',
-            'primary_model': os.environ.get('OLLAMA_ADVANCED_MODEL', 'qwen2.5:14b-instruct'),
-            'fallback_model': os.environ.get('OLLAMA_BALANCED_MODEL', os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct'))),
+            'reason': 'Dataset medical complexe ou ambigu: modele 3B priorisé.',
+            'primary_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
+            'fallback_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
             'primary_timeout_seconds': _env_int('OLLAMA_ADVANCED_TIMEOUT_SECONDS', _env_int('OLLAMA_PRIMARY_TIMEOUT_SECONDS', min(_env_int('OLLAMA_TIMEOUT_SECONDS', 420), 180))),
             'fallback_timeout_seconds': _env_int('OLLAMA_FALLBACK_TIMEOUT_SECONDS', _env_int('OLLAMA_TIMEOUT_SECONDS', 420)),
-            'primary_num_predict': _env_int('OLLAMA_ADVANCED_NUM_PREDICT', _env_int('OLLAMA_NUM_PREDICT', 32)),
+            'primary_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
             'fallback_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
             'clinical_complexity_score': clinical_complexity_score,
         }
@@ -611,12 +687,12 @@ def estimate_route(technical_profile):
     return {
         'mode': 'balanced',
         'label': 'balanced_default',
-        'reason': 'Dataset standard: modele equilibré priorisé.',
-        'primary_model': os.environ.get('OLLAMA_BALANCED_MODEL', os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct'))),
-        'fallback_model': os.environ.get('OLLAMA_FAST_MODEL', 'qwen2.5:3b-instruct'),
+        'reason': 'Dataset standard: modele equilibre priorise.',
+        'primary_model': os.environ.get('OLLAMA_BALANCED_MODEL', os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct'))),
+        'fallback_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
         'primary_timeout_seconds': _env_int('OLLAMA_PRIMARY_TIMEOUT_SECONDS', min(_env_int('OLLAMA_TIMEOUT_SECONDS', 420), 180)),
         'fallback_timeout_seconds': _env_int('OLLAMA_FALLBACK_TIMEOUT_SECONDS', _env_int('OLLAMA_TIMEOUT_SECONDS', 420)),
         'primary_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
-        'fallback_num_predict': _env_int('OLLAMA_RETRY_NUM_PREDICT', 24),
+        'fallback_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
         'clinical_complexity_score': clinical_complexity_score,
     }

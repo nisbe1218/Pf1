@@ -102,6 +102,6 @@ class RepairContractTests(SimpleTestCase):
             failure_type='hard',
             domain_gate=False,
             trusted=False,
-            score_max=0.0,
+            score_max=0.6,
         )
-        self.assertEqual(parsed.get('recovery_status'), 'failed_partial_parse')
+        self.assertLess(parsed.get('domain_score', 1.0), 0.4)

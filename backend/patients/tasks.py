@@ -4,6 +4,7 @@ import uuid
 from celery import shared_task
 from django.utils import timezone
 from .views import (
+    _append_preprocess_event,
     _load_preprocess_session,
     _read_uploaded_dataframe,
     _build_technical_profile,
@@ -12,6 +13,7 @@ from .views import (
     _build_preprocess_chunks,
     _build_retrieval_context,
     _apply_llm_correction_plan,
+    _run_bio_value_correction_pass,
     _build_preprocess_report,
     _dataframe_to_rows,
     _save_preprocess_session,
@@ -30,6 +32,14 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
         try:
             session = _load_preprocess_session(session_id)
             session['progress_message'] = msg
+            _append_preprocess_event(
+                session,
+                event_type='progress_update',
+                event_data={
+                    'status': session.get('status', 'pending'),
+                    'message': msg,
+                },
+            )
             _save_preprocess_session(session)
         except Exception as e:
             print(f"Could not update progress: {e}")
@@ -77,7 +87,16 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
 
         update_session_progress("Fusion des résultats LLM et contextuels...")
         corrected_df, applied_actions = _apply_llm_correction_plan(dataframe, llm_analysis)
-        
+
+        update_session_progress("Correction des valeurs biologiques aberrantes...")
+        bio_mappings, bio_actions = _run_bio_value_correction_pass(
+            corrected_df,
+            progress_callback=update_session_progress,
+        )
+        if bio_mappings:
+            corrected_df = corrected_df.replace(bio_mappings)
+            applied_actions.extend(bio_actions)
+
         update_session_progress("Génération du rapport final...")
         report = _build_preprocess_report(
             dataframe,
@@ -89,6 +108,8 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
 
         report['pipeline'] = llm_analysis.get('pipeline') if isinstance(llm_analysis, dict) else {}
         report['route'] = llm_analysis.get('route') if isinstance(llm_analysis, dict) else {}
+        llm_internal_status = report.get('llm_internal_status') if isinstance(report, dict) else {}
+        confidence_contract = llm_internal_status.get('confidence_contract') if isinstance(llm_internal_status, dict) else {}
 
         # Build and save session
         update_session_progress("Finalisation...")
@@ -106,6 +127,27 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
             'error': None,
             'progress_message': 'Analyse terminée avec succès!',
         }
+        session['monitoring_snapshot'] = {
+            'confidence_score': confidence_contract.get('confidence_score'),
+            'risk_level': confidence_contract.get('risk_level'),
+            'requires_review': confidence_contract.get('requires_review'),
+            'second_pass_status': ((llm_internal_status.get('second_pass') or {}).get('status') if isinstance(llm_internal_status, dict) else None),
+            'visible_issues_count': (report.get('summary') or {}).get('total_issues'),
+            'internal_issues_count': (report.get('summary') or {}).get('internal_issues_count'),
+        }
+        _append_preprocess_event(
+            session,
+            event_type='analysis_completed',
+            event_data={
+                'status': 'completed',
+                'confidence_score': confidence_contract.get('confidence_score'),
+                'risk_level': confidence_contract.get('risk_level'),
+                'requires_review': confidence_contract.get('requires_review'),
+                'total_issues': (report.get('summary') or {}).get('total_issues'),
+                'internal_issues_count': (report.get('summary') or {}).get('internal_issues_count'),
+                'second_pass_status': ((llm_internal_status.get('second_pass') or {}).get('status') if isinstance(llm_internal_status, dict) else None),
+            },
+        )
         _save_preprocess_session(session)
 
         # Clean up temp file
@@ -139,6 +181,11 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
             'error': str(e),
             'progress_message': f'Erreur: {str(e)}',
         })
+        _append_preprocess_event(
+            session,
+            event_type='analysis_failed',
+            event_data={'status': 'error', 'error': str(e)},
+        )
         _save_preprocess_session(session)
 
         # Clean up temp file
