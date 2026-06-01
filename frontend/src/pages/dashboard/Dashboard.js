@@ -56,8 +56,12 @@ const roleDescriptions = {
 const DASHBOARD_THEME = {
   deepNavy: '#0A2B3E',
   medicalBlue: '#1A6B8A',
+  tealGreen: '#1E9E84',
   softRose: '#D47A8E',
   dustyRose: '#C46B82',
+  indigo: '#5B6BC0',
+  steelBlue: '#3A8FB5',
+  purple: '#8B6FC4',
   blushPink: '#F0D3DF',
   offWhite: '#F5F9FC',
   lightGray: '#EFF3F6',
@@ -121,8 +125,8 @@ function Dashboard() {
     color: DASHBOARD_THEME.white,
     overflow: 'hidden',
     position: 'relative',
-    boxShadow: '0 24px 60px rgba(15, 23, 42, 0.12)',
-    background: `linear-gradient(135deg, ${DASHBOARD_THEME.deepNavy} 0%, ${DASHBOARD_THEME.medicalBlue} 45%, ${DASHBOARD_THEME.softRose} 100%)`,
+    boxShadow: '0 24px 60px rgba(15, 23, 42, 0.14)',
+    background: `linear-gradient(135deg, #0D4D63 0%, #1A8FA8 55%, #D47A8E 100%)`,
   };
 
   const softCardSx = {
@@ -146,7 +150,9 @@ function Dashboard() {
     border: `1px solid ${DASHBOARD_THEME.borderLight}`,
     borderTop: `4px solid ${accent}`,
     background: `linear-gradient(180deg, ${DASHBOARD_THEME.white}, ${DASHBOARD_THEME.offWhite})`,
-    boxShadow: '0 12px 34px rgba(15, 23, 42, 0.06)',
+    boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
+    transition: 'transform 180ms ease, box-shadow 180ms ease',
+    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 32px rgba(15,23,42,0.10)' },
   });
 
   const stats = useMemo(() => {
@@ -163,6 +169,7 @@ function Dashboard() {
       inactiveUsers: managedUsers.filter((managedUser) => !managedUser.is_active).length,
       professorsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'professeur').length,
       residentsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'resident').length,
+      adminsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'super_admin' || managedUser.role?.nom === 'chef_service').length,
       rolesCount: roles.length,
     };
   }, [roles.length, user?.role, users]);
@@ -369,201 +376,69 @@ function Dashboard() {
       <Box sx={{ maxWidth: 1680, mx: 'auto', width: '100%' }}>
         <AppSidebar />
 
-        <Box sx={{ minWidth: 0, '@media (min-width:768px)': { ml: '94px' } }}>
+        <Box sx={{ minWidth: 0, '@media (min-width:768px)': { ml: '252px' } }}>
           <Paper elevation={0} sx={heroSx}>
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 'auto -120px -120px auto',
-                width: 280,
-                height: 280,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.10)',
-                filter: 'blur(2px)',
-              }}
-            />
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.08), transparent 42%, rgba(255,255,255,0.04))',
-                pointerEvents: 'none',
-              }}
-            />
-            <Stack spacing={1.5} sx={{ position: 'relative' }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} alignItems="center">
-                <Chip
-                  label={roleLabels[user?.role] || 'Utilisateur'}
-                  sx={{ alignSelf: 'flex-start', bgcolor: 'rgba(255,255,255,0.16)', color: 'white', fontWeight: 700 }}
-                />
-              </Stack>
-              <Box sx={{ maxWidth: 860 }}>
-                <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-.04em', lineHeight: 1.02, color: '#FFFFFF', textShadow: '0 2px 10px rgba(10, 43, 62, 0.30)' }}>
+            {/* Cercles décoratifs */}
+            <Box sx={{ position: 'absolute', inset: 'auto -80px -80px auto', width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
+            <Box sx={{ position: 'absolute', top: -40, left: '38%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+
+            <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }} spacing={3} sx={{ position: 'relative' }}>
+              {/* Gauche — texte */}
+              <Box>
+                <Chip label={roleLabels[user?.role] || 'Utilisateur'} sx={{ mb: 1.5, bgcolor: 'rgba(255,255,255,0.16)', color: 'white', fontWeight: 700 }} />
+                <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-.04em', lineHeight: 1.02, color: '#FFFFFF', textShadow: '0 2px 10px rgba(10,43,62,0.30)' }}>
                   {t('dashboardTitle')}
                 </Typography>
-                <Typography variant="body1" sx={{ mt: 1, maxWidth: 760, color: 'rgba(255,255,255,0.96)', fontSize: '1.02rem' }}>
+                <Typography variant="body1" sx={{ mt: 1, maxWidth: 520, color: 'rgba(255,255,255,0.85)', fontSize: '0.97rem' }}>
                   {t('dashboardSubtitle')}
                 </Typography>
-                <Button
-                  variant="contained"
-                  onClick={() => navigate('/monitor')}
-                  sx={{
-                    mt: 2,
-                    borderRadius: 999,
-                    textTransform: 'none',
-                    bgcolor: 'rgba(255,255,255,0.16)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.24)',
-                    boxShadow: 'none',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.24)', boxShadow: 'none' },
-                  }}
-                >
+                <Button variant="contained" onClick={() => navigate('/monitor')} sx={{ mt: 2, borderRadius: 999, textTransform: 'none', bgcolor: 'rgba(255,255,255,0.16)', color: '#fff', border: '1px solid rgba(255,255,255,0.24)', boxShadow: 'none', '&:hover': { bgcolor: 'rgba(255,255,255,0.24)', boxShadow: 'none' } }}>
                   {t('dashboardOpenMonitor')}
                 </Button>
               </Box>
+
+              {/* Droite — stats inline */}
+              <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
+                {[
+                  { label: 'Actifs',         value: stats.activeUsers     },
+                  { label: 'Inactifs',       value: stats.inactiveUsers   },
+                  { label: 'Admins & Chefs', value: stats.adminsCount     },
+                  { label: 'Professeurs',    value: stats.professorsCount },
+                  { label: 'Résidents',      value: stats.residentsCount  },
+                  { label: 'Rôles',          value: stats.rolesCount      },
+                ].map(({ label, value }) => (
+                  <Box key={label} sx={{
+                    px: 2.5, py: 1.75,
+                    borderRadius: 3,
+                    background: 'rgba(255,255,255,0.12)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    minWidth: 90, textAlign: 'center',
+                    transition: 'background 0.2s',
+                    '&:hover': { background: 'rgba(255,255,255,0.20)' },
+                  }}>
+                    <Typography variant="h5" fontWeight={900} sx={{ color: '#fff', letterSpacing: '-.03em' }}>{value}</Typography>
+                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.70)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', mt: 0.25 }}>{label}</Typography>
+                  </Box>
+                ))}
+              </Stack>
             </Stack>
           </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-          <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.medicalBlue)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardVisibleAccounts')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.visibleUsers}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardVisibleAccountsDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.softRose)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardActiveAccounts')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.activeUsers}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardActiveAccountsDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.dustyRose)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardInactiveAccounts')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.inactiveUsers}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardInactiveAccountsDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.medicalBlue)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardProfessors')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.professorsCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardProfessorsDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.softRose)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardResidents')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.residentsCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardResidentsDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card elevation={0} sx={statCardSx(DASHBOARD_THEME.dustyRose)}>
-            <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="overline" sx={{ color: '#5b7384', fontWeight: 800, letterSpacing: '.08em' }}>
-                {t('dashboardRolesLoaded')}
-              </Typography>
-                  <Typography variant="h3" fontWeight={900} sx={{ mt: 0.5, letterSpacing: '-.04em' }}>
-                {stats.rolesCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboardRolesLoadedDesc')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
       <Grid container spacing={3}>
         <Grid item xs={12} xl={isAdminScope ? 4 : 12}>
           <Stack spacing={3} sx={isAdminScope ? { position: { xl: 'sticky' }, top: { xl: 24 } } : undefined}>
             <Card elevation={0} sx={subtlePanelSx}>
-              <Box sx={{ height: 10, background: `linear-gradient(90deg, ${DASHBOARD_THEME.deepNavy} 0%, ${DASHBOARD_THEME.medicalBlue} 55%, ${DASHBOARD_THEME.softRose} 100%)` }} />
+              <Box sx={{ height: 10, background: `linear-gradient(90deg, #0D4D63 0%, #1A8FA8 55%, #D47A8E 100%)` }} />
               <CardContent sx={{ p: 0 }}>
                 <Box sx={{ p: 3 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2.25 }}>
                     <Box>
                       <Typography variant="overline" color="primary.main" fontWeight={800}>
-
-                  <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
-                    <DialogTitle sx={{ fontWeight: 800 }}>Confirmer la suppression</DialogTitle>
-                    <DialogContent>
-                      <Stack spacing={2} sx={{ pt: 1 }}>
-                        <Alert severity="warning">
-                          {deleteTargetUser
-                            ? `Voulez-vous vraiment supprimer le compte ${deleteTargetUser.email} ?`
-                            : 'Voulez-vous vraiment supprimer ce compte ?'}
-                        </Alert>
-                        <Typography variant="body2" color="text.secondary">
-                          Si oui, saisis le mot de passe de ton propre compte pour valider l’opération.
-                        </Typography>
-                        <TextField
-                          label="Mot de passe de validation"
-                          type="password"
-                          value={deletePassword}
-                          onChange={(event) => setDeletePassword(event.target.value)}
-                          fullWidth
-                          size="small"
-                          autoFocus
-                        />
-                      </Stack>
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 3 }}>
-                      <Button onClick={closeDeleteDialog} variant="outlined" disabled={saving}>
-                        Annuler
-                      </Button>
-                      <Button onClick={confirmDeleteUser} variant="contained" color="error" disabled={saving}>
-                        {saving ? 'Suppression...' : 'Supprimer'}
-                      </Button>
-                    </DialogActions>
-                  </Dialog>
-                        {t('dashboardSessionActive')}
+                        {t("dashboardSessionActive")}
                       </Typography>
                       <Typography variant="h5" fontWeight={900} sx={{ mt: 0.5 }}>
                         {t('dashboardConnectedProfile')}
@@ -819,7 +694,10 @@ function Dashboard() {
                             borderRadius: 3,
                             bgcolor: DASHBOARD_THEME.white,
                             border: `1px solid ${DASHBOARD_THEME.borderLight}`,
-                            borderLeft: `5px solid ${managedUser.is_active ? DASHBOARD_THEME.medicalBlue : DASHBOARD_THEME.softRose}`,
+                            borderTop: `4px solid transparent`,
+                            borderImage: managedUser.is_active
+                              ? 'linear-gradient(90deg, #1A8FA8, #D47A8E) 1'
+                              : `linear-gradient(90deg, ${DASHBOARD_THEME.softRose}, #C46B82) 1`,
                             minHeight: 250,
                             display: 'flex',
                             flexDirection: 'column',
@@ -835,7 +713,7 @@ function Dashboard() {
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack spacing={1.5}>
                             <Stack direction="row" spacing={2} alignItems="center">
-                              <Avatar sx={{ width: 48, height: 48, fontWeight: 700, bgcolor: DASHBOARD_THEME.deepNavy, boxShadow: '0 8px 18px rgba(10,43,62,0.18)' }}>
+                              <Avatar sx={{ width: 48, height: 48, fontWeight: 700, background: `linear-gradient(135deg, #1A8FA8, #D47A8E)`, boxShadow: '0 6px 16px rgba(26,107,138,0.20)' }}>
                                 {(managedUser.nom?.[0] || managedUser.prenom?.[0] || 'U').toUpperCase()}
                               </Avatar>
                               <Box>

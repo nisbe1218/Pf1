@@ -159,42 +159,127 @@ def _critical_signals_for_columns(columns):
     return list(dict.fromkeys(signals))
 
 
+# String tokens that indicate a value is a disguised missing rather than real data
+_DISGUISED_MISSING_TOKENS = {
+    'n/a', 'na', 'nan', 'null', 'none', 'nil', '?', '-', '--', '---',
+    'inconnu', 'inconnue', 'unknown', 'nd', 'nr', 'ns', 'nc',
+    'non renseigne', 'non renseignee', 'non disponible', 'not available',
+    'not applicable', 'missing', 'vide', 'absent', 'absente',
+    '#n/a', '#value!', '#ref!', 'inf', '-inf', 'inf.', 'indisponible',
+}
+
+
+def _analyse_column_semantics(series, col_name):
+    """Return a rich semantic profile for a single column to help the LLM detect issues."""
+    entry = {}
+    dtype_str = str(series.dtype).lower()
+    is_numeric = 'int' in dtype_str or 'float' in dtype_str
+    is_object = 'object' in dtype_str or 'str' in dtype_str or 'category' in dtype_str
+
+    non_null = series.dropna()
+    total = len(series)
+    non_null_count = len(non_null)
+
+    # Representative samples — up to 8 distinct non-null values
+    samples = list(dict.fromkeys(non_null.astype(str).tolist()))[:8]
+    if samples:
+        entry['samples'] = samples
+
+    # Disguised missing detection (object / mixed columns)
+    if is_object or not is_numeric:
+        values_lower = non_null.astype(str).str.strip().str.lower()
+        disguised_mask = values_lower.isin(_DISGUISED_MISSING_TOKENS)
+        disguised_series = values_lower[disguised_mask]
+        if len(disguised_series) > 0:
+            counts = disguised_series.value_counts().head(5).to_dict()
+            entry['disguised_missing'] = {str(k): int(v) for k, v in counts.items()}
+
+    # Value distribution for low-cardinality categorical columns
+    if is_object:
+        unique_count = int(non_null.nunique())
+        entry['unique_count'] = unique_count
+        if 0 < unique_count <= 30:
+            vc = non_null.astype(str).value_counts().head(10)
+            entry['value_distribution'] = {str(k): int(v) for k, v in vc.items()}
+
+    # Numeric stats + actual outlier values
+    if is_numeric:
+        numeric = pd.to_numeric(series, errors='coerce').dropna()
+        if len(numeric) > 0:
+            _unique_num = set(numeric.unique())
+            _is_binary = _unique_num.issubset({0, 1, 0.0, 1.0})
+            if _is_binary:
+                entry['is_binary'] = True
+                entry['numeric_stats'] = {
+                    'min': float(numeric.min()),
+                    'max': float(numeric.max()),
+                    'median': float(numeric.median()),
+                    'q1': 0.0,
+                    'q3': 1.0,
+                }
+            else:
+                q1 = float(numeric.quantile(0.25))
+                q3 = float(numeric.quantile(0.75))
+                iqr = q3 - q1
+                lower_fence = q1 - 3 * iqr
+                upper_fence = q3 + 3 * iqr
+                outlier_vals = numeric[(numeric < lower_fence) | (numeric > upper_fence)]
+                entry['numeric_stats'] = {
+                    'min': float(numeric.min()),
+                    'max': float(numeric.max()),
+                    'median': float(numeric.median()),
+                    'q1': round(q1, 3),
+                    'q3': round(q3, 3),
+                }
+                if len(outlier_vals) > 0:
+                    entry['outlier_values'] = [round(float(v), 4) for v in outlier_vals.head(5).tolist()]
+                    entry['outlier_count'] = int(len(outlier_vals))
+
+    return entry if entry else None
+
+
 def _summarize_chunk(dataframe, chunk, technical_profile):
     chunk_frame = _chunk_frame(dataframe, chunk)
     columns = [str(column) for column in chunk.get('columns', [])]
     row_count = int(chunk.get('row_count') or len(chunk_frame.index))
+
     if row_count <= 0 or chunk_frame.empty:
         preview_rows = []
         missing_pct = 0.0
         duplicate_rows = 0
         top_missing_columns = []
-        sample_values = {}
+        column_semantics = {}
     else:
         preview_rows = chunk_frame.head(3).to_dict(orient='records')
         total_cells = int(len(chunk_frame.index) * len(chunk_frame.columns))
         missing_cells = int(chunk_frame.isna().sum().sum()) if total_cells else 0
         missing_pct = round((missing_cells / total_cells) * 100, 2) if total_cells else 0.0
         duplicate_rows = int(chunk_frame.duplicated().sum())
+
         top_missing_columns = []
         for column_name in chunk_frame.columns:
-            column_series = chunk_frame[column_name]
-            if len(column_series.index) == 0:
+            col_series = chunk_frame[column_name]
+            if len(col_series.index) == 0:
                 continue
-            column_missing_pct = round((int(column_series.isna().sum()) / len(column_series.index)) * 100, 2)
-            if column_missing_pct > 0:
-                top_missing_columns.append({'column': str(column_name), 'missing_pct': column_missing_pct})
+            col_missing_pct = round((int(col_series.isna().sum()) / len(col_series.index)) * 100, 2)
+            if col_missing_pct > 0:
+                top_missing_columns.append({'column': str(column_name), 'missing_pct': col_missing_pct})
         top_missing_columns = sorted(top_missing_columns, key=lambda item: item['missing_pct'], reverse=True)[:6]
-        sample_values = {}
-        for column_name in chunk_frame.columns[:8]:
-            non_null_values = chunk_frame[column_name].dropna().astype(str).head(3).tolist()
-            if non_null_values:
-                sample_values[str(column_name)] = non_null_values
+
+        # Rich per-column semantic profile — ALL columns in the chunk
+        column_semantics = {}
+        for column_name in chunk_frame.columns:
+            profile = _analyse_column_semantics(chunk_frame[column_name], str(column_name))
+            if profile:
+                column_semantics[str(column_name)] = profile
 
     critical_signals = _critical_signals_for_columns(columns)
     section_name = str(chunk.get('section') or 'generic_data')
     kind = str(chunk.get('kind') or 'generic')
     rows_range = chunk.get('rows_range') or [0, 0]
     row_span_text = f'{int(rows_range[0] or 0)}-{int(rows_range[1] or 0)}'
+
+    # Enrich deterministic summary with semantic signals
     summary_fragments = [
         f'Section {section_name}',
         f'chunk {chunk.get("chunk_id")}',
@@ -212,32 +297,43 @@ def _summarize_chunk(dataframe, chunk, technical_profile):
             )
         )
 
+    # Flag columns with disguised missing or encoding inconsistencies in summary
+    disguised_cols = [
+        col for col, info in column_semantics.items()
+        if info.get('disguised_missing')
+    ]
+    encoding_cols = [
+        col for col, info in column_semantics.items()
+        if info.get('value_distribution') and info.get('unique_count', 0) > 1
+    ]
+    if disguised_cols:
+        summary_fragments.append(f'disguised_missing_cols {", ".join(disguised_cols[:4])}')
+    if encoding_cols:
+        summary_fragments.append(f'categorical_cols {", ".join(encoding_cols[:4])}')
+
     deterministic_summary = '. '.join(summary_fragments) + '.'
-    preview_blob = json.dumps(preview_rows[:3], ensure_ascii=False, default=str)
-    compact_samples = json.dumps(sample_values, ensure_ascii=False, default=str)
+    if critical_signals and technical_profile.get('missing_pct'):
+        deterministic_summary += f' Signaux critiques: {", ".join(critical_signals[:4])}.'
+
+    # Build embedding text: summary + column semantics (for ChromaDB vector search)
+    semantics_blob = json.dumps(column_semantics, ensure_ascii=False, default=str)
     embedding_text = '\n'.join([
         deterministic_summary,
         f'rows_range={row_span_text}',
         f'kind={kind}',
         f'columns={", ".join(columns[:20])}',
-        f'preview_rows={preview_blob}',
-        f'samples={compact_samples}',
+        f'column_semantics={semantics_blob}',
     ])
 
-    # Limit embedding text length to avoid Ollama / embedding failures due to excessive context.
-    # Configurable via environment variable EMBEDDING_MAX_CHARS (default 2000 characters).
     try:
-        max_embed_chars = int(os.environ.get('EMBEDDING_MAX_CHARS', 2000))
+        max_embed_chars = int(os.environ.get('EMBEDDING_MAX_CHARS', '3000'))
     except Exception:
-        max_embed_chars = 2000
+        max_embed_chars = 3000
 
     embedding_truncated = False
     if max_embed_chars and isinstance(embedding_text, str) and len(embedding_text) > max_embed_chars:
         embedding_text = embedding_text[:max_embed_chars]
         embedding_truncated = True
-
-    if critical_signals and technical_profile.get('missing_pct'):
-        deterministic_summary += f' Signaux critiques: {", ".join(critical_signals[:4])}.'
 
     return {
         'chunk_id': str(chunk.get('chunk_id')),
@@ -251,6 +347,7 @@ def _summarize_chunk(dataframe, chunk, technical_profile):
         'missing_pct': missing_pct,
         'duplicate_rows': duplicate_rows,
         'top_missing_columns': top_missing_columns,
+        'column_semantics': column_semantics,
         'critical_signals': critical_signals,
         'deterministic_summary': deterministic_summary,
         'embedding_text': embedding_text,
@@ -674,9 +771,9 @@ def estimate_route(technical_profile):
         return {
             'mode': 'advanced',
             'label': 'advanced_medical',
-            'reason': 'Dataset medical complexe ou ambigu: modele 3B priorisé.',
-            'primary_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
-            'fallback_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
+            'reason': 'Dataset medical complexe ou ambigu: modele equilibre priorise.',
+            'primary_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct')),
+            'fallback_model': os.environ.get('OLLAMA_FALLBACK_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
             'primary_timeout_seconds': _env_int('OLLAMA_ADVANCED_TIMEOUT_SECONDS', _env_int('OLLAMA_PRIMARY_TIMEOUT_SECONDS', min(_env_int('OLLAMA_TIMEOUT_SECONDS', 420), 180))),
             'fallback_timeout_seconds': _env_int('OLLAMA_FALLBACK_TIMEOUT_SECONDS', _env_int('OLLAMA_TIMEOUT_SECONDS', 420)),
             'primary_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
@@ -688,11 +785,11 @@ def estimate_route(technical_profile):
         'mode': 'balanced',
         'label': 'balanced_default',
         'reason': 'Dataset standard: modele equilibre priorise.',
-        'primary_model': os.environ.get('OLLAMA_BALANCED_MODEL', os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct'))),
-        'fallback_model': os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
+        'primary_model': os.environ.get('OLLAMA_BALANCED_MODEL', os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct'))),
+        'fallback_model': os.environ.get('OLLAMA_FALLBACK_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')),
         'primary_timeout_seconds': _env_int('OLLAMA_PRIMARY_TIMEOUT_SECONDS', min(_env_int('OLLAMA_TIMEOUT_SECONDS', 420), 180)),
         'fallback_timeout_seconds': _env_int('OLLAMA_FALLBACK_TIMEOUT_SECONDS', _env_int('OLLAMA_TIMEOUT_SECONDS', 420)),
         'primary_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
-        'fallback_num_predict': _env_int('OLLAMA_NUM_PREDICT', 32),
+        'fallback_num_predict': _env_int('OLLAMA_RETRY_NUM_PREDICT', _env_int('OLLAMA_NUM_PREDICT', 32)),
         'clinical_complexity_score': clinical_complexity_score,
     }

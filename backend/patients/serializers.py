@@ -13,6 +13,13 @@ class PatientSerializer(serializers.ModelSerializer):
     nom = serializers.CharField(required=False, allow_blank=True)
     prenom = serializers.CharField(required=False, allow_blank=True)
 
+    def update(self, instance, validated_data):
+        if 'extra_data' in validated_data:
+            existing = instance.extra_data or {}
+            existing.update(validated_data['extra_data'])
+            validated_data['extra_data'] = existing
+        return super().update(instance, validated_data)
+
     class Meta:
         model = Patient
         fields = [

@@ -13,3 +13,4 @@ python-dotenv
 django-cors-headers
 celery[redis]>=5.3.0
 redis>=4.5.0
+chromadb>=0.5.0

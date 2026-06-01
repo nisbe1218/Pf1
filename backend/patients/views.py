@@ -351,6 +351,12 @@ _DECODE_MAPS = {
         2: 'amo',
         3: 'autre_assurance_publique',
     },
+    'couverture_medicale': {
+        0: 'auto_paiement',
+        1: 'ramed',
+        2: 'amo',
+        3: 'autre_assurance_publique',
+    },
     'demographie_couverture_sociale': {
         0: 'auto_paiement',
         1: 'ramed',
@@ -722,6 +728,7 @@ POSTGRES_MODEL_FIELD_MAP = {
     'adresse': 'adresse',
     'date_naissance': 'date_naissance',
     'date_admission': 'date_admission',
+    'icc_charlson': 'icc_charlson',
 }
 
 POSTGRES_SECTION_BUCKETS = [
@@ -1015,6 +1022,38 @@ def build_patient_payload(row):
                 print(f"✅ CHARLSON CAPTURÉ: '{column_name}' → {charlson_val}")
             else:
                 print(f"⚠️ Colonne Charlson trouvée mais valeur non extraite: '{raw_value}'")
+
+        # === COLONNES ACCÈS DIALYSE (binaire 0/1 → dialyse_type_acces_initial) ===
+        if normalized == 'fistule_arterioveineuse_creee':
+            if _is_truthy(value):
+                payload.setdefault('dialyse_data', {})['dialyse_type_acces_initial'] = 'fistule_arterioveineuse'
+                payload['dialyse_type_acces_initial'] = 'fistule_arterioveineuse'
+            continue
+
+        if normalized == 'admission_cathetere_tunnellise':
+            # Ne pas écraser si déjà défini comme fistule
+            if _is_truthy(value) and payload.get('dialyse_type_acces_initial') != 'fistule_arterioveineuse':
+                payload.setdefault('dialyse_data', {})['dialyse_type_acces_initial'] = 'cathetere_tunnellise'
+                payload['dialyse_type_acces_initial'] = 'cathetere_tunnellise'
+            elif not _is_truthy(value) and 'dialyse_type_acces_initial' not in payload:
+                payload.setdefault('dialyse_data', {})['dialyse_type_acces_initial'] = 'cathetere_femoral'
+                payload['dialyse_type_acces_initial'] = 'cathetere_femoral'
+            continue
+
+        # === DÉLAI DÉCÈS → extra_data ===
+        if normalized == 'delai_jusquau_deces_jours':
+            try:
+                payload['extra_data']['delai_jusquau_deces_jours'] = int(float(str(value)))
+            except (ValueError, TypeError):
+                pass
+            continue
+
+        # === DIABÈTE → comorbidite_statut_diabete ===
+        if normalized == 'diabete':
+            bin_val = 'oui' if _is_truthy(value) else 'non'
+            payload['comorbidite_statut_diabete'] = bin_val
+            payload.setdefault('comorbidite_data', {})['comorbidite_statut_diabete'] = bin_val
+            continue
 
         # === COLONNES DÉJÀ FUSIONNÉES DANS comorbidite_liste → IGNORER ===
         # (traitées via le mapping fusion, ne doivent pas créer de colonne séparée)
@@ -1320,8 +1359,10 @@ def _save_preprocess_session(session_payload):
     session_payload['id'] = session_id
     session_payload['updated_at'] = timezone.now().isoformat()
     session_path = _preprocess_session_path(session_id)
-    with open(session_path, 'w', encoding='utf-8') as handle:
+    tmp_path = session_path + '.tmp'
+    with open(tmp_path, 'w', encoding='utf-8') as handle:
         json.dump(_safe_json_value(session_payload), handle, ensure_ascii=False)
+    os.replace(tmp_path, session_path)
     return session_payload
 
 
@@ -1329,8 +1370,15 @@ def _load_preprocess_session(session_id):
     session_path = _preprocess_session_path(session_id)
     if not os.path.exists(session_path):
         return None
-    with open(session_path, 'r', encoding='utf-8') as handle:
-        return json.load(handle)
+    import time as _time
+    for attempt in range(3):
+        try:
+            with open(session_path, 'r', encoding='utf-8') as handle:
+                return json.load(handle)
+        except (json.JSONDecodeError, ValueError):
+            if attempt < 2:
+                _time.sleep(0.1)
+    return None
 
 
 def _append_preprocess_event(session_payload, event_type, event_data=None):
@@ -1420,6 +1468,71 @@ def _read_uploaded_dataframe(uploaded_file):
     return dataframe, source_file_name
 
 
+# ─── Anomaly candidate detection constants ────────────────────────────────────
+# Used inside _build_technical_profile to surface rare aberrant values that
+# never appear in the 5-sample snapshot shown to the LLM.
+import re as _re_anomaly
+
+_ANOMALY_EXCEL_DATE_ARTIFACTS = {
+    '0/1/1900', '1/0/1900', '00/01/1900', '01/00/1900',
+    '0/0/1900', '1/1/1900', '01/01/1900', '00/00/1900',
+    '0-1-1900', '1-0-1900', '00-01-1900', '01-00-1900',
+    '1900-01-00', '1900-00-01', '1900-01-01',
+}
+_ANOMALY_YEAR_TYPO_RE = _re_anomaly.compile(r'\b([3-9]\d{3}|21\d{2})\b')
+_ANOMALY_FUTURE_YEAR_RE = _re_anomaly.compile(r'\b(20[3-9]\d|2[1-9]\d{2})\b')
+
+_ANOMALY_DISGUISED_MISSING = frozenset({
+    'n/a', 'na', 'nan', '?', '-', '--', '---', 'null', 'none', 'nil',
+    'inconnu', 'inconnu(e)', 'nd', 'nr', 'nc', 'nsp', 'nrp',
+    'non renseigne', 'non renseigné', 'non disponible', 'non évalué',
+    'non evalue', 'non applicable', 'néant', 'neant', 'absent',
+    '#n/a', '#na', '#ref!', '#value!', '#num!', '#div/0!',
+    'manquant', 'missing', 'unknown', 'aucun', 'aucune',
+    'a préciser', 'en cours', 'void', '.', '/', '',
+})
+
+# Decimal comma: "1,5" or "-1,5" or "1 234,56" (French locale numbers)
+_ANOMALY_DECIMAL_COMMA_RE = _re_anomaly.compile(r'^-?\d[\d\s]*,\d+$')
+# Pure numeric string in object column: "25.5", "100", "-3.14"
+_ANOMALY_NUMERIC_STR_RE = _re_anomaly.compile(r'^-?\d+(\.\d+)?$')
+# HTML/special char debris
+_ANOMALY_HTML_RE = _re_anomaly.compile(r'&[a-z]+;|<[a-z/][^>]*>', _re_anomaly.IGNORECASE)
+
+# Boolean text tokens (French + English) — if mixed with 0/1 numeric → incoherent
+_ANOMALY_BOOL_TEXT = frozenset({
+    'oui', 'non', 'o', 'n', 'true', 'false', 'yes', 'no', 'vrai', 'faux',
+    'positif', 'negatif', 'pos', 'neg', 'present', 'absent',
+})
+_ANOMALY_BOOL_NUM = frozenset({'0', '1'})
+
+# Date format families — multiple families in same column = format_date_mixte
+_ANOMALY_DATE_FMT = [
+    ('dmy_slash', _re_anomaly.compile(r'^\d{1,2}/\d{1,2}/\d{4}$')),
+    ('ymd_dash',  _re_anomaly.compile(r'^\d{4}-\d{2}-\d{2}$')),
+    ('dmy_dash',  _re_anomaly.compile(r'^\d{1,2}-\d{1,2}-\d{4}$')),
+    ('dmy_dot',   _re_anomaly.compile(r'^\d{1,2}\.\d{1,2}\.\d{4}$')),
+]
+
+# Column name keywords that imply non-negative values
+_ANOMALY_NONNEG_KEYWORDS = (
+    'age', 'poids', 'taille', 'imc', 'bmi', 'score', 'glycemie',
+    'tension', 'frequence', 'duree', 'pression', 'hemoglobine',
+    'cholesterol', 'creatinine', 'glucose', 'uree', 'albumine',
+)
+
+# Mojibake: UTF-8 bytes mis-decoded as Latin-1/cp1252.
+# Ã©=é, Ã¨=è, â€™=', â€œ=", Ã =à  etc.
+_ANOMALY_MOJIBAKE_RE = _re_anomaly.compile(r"Ã[^\s]|â€")
+
+# Cross-column analysis keywords
+_ANOMALY_AGE_KEYWORDS     = ('age', 'age_patient', 'age_ans', 'annee_age')
+_ANOMALY_BIRTH_KEYWORDS   = ('naissance', 'birth', 'dob', 'date_nais', 'annee_naiss')
+_ANOMALY_NAME_KEYWORDS    = ('nom', 'prenom', 'name', 'first_name', 'last_name', 'patient_name')
+_ANOMALY_ID_KEYWORDS      = ('patient_id', 'id_patient', 'numero_patient', 'code_patient', 'identifiant')
+# ──────────────────────────────────────────────────────────────────────────────
+
+
 def _build_technical_profile(dataframe):
     columns_profile = []
     numeric_columns_profile = []
@@ -1444,6 +1557,271 @@ def _build_technical_profile(dataframe):
         raw_samples = non_null_series.astype(str).iloc[sample_indices].tolist()
         sample_values = list(dict.fromkeys(raw_samples))[:5]
 
+        # Scan ALL unique values for anomaly candidates invisible in 5-sample snapshots.
+        # Each candidate is surfaced to the LLM with its detected anomaly type.
+        anomaly_candidates = []
+        _is_numeric_col = pd.api.types.is_numeric_dtype(series)
+        _col_lower = str(column).lower()
+        if n > 0:
+            _decimal_comma_count = 0
+            _bool_text_seen = False
+            _bool_num_seen = False
+            _date_formats_seen = set()
+            _numeric_str_count = 0
+            _has_html = False
+            _has_space = False
+            _has_mojibake = False
+            _unique_vals = non_null_series.astype(str).unique()[:500]
+
+            for _v in _unique_vals:
+                _vs = _v.strip()
+                _vsl = _vs.lower()
+
+                # 1. Excel date base artifacts
+                if _vs in _ANOMALY_EXCEL_DATE_ARTIFACTS:
+                    anomaly_candidates.append({'value': _v, 'type': 'artefact_excel'})
+
+                # 2. Year typo (3023 instead of 2023, 2124 instead of 2024)
+                elif _ANOMALY_YEAR_TYPO_RE.search(_vs):
+                    anomaly_candidates.append({'value': _v, 'type': 'annee_incorrecte'})
+
+                # 3. Disguised missing values
+                elif _vsl in _ANOMALY_DISGUISED_MISSING:
+                    anomaly_candidates.append({'value': _v, 'type': 'manquant_deguise'})
+
+                # 4. HTML/special character debris in text fields
+                elif not _is_numeric_col and _ANOMALY_HTML_RE.search(_vs):
+                    _has_html = True
+
+                # 5. Decimal comma in non-numeric column (French locale: "1,5")
+                if not _is_numeric_col and _ANOMALY_DECIMAL_COMMA_RE.match(_vs):
+                    _decimal_comma_count += 1
+
+                # 6. Numeric string stored in object column
+                if not _is_numeric_col and _ANOMALY_NUMERIC_STR_RE.match(_vs) and len(_vs) > 0:
+                    _numeric_str_count += 1
+
+                # 7. Boolean token tracking (to detect mixed encoding)
+                if not _is_numeric_col:
+                    if _vsl in _ANOMALY_BOOL_TEXT:
+                        _bool_text_seen = True
+                    elif _vs in _ANOMALY_BOOL_NUM:
+                        _bool_num_seen = True
+
+                # 8. Date format tracking (to detect mixed formats in date columns)
+                for _fmt_name, _fmt_re in _ANOMALY_DATE_FMT:
+                    if _fmt_re.match(_vs):
+                        _date_formats_seen.add(_fmt_name)
+                        break
+
+                # 9. Leading/trailing whitespace
+                if _v != _vs:
+                    _has_space = True
+
+                # 10. Mojibake: UTF-8 bytes mis-decoded as Latin-1 (Ã©=é, â€™=')
+                if not _is_numeric_col and not _has_mojibake and _ANOMALY_MOJIBAKE_RE.search(_vs):
+                    _has_mojibake = True
+
+            # Aggregate anomalies — added once per column (not per value)
+            if _decimal_comma_count > 0:
+                anomaly_candidates.append({
+                    'value': f'{_decimal_comma_count} valeur(s) ex: "{_unique_vals[0]}"',
+                    'type': 'separateur_decimal',
+                    'count': _decimal_comma_count,
+                })
+            if _bool_text_seen and _bool_num_seen:
+                anomaly_candidates.append({
+                    'value': 'mix oui/non et 0/1 dans la meme colonne',
+                    'type': 'booleen_incoherent',
+                })
+            if len(_date_formats_seen) > 1:
+                anomaly_candidates.append({
+                    'value': f'formats detectes: {sorted(_date_formats_seen)}',
+                    'type': 'format_date_mixte',
+                })
+            total_unique = len(_unique_vals)
+            if (not _is_numeric_col and total_unique > 0
+                    and _numeric_str_count / max(total_unique, 1) > 0.7):
+                anomaly_candidates.append({
+                    'value': f'{_numeric_str_count}/{total_unique} valeurs sont des nombres en texte',
+                    'type': 'valeur_numerique_texte',
+                })
+            if _has_html:
+                anomaly_candidates.append({
+                    'value': 'caracteres HTML ou speciaux detectes',
+                    'type': 'caractere_special',
+                })
+            if _has_space:
+                anomaly_candidates.append({
+                    'value': 'espaces parasites en debut/fin de valeur',
+                    'type': 'espace_parasite',
+                })
+            if _has_mojibake:
+                anomaly_candidates.append({
+                    'value': 'caracteres mojibake detectes (ex: Ã© au lieu de é, â€™ au lieu de \')',
+                    'type': 'mojibake',
+                })
+        # ── Structural column checks ────────────────────────────────────────────
+        _col_l = str(column).lower()
+
+        # 1. Completely empty column (100% missing)
+        if total_rows > 0 and missing_count == total_rows:
+            anomaly_candidates.append({
+                'value': '100% des valeurs sont manquantes',
+                'type': 'colonne_vide',
+            })
+
+        # 2. Constant column (single unique non-null value) or near-constant (>98%)
+        elif n > 0:
+            _n_unique = len(set(_unique_vals)) if n > 0 else 0
+            _BINARY_VALUES = {'0', '1', '0.0', '1.0', 'true', 'false'}
+            _is_binary_col = set(str(v).strip().lower() for v in _unique_vals).issubset(_BINARY_VALUES)
+            if _n_unique == 1 and not _is_binary_col:
+                anomaly_candidates.append({
+                    'value': f'valeur unique: "{_unique_vals[0]}"',
+                    'type': 'colonne_constante',
+                })
+            elif n >= 50 and _n_unique >= 1:
+                _top_count = int(non_null_series.astype(str).value_counts().iloc[0])
+                _top_pct = round(_top_count / n * 100, 1)
+                if _top_pct >= 98:
+                    _top_val = non_null_series.astype(str).value_counts().index[0]
+                    anomaly_candidates.append({
+                        'value': f'"{_top_val}" = {_top_pct}% des valeurs (quasi-constante)',
+                        'type': 'colonne_quasi_constante',
+                    })
+
+        # 3. ID / key column with missing values (critical: no patient should be unidentifiable)
+        _id_kws = ('_id', 'id_', 'identifiant', 'numero_patient', 'code_patient',
+                   'patient_id', 'id_patient', 'num_patient')
+        if missing_count > 0 and any(kw in _col_l for kw in _id_kws):
+            anomaly_candidates.append({
+                'value': f'{missing_count} identifiant(s) manquant(s) — patient(s) non identifiable(s)',
+                'type': 'id_manquant',
+            })
+        # ────────────────────────────────────────────────────────────────────────
+
+        # ── Medical domain checks (column-level) ────────────────────────────────
+        _col_l_med = str(column).lower()
+
+        # A. "X" / "x" invalid values in binary/education columns
+        if not _is_numeric_col and n > 0:
+            _x_count = int(non_null_series.astype(str).str.strip().str.upper().isin(['X']).sum())
+            if _x_count > 0:
+                anomaly_candidates.append({
+                    'value': f'{_x_count} valeur(s) "X" (valeur invalide pour colonne binaire 0/1)',
+                    'type': 'valeur_invalide_x',
+                    'count': _x_count,
+                })
+
+        # B. seances_par_semaine = 0 (impossible for active dialysis patient)
+        if 'seances' in _col_l_med and n > 0:
+            _zero_seances = int((non_null_series.astype(str).str.strip() == '0').sum())
+            if _zero_seances > 0:
+                anomaly_candidates.append({
+                    'value': f'{_zero_seances} patient(s) avec seances=0 (impossible si dialyse active)',
+                    'type': 'valeur_aberrante',
+                    'count': _zero_seances,
+                })
+            _x_seances = int(non_null_series.astype(str).str.strip().str.upper().isin(['X']).sum())
+            if _x_seances > 0:
+                anomaly_candidates.append({
+                    'value': f'{_x_seances} valeur(s) "X" dans seances_par_semaine',
+                    'type': 'valeur_invalide_x',
+                    'count': _x_seances,
+                })
+
+        # C. biopsie_renale = 2 (only 0/1 expected)
+        if 'biopsie' in _col_l_med and _is_numeric_col and n > 0:
+            _bio_vals = pd.to_numeric(series, errors='coerce').dropna()
+            _invalid_bio = _bio_vals[~_bio_vals.isin([0, 1, 0.0, 1.0])]
+            if not _invalid_bio.empty:
+                anomaly_candidates.append({
+                    'value': f'valeurs hors 0/1: {sorted(_invalid_bio.unique().tolist())} ({len(_invalid_bio)} cas)',
+                    'type': 'valeur_aberrante',
+                    'count': len(_invalid_bio),
+                })
+
+        # D. Calcium mixed units: if most values >15 (mg/L ~40-120) but some <15 (mmol/L)
+        if 'calcium' in _col_l_med and _is_numeric_col and n > 0:
+            _ca_vals = pd.to_numeric(series, errors='coerce').dropna()
+            if not _ca_vals.empty and _ca_vals.median() > 15:
+                _ca_low = _ca_vals[_ca_vals < 15]
+                if not _ca_low.empty:
+                    anomaly_candidates.append({
+                        'value': f'{len(_ca_low)} valeur(s) < 15 (probablement en mmol/L alors que la colonne est en mg/L): {_ca_low.tolist()}',
+                        'type': 'unite_melangee',
+                        'count': len(_ca_low),
+                    })
+            # Calcium > 130 mg/L is physiologically impossible
+            if not _ca_vals.empty:
+                _ca_high = _ca_vals[_ca_vals > 130]
+                if not _ca_high.empty:
+                    anomaly_candidates.append({
+                        'value': f'{len(_ca_high)} valeur(s) > 130 mg/L (impossible biologiquement): {_ca_high.tolist()}',
+                        'type': 'valeur_aberrante',
+                        'count': len(_ca_high),
+                    })
+
+        # E. Bicarbonates impossible values (>40 mmol/L = severe alkalosis impossible)
+        if 'bicarbonate' in _col_l_med and _is_numeric_col and n > 0:
+            _hco3 = pd.to_numeric(series, errors='coerce').dropna()
+            if not _hco3.empty:
+                _hco3_high = _hco3[_hco3 > 40]
+                if not _hco3_high.empty:
+                    anomaly_candidates.append({
+                        'value': f'{len(_hco3_high)} valeur(s) > 40 mmol/L (alcalose impossible): {_hco3_high.tolist()}',
+                        'type': 'valeur_aberrante',
+                        'count': len(_hco3_high),
+                    })
+
+        # F. Creatinine too low for dialysis patient (<50 mg/L)
+        if 'creatinine' in _col_l_med and 'mg' in _col_l_med and _is_numeric_col and n > 0:
+            _cr_vals = pd.to_numeric(series, errors='coerce').dropna()
+            _cr_low = _cr_vals[_cr_vals < 50]
+            if not _cr_low.empty:
+                anomaly_candidates.append({
+                    'value': f'{len(_cr_low)} valeur(s) < 50 mg/L (trop bas pour patient dialysé): {_cr_low.tolist()}',
+                    'type': 'valeur_aberrante',
+                    'count': len(_cr_low),
+                })
+
+        # G. Albumine critically low (<15 g/L)
+        if 'albumine' in _col_l_med and _is_numeric_col and n > 0:
+            _alb = pd.to_numeric(series, errors='coerce').dropna()
+            _alb_low = _alb[_alb < 15]
+            if not _alb_low.empty:
+                anomaly_candidates.append({
+                    'value': f'{len(_alb_low)} valeur(s) < 15 g/L (dénutrition sévère extrême, vérifier): {_alb_low.tolist()}',
+                    'type': 'valeur_aberrante',
+                    'count': len(_alb_low),
+                })
+
+        # H. Sodium impossible values
+        if 'sodium' in _col_l_med and _is_numeric_col and n > 0:
+            _na = pd.to_numeric(series, errors='coerce').dropna()
+            _na_low = _na[_na < 110]
+            if not _na_low.empty:
+                anomaly_candidates.append({
+                    'value': f'{len(_na_low)} valeur(s) < 110 mmol/L (incompatible avec la vie): {_na_low.tolist()}',
+                    'type': 'valeur_aberrante',
+                    'count': len(_na_low),
+                })
+
+        # I. liste_attente_transplantation invalid text
+        if 'liste_attente' in _col_l_med and not _is_numeric_col and n > 0:
+            _lat_invalids = [str(v) for v in non_null_series.unique()
+                             if str(v).strip() not in ('0', '1', '0.0', '1.0')]
+            if _lat_invalids:
+                anomaly_candidates.append({
+                    'value': f'valeurs invalides (attendu 0 ou 1): {_lat_invalids[:5]}',
+                    'type': 'valeur_aberrante',
+                    'count': len(_lat_invalids),
+                })
+        # ── End medical domain checks ────────────────────────────────────────────
+
+        anomaly_candidates = anomaly_candidates[:20]
+
         column_profile = {
             'column': str(column),
             'dtype': str(series.dtype),
@@ -1452,37 +1830,72 @@ def _build_technical_profile(dataframe):
             'missing_pct': round((missing_count / total_rows) * 100, 2) if total_rows else 0.0,
             'sample_values': sample_values,
         }
+        if anomaly_candidates:
+            column_profile['anomaly_candidates'] = anomaly_candidates
         columns_profile.append(column_profile)
 
         if pd.api.types.is_numeric_dtype(series):
             numeric_series = pd.to_numeric(series, errors='coerce').dropna()
             if not numeric_series.empty:
-                q1 = float(numeric_series.quantile(0.25))
-                q3 = float(numeric_series.quantile(0.75))
-                iqr = q3 - q1
-                lower_bound = q1 - (1.5 * iqr)
-                upper_bound = q3 + (1.5 * iqr)
-                outlier_count = int(((numeric_series < lower_bound) | (numeric_series > upper_bound)).sum())
-                # Detect sentinel/coded values used as missing (e.g. 999, -1, -99)
-                common_sentinels = (-1, -99, -999, 999, 9999, 99999)
-                sentinel_counts = {
-                    str(int(s)): int((numeric_series == s).sum())
-                    for s in common_sentinels
-                    if int((numeric_series == s).sum()) > 0
-                }
+                # Detect binary columns (only 0 and 1) — skip IQR/sentinel/negative checks for them
+                _unique_numeric = set(numeric_series.unique())
+                _is_binary_numeric = _unique_numeric.issubset({0, 1, 0.0, 1.0})
+                if _is_binary_numeric:
+                    outlier_count = 0
+                    sentinel_counts = {}
+                else:
+                    q1 = float(numeric_series.quantile(0.25))
+                    q3 = float(numeric_series.quantile(0.75))
+                    iqr = q3 - q1
+                    lower_bound = q1 - (1.5 * iqr)
+                    upper_bound = q3 + (1.5 * iqr)
+                    outlier_count = int(((numeric_series < lower_bound) | (numeric_series > upper_bound)).sum())
+                    # Detect sentinel/coded values used as missing (e.g. 999, -1, -99)
+                    common_sentinels = (-1, -99, -999, 999, 9999, 99999)
+                    sentinel_counts = {
+                        str(int(s)): int((numeric_series == s).sum())
+                        for s in common_sentinels
+                        if int((numeric_series == s).sum()) > 0
+                    }
                 numeric_columns_profile.append({
                     'column': str(column),
                     'count': int(numeric_series.count()),
                     'mean': round(float(numeric_series.mean()), 4),
                     'std': round(float(numeric_series.std(ddof=0)), 4) if numeric_series.count() > 1 else 0.0,
                     'min': round(float(numeric_series.min()), 4),
-                    'q1': round(q1, 4),
+                    'q1': round(float(numeric_series.quantile(0.25)), 4) if not _is_binary_numeric else 0.0,
                     'median': round(float(numeric_series.median()), 4),
-                    'q3': round(q3, 4),
+                    'q3': round(float(numeric_series.quantile(0.75)), 4) if not _is_binary_numeric else 1.0,
                     'max': round(float(numeric_series.max()), 4),
                     'outlier_count': outlier_count,
                     'sentinel_counts': sentinel_counts,
+                    **(({'is_binary': True}) if _is_binary_numeric else {}),
                 })
+
+                # Detect impossible negative values — skip for binary columns
+                _col_l = str(column).lower()
+                if (not _is_binary_numeric
+                        and float(numeric_series.min()) < 0
+                        and any(kw in _col_l for kw in _ANOMALY_NONNEG_KEYWORDS)):
+                    _neg_vals = numeric_series[numeric_series < 0].head(3).tolist()
+                    _neg_str = ', '.join(str(v) for v in _neg_vals)
+                    _existing = column_profile.get('anomaly_candidates') or []
+                    _existing.append({
+                        'value': f'valeurs negatives: {_neg_str}',
+                        'type': 'valeur_negative_impossible',
+                    })
+                    column_profile['anomaly_candidates'] = _existing[:12]
+
+                # Detect future dates stored as year numbers (year column with val > 2030)
+                if 'annee' in _col_l or 'year' in _col_l:
+                    _future = numeric_series[numeric_series > 2030]
+                    if not _future.empty:
+                        _existing = column_profile.get('anomaly_candidates') or []
+                        _existing.append({
+                            'value': f'annees futures: {_future.head(3).tolist()}',
+                            'type': 'date_future',
+                        })
+                        column_profile['anomaly_candidates'] = _existing[:12]
         else:
             top_values = non_null_series.astype(str).value_counts().head(5)
             categorical_columns_profile.append({
@@ -1494,7 +1907,220 @@ def _build_technical_profile(dataframe):
                 ],
             })
 
-    return {
+    # ── Cross-column analysis ──────────────────────────────────────────────────
+    cross_column_issues = []
+    import datetime as _dt
+    _current_year = _dt.datetime.now().year
+    _all_col_lower = {str(c).lower(): str(c) for c in dataframe.columns}
+
+    # 1. Age vs date-of-birth coherence
+    _age_col = next(
+        (orig for lw, orig in _all_col_lower.items()
+         if any(lw == kw or lw.startswith(kw + '_') for kw in _ANOMALY_AGE_KEYWORDS)),
+        None,
+    )
+    _birth_col = next(
+        (orig for lw, orig in _all_col_lower.items()
+         if any(kw in lw for kw in _ANOMALY_BIRTH_KEYWORDS)),
+        None,
+    )
+    if _age_col and _birth_col:
+        try:
+            _birth_years = pd.to_datetime(dataframe[_birth_col], errors='coerce').dt.year
+            _ages = pd.to_numeric(dataframe[_age_col], errors='coerce')
+            _calc_age = _current_year - _birth_years
+            _inconsistent = int(((_calc_age - _ages).abs() > 2).sum())
+            if _inconsistent > 0:
+                cross_column_issues.append({
+                    'type': 'incoherence_age_date',
+                    'columns': [_age_col, _birth_col],
+                    'inconsistent_rows': _inconsistent,
+                    'explanation': (
+                        f'{_inconsistent} ligne(s) ont un age incohérent avec la date de naissance '
+                        f'(écart > 2 ans entre {_age_col} et année calculée depuis {_birth_col}). '
+                        f'La date de naissance est généralement plus fiable.'
+                    ),
+                })
+        except Exception:
+            pass
+
+    # 2. Patient duplicates on identity columns
+    _id_candidates = [
+        orig for lw, orig in _all_col_lower.items()
+        if any(kw in lw for kw in _ANOMALY_NAME_KEYWORDS + _ANOMALY_ID_KEYWORDS)
+    ]
+    if len(_id_candidates) >= 2 and total_rows > 1:
+        try:
+            _dup_mask = dataframe[_id_candidates].astype(str).duplicated(keep=False)
+            _dup_count = int(_dup_mask.sum())
+            if _dup_count > 0:
+                cross_column_issues.append({
+                    'type': 'doublons_patients',
+                    'columns': _id_candidates,
+                    'duplicate_rows': _dup_count,
+                    'explanation': (
+                        f'{_dup_count} ligne(s) semblent être des doublons patients '
+                        f'(valeurs identiques sur {_id_candidates}). '
+                        f'Vérification manuelle recommandée avant fusion.'
+                    ),
+                })
+        except Exception:
+            pass
+
+    # ── Medical coherence rules (hemodialysis domain) ─────────────────────────
+    def _col(name):
+        """Return the actual column object from dataframe if it exists (case-insensitive)."""
+        for c in dataframe.columns:
+            if str(c).lower().replace(' ', '_') == name.lower().replace(' ', '_'):
+                return c
+        return None
+
+    def _series(name):
+        c = _col(name)
+        return dataframe[c] if c is not None else None
+
+    try:
+        # Rule 1 — debut_dialyse_urgence=1 AND debut_dialyse_planifie=1 (mutually exclusive)
+        s_urg = _series('debut_dialyse_urgence')
+        s_pla = _series('debut_dialyse_planifie')
+        if s_urg is not None and s_pla is not None:
+            _mask = (pd.to_numeric(s_urg, errors='coerce') == 1) & (pd.to_numeric(s_pla, errors='coerce') == 1)
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('debut_dialyse_urgence'), _col('debut_dialyse_planifie')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont debut_dialyse_urgence=1 ET debut_dialyse_planifie=1 simultanément. '
+                        f'Ces deux colonnes sont mutuellement exclusives — un démarrage est soit urgent soit planifié. '
+                        f'Vérifier et corriger l\'une des deux valeurs.'
+                    ),
+                })
+
+        # Rule 2 — deces=1 but date_deces is null
+        s_dec = _series('deces')
+        s_ddate = _series('date_deces')
+        if s_dec is not None and s_ddate is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 1) & s_ddate.isna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('date_deces')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=1 mais date_deces est manquante. '
+                        f'La date du décès doit être renseignée pour tout patient décédé.'
+                    ),
+                })
+
+        # Rule 3 — deces=1 but cause_deces is null
+        s_cause = _series('cause_deces')
+        if s_dec is not None and s_cause is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 1) & s_cause.isna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('cause_deces')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=1 mais cause_deces est manquante. '
+                        f'La cause du décès doit être documentée.'
+                    ),
+                })
+
+        # Rule 4 — seances_par_semaine=0 with hemodialyse=1
+        s_seances = _series('seances_par_semaine')
+        s_hd = _series('hemodialyse')
+        if s_seances is not None and s_hd is not None:
+            _mask = (s_seances.astype(str).str.strip() == '0') & (pd.to_numeric(s_hd, errors='coerce') == 1)
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('seances_par_semaine'), _col('hemodialyse')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont seances_par_semaine=0 alors que hemodialyse=1. '
+                        f'Un patient en hémodialyse active doit avoir au moins 2-3 séances/semaine.'
+                    ),
+                })
+
+        # Rule 5 — dialyse_peritoneale=1 AND fistule_arterioveineuse=1 (incoherent)
+        s_dp = _series('dialyse_peritoneale')
+        s_fav = _series('fistule_arterioveineuse')
+        if s_dp is not None and s_fav is not None:
+            _mask = (pd.to_numeric(s_dp, errors='coerce') == 1) & (pd.to_numeric(s_fav, errors='coerce') == 1)
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('dialyse_peritoneale'), _col('fistule_arterioveineuse')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont dialyse_peritoneale=1 ET fistule_arterioveineuse=1. '
+                        f'La FAV est spécifique à l\'hémodialyse — incohérent avec dialyse péritonéale.'
+                    ),
+                })
+
+        # Rule 6 — deces=0 but date_deces is filled
+        if s_dec is not None and s_ddate is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 0) & s_ddate.notna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('date_deces')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=0 mais une date_deces est renseignée. '
+                        f'Si le patient est vivant, date_deces doit être vide.'
+                    ),
+                })
+
+        # Rule 7 — delai_jusquau_deces_jours filled but deces=0
+        s_delai = _series('delai_jusquau_deces_jours')
+        if s_dec is not None and s_delai is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 0) & s_delai.notna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('delai_jusquau_deces_jours')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=0 mais delai_jusquau_deces_jours est renseigné.'
+                    ),
+                })
+
+        # Rule 8 — hemodialyse=0 AND dialyse_peritoneale=0 AND transplantation=0 (no treatment)
+        s_trans = _series('transplantation')
+        if s_hd is not None and s_dp is not None and s_trans is not None:
+            _mask = (
+                (pd.to_numeric(s_hd, errors='coerce') == 0) &
+                (pd.to_numeric(s_dp, errors='coerce') == 0) &
+                (pd.to_numeric(s_trans, errors='coerce') == 0)
+            )
+            _n = int(_mask.sum())
+            if _n > 5:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('hemodialyse'), _col('dialyse_peritoneale'), _col('transplantation')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont hemodialyse=0, dialyse_peritoneale=0 et transplantation=0 '
+                        f'simultanément. Ces patients n\'ont aucun traitement de suppléance renseigné — à vérifier.'
+                    ),
+                })
+
+    except Exception:
+        pass
+    # ── End medical coherence rules ───────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────────────
+
+    profile = {
         'rows': total_rows,
         'columns': total_columns,
         'total_cells': total_cells,
@@ -1508,6 +2134,9 @@ def _build_technical_profile(dataframe):
         'categorical_columns_profile': categorical_columns_profile,
         'preview_rows': _dataframe_to_rows(dataframe.head(3)),
     }
+    if cross_column_issues:
+        profile['cross_column_issues'] = cross_column_issues
+    return profile
 
 
 def _get_section_prefix_for_column(column_name):
@@ -2221,6 +2850,27 @@ def _parse_llm_analysis_response(raw_response):
             merged.update(parsed)
             return merged
 
+    # Rescue truncated responses: try to extract a partial "issues" array even when
+    # the outer JSON object was cut off mid-stream.
+    import re as _re_rescue
+    _issues_match = _re_rescue.search(r'"issues"\s*:\s*(\[.*)', response_text, _re_rescue.DOTALL)
+    if _issues_match:
+        _raw_arr = _issues_match.group(1)
+        # Try progressively shorter suffixes to find a parseable list
+        for _end in range(len(_raw_arr), max(2, len(_raw_arr) - 500), -1):
+            try:
+                _partial = json.loads(_raw_arr[:_end])
+                if isinstance(_partial, list) and _partial:
+                    partial_output = _default_preprocess_llm_output()
+                    partial_output['issues'] = [i for i in _partial if isinstance(i, dict)]
+                    partial_output['summary'] = 'Réponse tronquée — issues partiellement récupérées.'
+                    partial_output['limitations'] = ['Réponse LLM tronquée, JSON partiel récupéré.']
+                    partial_output['raw_response'] = response_text
+                    partial_output['is_partial'] = True
+                    return partial_output
+            except (json.JSONDecodeError, ValueError):
+                continue
+
     fallback_output = _default_preprocess_llm_output()
     fallback_output['summary'] = response_text[:1200]
     fallback_output['limitations'] = ['Le modele a repondu, mais le JSON est invalide.']
@@ -2773,6 +3423,7 @@ def _normalize_correction_plan(analysis_result, available_columns=None):
         'parse_dates': list,
         'trim_whitespace_columns': list,
         'default_values': dict,
+        'unit_conversions': dict,
     }
 
     normalized = {}
@@ -2886,14 +3537,65 @@ def _normalize_correction_plan(analysis_result, available_columns=None):
                 'object': 'string', 'str': 'string', 'category': 'string',
                 'bool': 'integer',
             }
+            _allowed_types = {'numeric', 'number', 'float', 'decimal', 'integer', 'int', 'date', 'datetime', 'string', 'text'}
+            # Conversion factors for medical unit conversions (from_unit -> to_unit -> factor)
+            _unit_conversion_factors = {
+                ('mg/dl', 'mmol/l'): {
+                    'phosphore': 0.3229, 'phosphorus': 0.3229, 'phosphore_basale': 0.3229,
+                    'calcium': 0.2495, 'calcium_basale': 0.2495,
+                    'glucose': 0.0555, 'glycemie': 0.0555,
+                    'cholesterol': 0.0259, 'triglycerides': 0.0113,
+                    'default': 0.0555,
+                },
+                ('g/dl', 'g/l'): {'default': 10.0},
+                ('mg/dl', 'umol/l'): {
+                    'creatinine': 88.42, 'creatinine_basale': 88.42,
+                    'uree': 0.357, 'default': 88.42,
+                },
+                ('mg/dl', 'µmol/l'): {
+                    'creatinine': 88.42, 'creatinine_basale': 88.42, 'default': 88.42,
+                },
+            }
             normalized_tc = {}
+            unit_conversions = analysis_result.get('correction_plan', {}).get('unit_conversions') or {}
             for col_n, ttype in val.items():
                 type_str = str(ttype).lower().strip().split('[')[0]
                 mapped = _type_cast_map.get(type_str, type_str)
                 if mapped != str(ttype).lower().strip():
                     normalization_notes.append('type_casts_pandas_type_normalized')
-                normalized_tc[col_n] = mapped
+                if mapped in _allowed_types:
+                    normalized_tc[col_n] = mapped
+                else:
+                    # Try to interpret as a unit conversion pattern: "X to Y" or "X → Y"
+                    import re as _re
+                    unit_match = _re.match(
+                        r'([a-z0-9µu°/]+)\s*(?:to|->|→|vers)\s*([a-z0-9µu°/]+)',
+                        mapped.replace(' ', '').lower()
+                    )
+                    if unit_match:
+                        from_unit = unit_match.group(1).replace('μ', 'µ')
+                        to_unit = unit_match.group(2).replace('μ', 'µ')
+                        conv_key = (from_unit, to_unit)
+                        if conv_key in _unit_conversion_factors:
+                            col_lower = str(col_n).lower()
+                            factors = _unit_conversion_factors[conv_key]
+                            factor = factors.get(col_lower, factors.get('default'))
+                            if factor:
+                                unit_conversions[col_n] = {
+                                    'from_unit': from_unit,
+                                    'to_unit': to_unit,
+                                    'factor': factor,
+                                }
+                                normalization_notes.append(f'type_casts_unit_conversion_detected:{col_n}:{from_unit}->{to_unit}')
+                            else:
+                                normalization_notes.append(f'type_casts_unit_conversion_unknown_factor_skipped:{col_n}')
+                        else:
+                            normalization_notes.append(f'type_casts_unit_conversion_unsupported_skipped:{col_n}:{mapped}')
+                    else:
+                        normalization_notes.append(f'type_casts_invalid_type_skipped:{mapped}')
             val = normalized_tc
+            if unit_conversions:
+                normalized['unit_conversions'] = unit_conversions
 
         # Normalize fill_missing: convert string strategies to {"strategy": ...} dicts
         if key == 'fill_missing' and isinstance(val, dict):
@@ -2927,6 +3629,30 @@ def _normalize_correction_plan(analysis_result, available_columns=None):
             },
         )
     return analysis_result
+
+
+def _ollama_urlopen_wall_clock(req, wall_timeout):
+    """
+    Enforces a true wall-clock deadline on an Ollama HTTP request.
+
+    With stream=False, Ollama buffers the entire response before sending any
+    bytes — the urllib socket timeout fires on any read idle gap, which kills
+    slow-but-active generation. Solution: use wall_timeout as the socket
+    timeout too (one coherent deadline) and rely on the ThreadPoolExecutor
+    future's .result(timeout=N) as the outer hard cap. shutdown(wait=False)
+    means we never block waiting for a still-running thread after the deadline.
+    """
+    import concurrent.futures as _cf
+    def _do():
+        with urllib_request.urlopen(req, timeout=wall_timeout) as _resp:
+            return _resp.read().decode('utf-8')
+    _executor = _cf.ThreadPoolExecutor(max_workers=1)
+    _fut = _executor.submit(_do)
+    _executor.shutdown(wait=False)
+    try:
+        return _fut.result(timeout=wall_timeout)
+    except _cf.TimeoutError:
+        raise TimeoutError(f'Ollama wall-clock timeout after {wall_timeout}s')
 
 
 def _get_ollama_candidate_bases():
@@ -3170,12 +3896,25 @@ def _is_correction_plan_empty(correction_plan):
     return True
 
 
+_EXCEL_DATE_ARTIFACTS = {
+    '0/1/1900', '1/0/1900', '00/01/1900', '01/00/1900',
+    '0/0/1900', '1/1/1900', '01/01/1900', '00/00/1900',
+    '0-1-1900', '1-0-1900', '00-01-1900', '01-00-1900',
+    '1900-01-00', '1900-00-01', '1900-01-01',
+}
+
+
 def _build_deterministic_correction_plan(technical_profile):
     technical_profile = technical_profile if isinstance(technical_profile, dict) else {}
     fill_missing = {}
     trim_columns = []
     parse_dates = []
     type_casts = {}
+    value_mappings = {}
+    drop_columns = []
+
+    import re as _re
+    _year_re = _re.compile(r'\b([3-9]\d{3})\b')
 
     for column_meta in technical_profile.get('columns_profile', []):
         column_name = str(column_meta.get('name') or column_meta.get('column') or '')
@@ -3184,6 +3923,13 @@ def _build_deterministic_correction_plan(technical_profile):
         dtype_name = str(column_meta.get('dtype') or '').lower()
         missing_count = int(column_meta.get('missing_count') or 0)
         lowered = column_name.lower()
+        sample_values = column_meta.get('sample_values') or column_meta.get('unique_values') or []
+
+        # Empty or constant columns → propose drop (no analytical value)
+        _ac_types = {ac.get('type') for ac in (column_meta.get('anomaly_candidates') or [])}
+        if 'colonne_vide' in _ac_types or 'colonne_constante' in _ac_types:
+            drop_columns.append(column_name)
+            continue
 
         if missing_count > 0:
             if 'int' in dtype_name or 'float' in dtype_name:
@@ -3193,17 +3939,77 @@ def _build_deterministic_correction_plan(technical_profile):
 
         if dtype_name in {'object', 'string'}:
             trim_columns.append(column_name)
+
         if 'date' in lowered or 'naissance' in lowered or 'visite' in lowered:
             parse_dates.append(column_name)
+
         if 'int' in dtype_name:
             type_casts[column_name] = 'integer'
         elif 'float' in dtype_name:
             type_casts[column_name] = 'numeric'
 
+        # ── Value-level corrections driven by anomaly_candidates + sample scan ──
+        col_mappings = {}
+        _vals_to_scan = list(sample_values if isinstance(sample_values, list) else [])
+
+        # Collect per-value anomaly candidates (artefact_excel, annee_incorrecte,
+        # manquant_deguise). Aggregate-type candidates (separateur_decimal, etc.)
+        # are handled below after the loop.
+        _has_decimal_comma = False
+        _has_numeric_text = False
+        _has_bool_incoherent = False
+        for _ac in (column_meta.get('anomaly_candidates') or []):
+            _ac_type = str(_ac.get('type', ''))
+            _acv = str(_ac.get('value', '')).strip()
+            if _ac_type == 'separateur_decimal':
+                _has_decimal_comma = True
+            elif _ac_type == 'valeur_numerique_texte':
+                _has_numeric_text = True
+            elif _ac_type == 'booleen_incoherent':
+                _has_bool_incoherent = True
+            elif _acv and _acv not in _vals_to_scan:
+                _vals_to_scan.append(_acv)
+
+        for val in _vals_to_scan:
+            val_str = str(val).strip()
+            # Excel date artifacts → null
+            if val_str in _EXCEL_DATE_ARTIFACTS:
+                col_mappings[val_str] = None
+            # Disguised missing → null
+            elif val_str.lower() in _ANOMALY_DISGUISED_MISSING and val_str:
+                col_mappings[val_str] = None
+            # Year typos: 3023→2023, 2124→2024
+            m = _year_re.search(val_str)
+            if m:
+                wrong_year = m.group(1)
+                if wrong_year.startswith('3') or wrong_year.startswith('21') or wrong_year.startswith('22'):
+                    corrected = val_str.replace(wrong_year, '20' + wrong_year[-2:])
+                    if corrected != val_str:
+                        col_mappings[val_str] = corrected
+
+        # Decimal comma separator: build mapping "1,5" → "1.5" from the full column
+        # (only viable for non-numeric dtype columns)
+        if _has_decimal_comma and dtype_name in ('object', 'string', ''):
+            import re as _re2
+            _dc_re = _re2.compile(r'^(-?\d[\d\s]*),(\d+)$')
+            for _raw_val in (column_meta.get('sample_values') or []):
+                _m = _dc_re.match(str(_raw_val).strip())
+                if _m:
+                    _fixed = _m.group(1).replace(' ', '') + '.' + _m.group(2)
+                    col_mappings[str(_raw_val).strip()] = _fixed
+
+        # Numeric-as-text: schedule type cast to numeric
+        if _has_numeric_text and dtype_name in ('object', 'string', ''):
+            type_casts[column_name] = 'numeric'
+            trim_columns.append(column_name)
+
+        if col_mappings:
+            value_mappings[column_name] = col_mappings
+
     return {
         'rename_columns': {},
-        'drop_columns': [],
-        'value_mappings': {},
+        'drop_columns': drop_columns,
+        'value_mappings': value_mappings,
         'fill_missing': fill_missing,
         'type_casts': type_casts,
         'parse_dates': parse_dates[:15],
@@ -3253,7 +4059,8 @@ def _merge_correction_plans(primary_plan, supplemental_plan):
     return merged
 
 
-def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=None):
+def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=None,
+                               precomputed_chunks=None, precomputed_retrieval_context=None):
     def _safe_num_predict(value, default_value, minimum_value):
         try:
             parsed_value = int(value)
@@ -3275,18 +4082,34 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             'fallback_num_predict': _env_int('OLLAMA_RETRY_NUM_PREDICT', 24),
             'clinical_complexity_score': 0,
         }
-    chunks = _build_preprocess_chunks(dataframe, technical_profile)
-    retrieval_context = _build_retrieval_context(
-        dataframe,
-        chunks,
-        technical_profile,
-        stage_name='diagnostic',
-        max_chunks=int(os.environ.get('RAG_MAX_CHUNKS', '2')),
-        progress_callback=progress_callback,
-    )
+
+    rag_max_chunks = int(os.environ.get('RAG_MAX_CHUNKS', '3'))
+
+    # Use pre-computed chunks/retrieval from tasks.py if provided (avoids double embedding)
+    if precomputed_chunks is not None and precomputed_retrieval_context is not None:
+        chunks = precomputed_chunks
+        retrieval_context = precomputed_retrieval_context
+    else:
+        chunks = _build_preprocess_chunks(dataframe, technical_profile)
+        retrieval_context = _build_retrieval_context(
+            dataframe, chunks, technical_profile,
+            stage_name='diagnostic',
+            max_chunks=rag_max_chunks,
+            progress_callback=progress_callback,
+        )
+
     technical_profile['chunk_count'] = len(chunks)
     technical_profile['chunks'] = retrieval_context.get('chunk_summaries', [])
     technical_profile['retrieved_chunks'] = retrieval_context.get('retrieved_chunks', [])
+
+    # Pass-2 dedicated retrieval: re-query with stage='correction' to surface the most
+    # correction-relevant chunks (different query vector than diagnostic stage)
+    retrieval_context_pass2 = _build_retrieval_context(
+        dataframe, chunks, technical_profile,
+        stage_name='correction',
+        max_chunks=rag_max_chunks,
+        progress_callback=None,
+    )
 
     model_name = route.get('primary_model') or os.environ.get('OLLAMA_PREPROCESS_MODEL', os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct'))
     timeout_seconds = int(os.environ.get('OLLAMA_TIMEOUT_SECONDS', '420'))
@@ -3374,13 +4197,6 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             'after_total_input_tokens': before_total,
             'shrunk': False,
         })
-    fallback_payload = _shrink_llm_payload(
-        prompt_payload,
-        max_columns=retry_max_columns,
-        max_preview_rows=retry_preview_rows,
-        max_samples_per_column=1,
-    )
-
     def _notify_progress(message):
         if callable(progress_callback):
             try:
@@ -3388,7 +4204,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             except Exception:
                 pass
 
-    def _build_single_pass_prompt(payload_for_prompt, strict=False):
+    def _build_single_pass_prompt(payload_for_prompt, strict=False, explicit_anomaly_hint=''):
         # Extract column names to build medical RAG reference context
         _col_names = []
         _tp = payload_for_prompt.get('technical_profile') if isinstance(payload_for_prompt, dict) else None
@@ -3404,24 +4220,175 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                     _col_names.append(str(_name))
         _medical_ref = build_medical_rag_context(_col_names)
 
+        # Build LOINC reference block — official codes + ranges for matched columns
+        _loinc_ref = ''
+        try:
+            from .loinc_mapper import build_loinc_context_for_prompt as _build_loinc_ctx
+            _loinc_ref = _build_loinc_ctx(_col_names, max_entries=10)
+        except Exception:
+            _loinc_ref = ''
+
+        # Format RAG chunks: include column_semantics (value distributions, disguised missing,
+        # outlier values) so the LLM can detect semantic issues, not just statistical ones.
+        _rag_block = ''
+        _rag_corr = payload_for_prompt.get('rag_correction') if isinstance(payload_for_prompt, dict) else None
+        if isinstance(_rag_corr, dict):
+            _rc_chunks = _rag_corr.get('retrieved_chunks') or []
+            if _rc_chunks:
+                _rag_parts = []
+                for _chunk in _rc_chunks[:3]:
+                    if not isinstance(_chunk, dict):
+                        continue
+                    _chunk_lines = []
+                    _summary = _chunk.get('deterministic_summary') or ''
+                    if _summary:
+                        _chunk_lines.append(_summary[:200])
+                    # Include per-column semantic signals from the enriched chunk
+                    _col_sem = _chunk.get('column_semantics') or {}
+                    for _cname, _cinfo in list(_col_sem.items())[:6]:
+                        if not isinstance(_cinfo, dict):
+                            continue
+                        _signals = []
+                        if _cinfo.get('disguised_missing'):
+                            _tokens = list(_cinfo['disguised_missing'].keys())[:3]
+                            _signals.append(f'manquants_deguises={_tokens}')
+                        if _cinfo.get('value_distribution'):
+                            _vals = list(_cinfo['value_distribution'].keys())[:5]
+                            _signals.append(f'valeurs={_vals}')
+                        if _cinfo.get('outlier_values'):
+                            _signals.append(f'outliers={_cinfo["outlier_values"][:3]}')
+                        if _cinfo.get('numeric_stats'):
+                            _ns = _cinfo['numeric_stats']
+                            _signals.append(f'min={_ns.get("min")},max={_ns.get("max")},med={_ns.get("median")}')
+                        if _signals:
+                            _chunk_lines.append(f'  {_cname}: {" | ".join(_signals)}')
+                    if _chunk_lines:
+                        _rag_parts.append('\n'.join(_chunk_lines))
+                if _rag_parts:
+                    _rag_block = (
+                        'Contexte RAG - donnees reelles du dataset (utilise ces informations pour detecter '
+                        'les problemes semantiques en plus des problemes statistiques):\n'
+                        + '\n---\n'.join(_rag_parts) + '\n'
+                    )
+
+        # Inject real column data into prompt when available
+        _csv_instruction = ''
+        if _data_columns:
+            _n_vals = len(next(iter(_data_columns.values()), []))
+            _col_list = ', '.join(list(_data_columns.keys())[:10])
+            _csv_instruction = (
+                f'ROLE: Tu es le SEUL detecteur d anomalies. Pandas t a seulement envoye les donnees brutes sans pre-analyse. '
+                f'DONNEES REELLES: {_n_vals} patients, colonnes de ce batch: {_col_list}... '
+                f'Le champ "data_columns" contient la liste complete des valeurs reelles de chaque colonne. '
+                f'Chaque liste est indexee: index 0 = patient_id[0], index 1 = patient_id[1], etc. '
+                f'TON TRAVAIL — detecte dans chaque colonne: '
+                f'(a) Cellules vides ou null (valeur = "" ou manquante). '
+                f'(b) Valeurs de mauvais format ("X", "N/A", "1;(1/2024)", texte dans colonne numerique). '
+                f'(c) Valeurs aberrantes medicalement (creatinine < 50 mg/L pour dialyse, calcium < 15 dans colonne mg/L, bicarbonates > 40 ou < 8, albumine < 15, sodium < 110, seances = 0 avec patient dialyse). '
+                f'(d) Valeurs illogiques (biopsie_renale = 2, seances_par_semaine = 0 ou "X"). '
+                f'(e) Unites melangees (calcium: la plupart ~70-100 mais certaines valeurs ~5-9 = mauvaise unite). '
+                f'(f) Incoherences entre colonnes si plusieurs colonnes liees sont dans ce batch. '
+                f'Pour chaque anomalie: cite la valeur exacte + son index dans la liste. '
+                f'NE SIGNALE PAS les colonnes binaires (is_binary=true) comme aberrantes. '
+            )
+
         prompt = (
             _build_preprocess_instruction_block() + ' '
-            'Retourne UNIQUEMENT un JSON valide et court. '
-            'Le but prioritaire est de produire un correction_plan non vide et exploitable. '
-            'Travaille uniquement a partir de columns_with_issues et des exemples fournis. '
-            'Si une anomalie corrigeable existe, remplis au moins un des sous-blocs suivants: fill_missing, type_casts, parse_dates, trim_whitespace_columns, value_mappings ou rename_columns. '
-            'Ne reponds jamais par {} si des colonnes ont missing_pct>0, un type incorrect, un encodage incoherent ou une colonne de date. '
-            'Si tu hesites, choisis la correction prudente la plus simple. '
+            + (_csv_instruction if _csv_instruction else '')
+            + 'Retourne UNIQUEMENT un JSON valide et court. '
+            'Detecte TOUS les types de problemes suivants — chaque categorie doit produire '
+            'une entree issues ET une correction dans correction_plan: '
+
+            '(1) VALEURS MANQUANTES ET MASQUEES: '
+            'valeur_manquante: NaN/null reels → fill_missing avec strategy=median (numerique) ou mode (categoriel). '
+            'manquant_deguise: "N/A","?","-","inconnu","nd","ND","neant","void","." stockes comme texte → value_mappings vers null. '
+            'valeur_sentinelle: -1,-99,-999,999,9999 utilises pour coder le manquant → value_mappings vers null. '
+
+            '(2) PROBLEMES DE FORMAT ET D ENCODAGE: '
+            'separateur_decimal: "1,5" au lieu de "1.5" (virgule fr) → value_mappings {"1,5":"1.5"}. '
+            'valeur_numerique_texte: colonne dtype=object dont toutes les valeurs sont des nombres → type_casts vers numeric. '
+            'encodage_incoherent: meme signification, formats differents ("M"/"Masculin"/"MALE", "oui"/"1"/"true") → value_mappings pour normaliser. '
+            'booleen_incoherent: mix de texte bool et 0/1 dans la meme colonne → value_mappings {"oui":1,"non":0,"true":1,"false":0,"o":1,"n":0}. '
+            'casse_incoherente: meme valeur en casses differentes ("male","Male","MALE") → value_mappings pour tout normaliser. '
+            'espace_parasite: espaces en debut/fin → trim_whitespace_columns. '
+            'caractere_special: &amp; <br/> caracteres HTML/speciaux dans les valeurs → value_mappings pour nettoyer. '
+            'mojibake: encodage corrompu, caracteres Ã©/Ã¨/â€™ au lieu de é/è/\' → signaler severity=critical, impossible a corriger automatiquement (relire le fichier avec le bon encodage). '
+
+            '(3) PROBLEMES DE DATES: '
+            'artefact_excel: "0/1/1900","01/01/1900" dans colonne numerique → value_mappings vers null. '
+            'annee_incorrecte: "12/12/3023"→"12/12/2023", "15/01/2124"→"15/01/2024" → value_mappings. '
+            'format_date_mixte: "01/01/2023" et "2023-01-01" dans la meme colonne → parse_dates. '
+            'date_future: date avec annee > 2030 dans un dataset medical actuel → signaler en issues severity=warning. '
+            'colonne_date: colonne date stockee en string → parse_dates. '
+
+            '(4) PROBLEMES DE VALEURS ABERRANTES ET LOGIQUES: '
+            'valeur_aberrante: outlier statistique (IQR) → signaler en issues, ne pas corriger automatiquement sauf evidence. '
+            'valeur_negative_impossible: age/poids/taille/imc/score < 0 → value_mappings vers null. '
+            'contradiction_logique: incohérence médicale entre colonnes → issues severity=critical, exemples: '
+            'debut_dialyse_urgence=1 ET debut_dialyse_planifie=1 (mutuellement exclusifs), '
+            'deces=1 sans date_deces, deces=0 avec date_deces renseignee, '
+            'seances_par_semaine=0 avec hemodialyse=1, dialyse_peritoneale=1 avec fistule_arterioveineuse=1. '
+            'unite_melangee: ex calcium_basale: valeurs 40-120 en mg/L mais 2 valeurs 5.8 et 8.0 en mmol/L dans la meme colonne → '
+            'issues severity=critical + value_mappings: multiplier les valeurs mmol/L par 4 pour convertir en mg/L. '
+            'valeur_invalide_x: valeur "X" ou "x" dans une colonne binaire 0/1 ou numérique → '
+            'signaler en issues severity=warning, value_mappings vers null (X signifie non évalué/inconnu). '
+
+            '(5) STRUCTURE ET NOMMAGE: '
+            'type_incorrect: mauvais dtype pour le champ (ex: age en float alors que entier attendu) → type_casts. '
+            'colonne_redondante: nom_complet + prenom + nom dans le meme dataset → issues severity=info. '
+            'type_mixte: valeur texte isolee dans colonne numerique → value_mappings vers null. '
+            'colonne_vide: 100% des valeurs manquantes → drop_columns severity=warning. '
+            'colonne_constante: une seule valeur unique dans toute la colonne → drop_columns severity=info (aucune information). '
+            'colonne_quasi_constante: >98% meme valeur → issues severity=info (faible variance, potentiellement inutile). '
+            'id_manquant: colonne identifiant patient avec valeurs nulles → issues severity=critical (patient non identifiable). '
+
+            '(6) PROBLEMES INTER-COLONNES (champ cross_column_issues): '
+            'incoherence_age_date: age dans la colonne age ne correspond pas à l annee calculee depuis date_naissance → '
+            'signaler severity=warning sur les deux colonnes, la date de naissance est generalement plus fiable. '
+            'doublons_patients: plusieurs lignes ont les memes valeurs sur les colonnes identite (nom, prenom, id) → '
+            'signaler severity=warning, ne pas supprimer automatiquement, necessite verification manuelle. '
+            'Si cross_column_issues est present dans le dataset, créer une issue pour chaque element avec la colonne principale concernee. '
+
+            'CHAMP CRITIQUE anomaly_candidates: si une colonne contient ce champ, ces valeurs ont ete detectees '
+            'en scannant TOUT le fichier — elles sont garanties aberrantes meme si rares (1 occurrence sur 500). '
+            'Tu DOIS toutes les traiter dans correction_plan: '
+            'artefact_excel → null, annee_incorrecte → corriger le siecle, manquant_deguise → null, '
+            'separateur_decimal → remplacer "," par ".", valeur_negative_impossible → null, '
+            'booleen_incoherent → normaliser avec value_mappings, mojibake → signaler uniquement. '
+
+            'REGLES IMPORTANTES: '
+            'COLONNES BINAIRES (is_binary=true ou valeurs uniquement {0,1}): '
+            'La valeur 0 signifie NON/ABSENT et 1 signifie OUI/PRESENT. '
+            'Ne jamais signaler 0 comme valeur_negative_impossible ni comme valeur_aberrante. '
+            'Une colonne binaire constante a 1.0 ou 0.0 est une information valide (tous les patients ont cette condition). '
+            'Ne pas signaler colonne_constante ni colonne_quasi_constante pour les colonnes binaires. '
+            'Le but est un correction_plan non vide et exploitable. '
+            'Ne reponds jamais par {} si des anomalies existent. '
+            'Si tu hesites, choisis la correction prudente. '
+
             'Schema JSON attendu: '
-            '{"summary":"resume global des erreurs detectees",'
-            '"issues":[{"severity":"warning","category":"type_incorrect","column":"nom_colonne","explanation":"description courte de l erreur detectee"}],'
-            '"correction_plan":{"rename_columns":{},"drop_columns":[],"value_mappings":{},"fill_missing":{},"type_casts":{},"parse_dates":[],"trim_whitespace_columns":[],"default_values":{}}} '
-            'severity doit etre: "critical", "warning" ou "info". '
-            'Cree une entree issues pour chaque probleme detecte. '
+            '{"summary":"resume global",'
+            '"issues":[{'
+            '"severity":"critical|warning|info",'
+            '"category":"valeur_manquante|manquant_deguise|valeur_sentinelle|separateur_decimal|valeur_numerique_texte|encodage_incoherent|booleen_incoherent|casse_incoherente|espace_parasite|caractere_special|mojibake|artefact_excel|annee_incorrecte|format_date_mixte|date_future|colonne_date|valeur_aberrante|valeur_negative_impossible|contradiction_logique|unite_melangee|type_incorrect|colonne_redondante|type_mixte|incoherence_age_date|doublons_patients|colonne_vide|colonne_constante|colonne_quasi_constante|id_manquant|valeur_invalide_x",'
+            '"column":"nom_colonne",'
+            '"explanation":"description avec exemples de valeurs",'
+            '"suggested_correction":{"valeur_originale":"valeur_corrigee"}'
+            '}],'
+            '"correction_plan":{'
+            '"rename_columns":{},"drop_columns":[],"value_mappings":{},'
+            '"fill_missing":{},"type_casts":{},"parse_dates":[],'
+            '"trim_whitespace_columns":[],"default_values":{}}} '
         )
+        if _loinc_ref:
+            prompt += _loinc_ref + ' '
+        if _rag_block:
+            prompt += _rag_block
         if _medical_ref:
             prompt += _medical_ref + ' '
         prompt += 'Dataset: ' + json.dumps(payload_for_prompt, ensure_ascii=False, default=str)
+        if explicit_anomaly_hint:
+            prompt += ' ' + explicit_anomaly_hint
         if strict:
             prompt += (
                 ' OBLIGATOIRE: ne renvoie pas de correction_plan vide. '
@@ -3490,8 +4457,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                 )
 
                 try:
-                    with urllib_request.urlopen(req, timeout=attempt['timeout_seconds']) as response:
-                        body = response.read().decode('utf-8')
+                    body = _ollama_urlopen_wall_clock(req, wall_timeout=attempt['timeout_seconds'])
                     payload = json.loads(body)
                     raw_response = payload.get('response', '{}')
                     parsed_response = _parse_llm_analysis_response(raw_response)
@@ -3554,8 +4520,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                                     headers={'Content-Type': 'application/json'},
                                     method='POST',
                                 )
-                                with urllib_request.urlopen(retry_req, timeout=attempt['timeout_seconds']) as retry_resp:
-                                    retry_body = retry_resp.read().decode('utf-8')
+                                retry_body = _ollama_urlopen_wall_clock(retry_req, wall_timeout=attempt['timeout_seconds'])
                                 retry_payload_json = json.loads(retry_body)
                                 retry_raw = retry_payload_json.get('response', '{}')
                                 retry_parsed = _parse_llm_analysis_response(retry_raw)
@@ -3671,89 +4636,12 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
     single_pass_predict = max(primary_num_predict, dynamic_min_predict)
     single_retry_predict = max(retry_num_predict, dynamic_min_predict)
 
-    # Build a full-column compact payload: ALL columns in minimal format (name+dtype+missing%+1 sample).
-    # No preview rows — lets the LLM see the entire dataset structure without token overflow.
-    def _build_full_column_payload(tp):
-        # Build min/max/outlier_count/sentinel_counts lookup from numeric_columns_profile
-        num_stats = {}
-        for nc in (tp.get('numeric_columns_profile') or []):
-            col_name = str(nc.get('name') or nc.get('column') or '')
-            if col_name:
-                num_stats[col_name] = {
-                    'min': nc.get('min'),
-                    'max': nc.get('max'),
-                    'outlier_count': nc.get('outlier_count'),
-                    'sentinel_counts': nc.get('sentinel_counts') or {},
-                }
-
-        max_priority_cols = int(os.environ.get('LLM_MAX_PRIORITY_COLUMNS', '80'))
-        max_clean_cols = int(os.environ.get('LLM_MAX_CLEAN_COLUMNS', '40'))
-
-        priority_cols = []  # columns with detected issues — full detail
-        clean_cols = []     # columns with no detected issues — minimal summary
-
-        for col in (tp.get('columns_profile') or []):
-            col_name = str(col.get('name') or col.get('column') or '')
-            missing_ratio = col.get('missing_ratio')
-            missing_pct_raw = col.get('missing_pct') or col.get('missing_ratio') or 0
-            try:
-                missing_val = float(missing_pct_raw)
-                if missing_ratio is not None and missing_val <= 1.0:
-                    missing_val *= 100
-            except Exception:
-                missing_val = 0
-
-            dtype_str = str(col.get('dtype') or '').lower()
-            stats = num_stats.get(col_name, {})
-            outlier_count = stats.get('outlier_count') or 0
-            sentinel_counts = stats.get('sentinel_counts') or {}
-            is_object = 'object' in dtype_str or 'str' in dtype_str or 'category' in dtype_str
-            has_missing = missing_val > 0
-            has_outliers = outlier_count > 0
-            has_sentinels = bool(sentinel_counts)
-            is_date_col = any(kw in col_name.lower() for kw in ('date', 'naissance', 'admission', 'visite', 'debut', 'fin'))
-
-            has_issue = has_missing or has_outliers or has_sentinels or is_object or is_date_col
-
-            entry = {
-                'col': col_name,
-                'type': str(col.get('dtype') or ''),
-                'missing_pct': round(missing_val, 1),
-            }
-            if has_issue:
-                samples = col.get('sample_values') or []
-                if samples:
-                    entry['samples'] = samples[:3]
-                if stats.get('min') is not None:
-                    entry['min'] = stats['min']
-                if stats.get('max') is not None:
-                    entry['max'] = stats['max']
-                if outlier_count:
-                    entry['outliers'] = outlier_count
-                if sentinel_counts:
-                    entry['sentinels'] = sentinel_counts
-                priority_cols.append(entry)
-            else:
-                clean_cols.append({'col': col_name, 'type': str(col.get('dtype') or '')})
-
-        # Respect token budget: cap priority cols then fill remaining slots with clean cols
-        selected_priority = priority_cols[:max_priority_cols]
-        remaining_slots = max(0, max_clean_cols - max(0, len(priority_cols) - max_priority_cols))
-        selected_clean = clean_cols[:remaining_slots]
-
-        return {
-            'rows': tp.get('rows'),
-            'columns': tp.get('columns'),
-            'missing_pct_global': tp.get('missing_pct'),
-            'duplicate_rows': tp.get('duplicate_rows'),
-            'columns_with_issues': selected_priority,
-            'clean_columns_summary': selected_clean,
-            'total_columns': len((tp.get('columns_profile') or [])),
-            'columns_with_issues_count': len(priority_cols),
-            'clean_columns_count': len(clean_cols),
-        }
-
-    full_compact_payload = {'technical_profile': _build_full_column_payload(technical_profile)}
+    # ── Batch LLM analysis: process ALL priority columns split into batches ──
+    batch_size = int(os.environ.get('LLM_BATCH_SIZE', '25'))
+    rag_correction_context = {
+        'retrieved_chunks': retrieval_context_pass2.get('retrieved_chunks', []),
+        'retrieval_policy': retrieval_context_pass2.get('retrieval_policy', ''),
+    }
     compact_retry_payload = _shrink_llm_payload(
         prompt_payload,
         max_columns=20,
@@ -3761,90 +4649,396 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
         max_samples_per_column=0,
     )
 
-    _notify_progress('Analyse LLM - generation du plan de correction...')
-    result = _run_stage(
-        stage_name='single_pass_correction',
-        primary_prompt=_build_single_pass_prompt(full_compact_payload, strict=True),
-        fallback_prompt=_build_single_pass_prompt(fallback_payload, strict=True),
-        primary_pack=full_compact_payload,
-        fallback_pack=fallback_payload,
-        primary_predict=single_pass_predict,
-        fallback_predict=single_retry_predict,
-    )
+    # Extract ALL priority columns without cap — same detection logic as _build_full_column_payload
+    def _extract_all_priority_cols(tp):
+        num_stats = {}
+        for nc in (tp.get('numeric_columns_profile') or []):
+            col_name = str(nc.get('name') or nc.get('column') or '')
+            if col_name:
+                num_stats[col_name] = {
+                    'min': nc.get('min'), 'max': nc.get('max'),
+                    'outlier_count': nc.get('outlier_count'),
+                    'sentinel_counts': nc.get('sentinel_counts') or {},
+                }
+        priority_cols = []   # all columns — minimal metadata only, LLM detects anomalies from real values
+        clean_cols = []      # unused but kept for compatibility
 
-    strict_retry_performed = False
-    if not result.get('unavailable'):
-        plan = result.get('correction_plan') if isinstance(result.get('correction_plan'), dict) else {}
-        if _is_correction_plan_empty(plan):
-            strict_retry_performed = True
-            _notify_progress('Plan vide detecte, relance stricte...')
-            result_retry = _run_stage(
-                stage_name='single_pass_correction_retry_strict',
-                primary_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
-                fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
-                primary_pack=compact_retry_payload,
-                fallback_pack=compact_retry_payload,
-                primary_predict=single_pass_predict,
-                fallback_predict=single_retry_predict,
-            )
-            if not result_retry.get('unavailable'):
-                result = result_retry
+        for col in (tp.get('columns_profile') or []):
+            col_name = str(col.get('name') or col.get('column') or '')
+            missing_pct_raw = col.get('missing_pct') or col.get('missing_ratio') or 0
+            missing_ratio = col.get('missing_ratio')
+            try:
+                missing_val = float(missing_pct_raw)
+                if missing_ratio is not None and missing_val <= 1.0:
+                    missing_val *= 100
+            except Exception:
+                missing_val = 0
+            dtype_str = str(col.get('dtype') or '').lower()
+            stats = num_stats.get(col_name, {})
 
-    plan = result.get('correction_plan') if isinstance(result.get('correction_plan'), dict) else {}
-    deterministic_correction_plan = _build_deterministic_correction_plan(technical_profile)
-    if result.get('unavailable') or _is_correction_plan_empty(plan):
-        correction_plan = deterministic_correction_plan
-        llm_status = 'fallback_used'
-        if result.get('unavailable'):
-            fallback_reason = 'LLM indisponible: fallback deterministe applique.'
-        else:
-            fallback_reason = 'Plan LLM vide: le modele n a propose aucune correction, fallback deterministe applique.'
-        limitations = list(dict.fromkeys(
-            (result.get('limitations') if isinstance(result.get('limitations'), list) else []) + [
-                fallback_reason,
+            # ── LLM-first architecture: send minimal metadata, no pre-detected anomalies ──
+            # The LLM detects anomalies directly from data_columns (real values).
+            # We only send: column name, type, missing count.
+            # We do NOT send: outlier_count, anomaly_candidates, sentinels, samples.
+            # Exception: keep cross_column_issues and is_binary flag (structural info).
+            entry = {
+                'col': col_name,
+                'type': str(col.get('dtype') or ''),
+            }
+            if missing_val > 0:
+                entry['missing_pct'] = round(missing_val, 1)
+            if stats.get('is_binary'):
+                entry['is_binary'] = True
+
+            # Keep cross-column coherence issues (structural, not statistical)
+            anomaly_candidates = col.get('anomaly_candidates') or []
+            structural_candidates = [
+                a for a in anomaly_candidates
+                if a.get('type') in ('colonne_vide', 'unite_melangee', 'contradiction_logique',
+                                     'valeur_invalide_x', 'valeur_numerique_texte', 'id_manquant')
             ]
+            if structural_candidates:
+                entry['structural_hints'] = structural_candidates[:3]
+
+            priority_cols.append(entry)
+
+        return priority_cols
+
+    all_priority_cols = _extract_all_priority_cols(technical_profile)
+    col_batches = [all_priority_cols[i:i + batch_size] for i in range(0, len(all_priority_cols), batch_size)]
+    if not col_batches:
+        col_batches = [[]]
+
+    # Build set of binary columns for post-LLM filtering
+    _binary_col_names = {
+        str(c.get('col') or c.get('name') or '')
+        for c in all_priority_cols
+        if c.get('is_binary')
+    }
+    # False positive categories that must never appear on binary columns
+    _BINARY_FALSE_POSITIVE_CATS = {
+        'valeur_negative_impossible', 'valeur_aberrante',
+        'colonne_constante', 'colonne_quasi_constante',
+    }
+
+    # ── Run LLM on each batch and merge results ──
+    merged_issues_all = []
+    merged_plan = {}
+    merged_summaries = []
+    batch_limitations = []
+    last_result = None
+    strict_retry_performed = False
+    any_batch_failed = False
+
+    for batch_idx, batch_cols in enumerate(col_batches):
+        batch_total = len(col_batches)
+        n_priority = sum(1 for c in batch_cols if not c.get('clean'))
+        n_clean = sum(1 for c in batch_cols if c.get('clean'))
+        _notify_progress(
+            f'Analyse LLM batch {batch_idx + 1}/{batch_total} '
+            f'({n_priority} problématiques + {n_clean} propres)...'
+        )
+
+        _cross_col = technical_profile.get('cross_column_issues') or []
+
+        # ── Build column-indexed value lists for this batch ─────────────────────
+        # Send each column as an indexed list: {patient_id: [...], col_name: [...]}
+        # This format is more efficient and easier for LLM to scan than CSV rows.
+        # Only include columns that exist in the dataframe.
+        _batch_col_names = [c['col'] for c in batch_cols if c.get('col')]
+        _id_col = next(
+            (str(c) for c in dataframe.columns
+             if any(kw in str(c).lower() for kw in ('identifiant', 'patient_id', 'id_patient', 'num_patient'))),
+            None
+        )
+        _data_csv = ''
+        _data_columns = {}
+        try:
+            if _id_col and _id_col in dataframe.columns:
+                _data_columns['patient_id'] = dataframe[_id_col].fillna('').tolist()
+            for _cn in _batch_col_names:
+                if _cn in dataframe.columns:
+                    _col_vals = dataframe[_cn].fillna('').tolist()
+                    # Compact serialization: round floats to 1 decimal, truncate long strings
+                    _col_vals = [
+                        round(v, 1) if isinstance(v, float) else
+                        str(v)[:12] if not isinstance(v, (int, str, bool, type(None))) else
+                        str(v)[:12] if isinstance(v, str) and len(str(v)) > 12 else v
+                        for v in _col_vals
+                    ]
+                    # Send ALL rows — LLM is the primary anomaly detector
+                    _data_columns[_cn] = _col_vals
+        except Exception:
+            _data_columns = {}
+
+        # No sampling — send all rows. Compact CSV string to reduce tokens.
+        if _data_columns:
+            # Serialize as compact CSV strings per column (saves ~30% tokens vs JSON arrays)
+            _compact = {k: ','.join(str(v) for v in vals) for k, vals in _data_columns.items()}
+            _data_csv = json.dumps(_compact, ensure_ascii=False)
+        # ── End column data build ────────────────────────────────────────────────
+
+        batch_payload = {
+            'technical_profile': {
+                'rows': technical_profile.get('rows'),
+                'columns': technical_profile.get('columns'),
+                'missing_pct_global': technical_profile.get('missing_pct'),
+                'duplicate_rows': technical_profile.get('duplicate_rows'),
+                'columns_with_issues': batch_cols,
+                'total_columns': len(technical_profile.get('columns_profile') or []),
+                'columns_with_issues_count': n_priority,
+                'clean_columns_count': n_clean,
+                'batch_info': {
+                    'batch': batch_idx + 1,
+                    'total_batches': batch_total,
+                    'note': 'Les colonnes avec clean=true semblent propres statistiquement mais peuvent contenir des valeurs illogiques — analyser les vraies valeurs dans data_csv.',
+                },
+                **(({'cross_column_issues': _cross_col}) if _cross_col and batch_idx == 0 else {}),
+            },
+            'rag_correction': rag_correction_context,
+            **(({'data_columns': _data_columns}) if _data_columns else {}),
+        }
+
+        # Apply budget check to each batch prompt — avoid truncation
+        _batch_prompt_raw = _build_single_pass_prompt(batch_payload, strict=True)
+        _batch_tokens = max(1, len(_batch_prompt_raw) // 4)
+        if _batch_tokens > available_input_tokens:
+            # Trim rag_correction retrieved_chunks to reduce prompt size
+            _trimmed_rc = {
+                'retrieved_chunks': (rag_correction_context.get('retrieved_chunks') or [])[:1],
+                'retrieval_policy': rag_correction_context.get('retrieval_policy', ''),
+            }
+            batch_payload['rag_correction'] = _trimmed_rc
+            _batch_prompt_raw = _build_single_pass_prompt(batch_payload, strict=True)
+
+        batch_result = _run_stage(
+            stage_name=f'batch_{batch_idx + 1}_of_{batch_total}',
+            primary_prompt=_batch_prompt_raw,
+            fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
+            primary_pack=batch_payload,
+            fallback_pack=compact_retry_payload,
+            primary_predict=single_pass_predict,
+            fallback_predict=single_retry_predict,
+        )
+
+        if batch_result.get('unavailable'):
+            any_batch_failed = True
+            batch_limitations.extend(batch_result.get('limitations') or [])
+            continue
+
+        # Retry if plan is empty and batch had columns to fix
+        batch_plan = batch_result.get('correction_plan') if isinstance(batch_result.get('correction_plan'), dict) else {}
+        batch_issues = batch_result.get('issues') if isinstance(batch_result.get('issues'), list) else []
+        plan_empty = _is_correction_plan_empty(batch_plan)
+        issues_empty = len(batch_issues) == 0
+
+        # Collect all anomaly_candidates from this batch for smarter retry hint
+        _anomaly_lines = []
+        for _bc in batch_cols:
+            if not isinstance(_bc, dict):
+                continue
+            _col_name = _bc.get('col') or _bc.get('name') or ''
+            _ac = _bc.get('anomaly_candidates')
+            if isinstance(_ac, list) and _ac:
+                for _item in _ac[:10]:
+                    if isinstance(_item, dict):
+                        _val = _item.get('value', '')
+                        _cat = _item.get('type') or _item.get('category') or 'anomalie'
+                        _anomaly_lines.append(f'{_col_name}:{_cat}={repr(_val)}')
+            elif isinstance(_ac, dict):
+                for _cat, _vals in list(_ac.items())[:5]:
+                    for _v in (_vals if isinstance(_vals, list) else [_vals])[:3]:
+                        _anomaly_lines.append(f'{_col_name}:{_cat}={repr(_v)}')
+
+        has_anomaly_candidates = bool(_anomaly_lines)
+        # Retry when: (plan+issues both empty) OR (anomaly_candidates known but LLM returned 0 issues)
+        need_retry = (plan_empty and issues_empty and batch_cols) or (has_anomaly_candidates and issues_empty)
+        if need_retry:
+            strict_retry_performed = True
+            _notify_progress(f'Batch {batch_idx + 1}/{batch_total} sans résultat, relance forcée...')
+            # Build explicit hint listing detected anomalies so LLM cannot miss them
+            _hint = ''
+            if _anomaly_lines:
+                _hint = (
+                    'ANOMALIES DÉTECTÉES PAR SCAN COMPLET — tu DOIS toutes les signaler dans issues et correction_plan: '
+                    + ', '.join(_anomaly_lines[:40])
+                    + '. Chacune doit apparaître dans issues avec sa category et dans correction_plan avec la correction appropriée.'
+                )
+            # Scale num_predict upward when many anomalies need to be reported
+            _anomaly_predict = max(single_pass_predict, single_pass_predict + len(_anomaly_lines) * 20)
+            _anomaly_predict = min(_anomaly_predict, 2000)
+            retry_result = _run_stage(
+                stage_name=f'batch_{batch_idx + 1}_retry_strict',
+                primary_prompt=_build_single_pass_prompt(batch_payload, strict=True, explicit_anomaly_hint=_hint),
+                fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True, explicit_anomaly_hint=_hint),
+                primary_pack=batch_payload,
+                fallback_pack=compact_retry_payload,
+                primary_predict=_anomaly_predict,
+                fallback_predict=max(single_retry_predict, _anomaly_predict // 2),
+            )
+            if not retry_result.get('unavailable'):
+                batch_result = retry_result
+
+        # Accumulate results from this batch
+        batch_plan = batch_result.get('correction_plan') if isinstance(batch_result.get('correction_plan'), dict) else {}
+
+        # If the plan is empty but issues were detected, build a minimal correction plan
+        # from the issues themselves (3b model often skips the correction_plan step)
+        if _is_correction_plan_empty(batch_plan):
+            auto_fill = {}
+            auto_mappings = {}
+            auto_casts = {}
+            auto_trim = []
+            auto_dates = []
+            for iss in (batch_result.get('issues') or []):
+                if not isinstance(iss, dict):
+                    continue
+                col = iss.get('column', '')
+                cat = iss.get('category', '')
+                if not col:
+                    continue
+                suggested = iss.get('suggested_correction') or iss.get('correction')
+
+                if cat in ('valeur_manquante', 'valeur_sentinelle'):
+                    auto_fill[col] = {'strategy': 'mode'}
+
+                elif cat in (
+                    'manquant_deguise', 'encodage_incoherent', 'valeur_aberrante',
+                    'artefact_excel', 'annee_incorrecte', 'type_mixte',
+                    'booleen_incoherent', 'casse_incoherente', 'separateur_decimal',
+                    'valeur_negative_impossible', 'unite_melangee', 'caractere_special',
+                    'valeur_invalide_x',
+                ):
+                    if isinstance(suggested, dict) and suggested:
+                        flat = {k: v for k, v in suggested.items() if not isinstance(v, (dict, list))}
+                        if flat:
+                            if col in auto_mappings:
+                                auto_mappings[col].update(flat)
+                            else:
+                                auto_mappings[col] = flat
+
+                elif cat == 'valeur_numerique_texte':
+                    auto_casts[col] = 'numeric'
+                    if col not in auto_trim:
+                        auto_trim.append(col)
+
+                elif cat in ('colonne_date', 'format_date_mixte'):
+                    if col not in auto_dates:
+                        auto_dates.append(col)
+
+                elif cat == 'espace_parasite':
+                    if col not in auto_trim:
+                        auto_trim.append(col)
+
+                elif cat == 'type_incorrect':
+                    if isinstance(suggested, dict):
+                        for k, v in suggested.items():
+                            if v in ('integer', 'numeric', 'float', 'string'):
+                                auto_casts[col] = v
+
+                # Structural issues: empty/constant columns → propose drop
+                elif cat in ('colonne_vide', 'colonne_constante'):
+                    if col not in (batch_plan.get('drop_columns') or []):
+                        batch_plan.setdefault('drop_columns', []).append(col)
+
+                # Flag-only issues: require human decision
+                elif cat in ('doublons_patients', 'incoherence_age_date', 'mojibake',
+                             'colonne_quasi_constante', 'id_manquant'):
+                    pass  # signaled in issues; correction requires human review
+
+            if auto_fill:
+                batch_plan['fill_missing'] = auto_fill
+            if auto_mappings:
+                batch_plan['value_mappings'] = auto_mappings
+            if auto_casts:
+                batch_plan['type_casts'] = auto_casts
+            if auto_trim:
+                batch_plan['trim_whitespace_columns'] = auto_trim
+            if auto_dates:
+                batch_plan['parse_dates'] = auto_dates
+
+        merged_plan = _merge_correction_plans(merged_plan, batch_plan)
+        raw_batch_issues = batch_result.get('issues') if isinstance(batch_result.get('issues'), list) else []
+        for issue in raw_batch_issues:
+            if not isinstance(issue, dict):
+                continue
+            if not issue.get('column') or not issue.get('explanation'):
+                continue
+            # Filter false positives: binary columns must never generate these categories
+            col_name = str(issue.get('column') or '')
+            cat = str(issue.get('category') or '')
+            if col_name in _binary_col_names and cat in _BINARY_FALSE_POSITIVE_CATS:
+                continue
+            merged_issues_all.append(issue)
+        if batch_result.get('summary'):
+            merged_summaries.append(str(batch_result['summary']))
+        if last_result is None:
+            last_result = batch_result
+
+    # Synthesize a single result object for the return block
+    if last_result is None:
+        last_result = {
+            'unavailable': True,
+            'summary': '',
+            'issues': [],
+            'correction_plan': {},
+            'limitations': batch_limitations,
+            'model_used': model_name,
+            'attempt': 'primary',
+            'validation_status': {},
+            'normalization_notes': [],
+            'normalization_severity_score': 0,
+        }
+
+    all_llm_unavailable = any_batch_failed and last_result.get('unavailable')
+    correction_plan = merged_plan  # LLM plan only — no deterministic fallback
+    if all_llm_unavailable:
+        llm_status = 'unavailable'
+        limitations = list(dict.fromkeys(
+            batch_limitations + ['LLM indisponible: aucune correction generee.']
         ))
     else:
-        correction_plan = _merge_correction_plans(plan, deterministic_correction_plan)
         llm_status = 'retried' if strict_retry_performed else 'ok'
-        limitations = result.get('limitations') if isinstance(result.get('limitations'), list) else []
+        limitations = list(dict.fromkeys(
+            batch_limitations + (last_result.get('limitations') if isinstance(last_result.get('limitations'), list) else [])
+        ))
 
-    # Extract issues list returned by LLM; validate each entry is a proper dict
-    raw_issues = result.get('issues') if isinstance(result.get('issues'), list) else []
-    llm_issues = [
-        issue for issue in raw_issues
-        if isinstance(issue, dict) and issue.get('column') and issue.get('explanation')
-    ]
+    llm_issues = merged_issues_all
 
     return {
-        'summary': result.get('summary') or '',
+        'summary': ' | '.join(merged_summaries) if merged_summaries else '',
         'issues': llm_issues,
         'recommendations': [],
         'correction_plan': correction_plan,
-        'llm_proposed_correction_plan': plan,
-        'deterministic_correction_plan': deterministic_correction_plan,
+        'llm_proposed_correction_plan': merged_plan,
         'corrected_preview_rows': [],
         'column_assessment': [],
         'limitations': limitations,
         'analysis_pack': prompt_payload,
-        'model_used': result.get('model_used'),
-        'attempt': result.get('attempt'),
+        'model_used': last_result.get('model_used'),
+        'attempt': last_result.get('attempt'),
         'llm_status': llm_status,
-        'normalization_notes': result.get('normalization_notes', []),
-        'normalization_severity_score': result.get('normalization_severity_score', 0),
+        'normalization_notes': last_result.get('normalization_notes', []),
+        'normalization_severity_score': last_result.get('normalization_severity_score', 0),
         'second_pass': {
             'status': llm_status,
             'strict_retry': strict_retry_performed,
-            'model_used': result.get('model_used'),
-            'attempt': result.get('attempt'),
+            'model_used': last_result.get('model_used'),
+            'attempt': last_result.get('attempt'),
+            'batches_total': len(col_batches),
+            'batches_failed': sum(1 for _ in batch_limitations),
         },
-        'validation_status': result.get('validation_status') or {},
+        'validation_status': last_result.get('validation_status') or {},
         'validation_status_pass2': {},
         'route': route,
         'section_analyses': retrieval_context.get('section_fusion', []),
         'rag_context': retrieval_context,
         'pipeline': {
-            'stage': 'single_pass_correction',
+            'stage': 'batched_correction',
+            'batches_total': len(col_batches),
+            'total_columns_analysed': len(all_priority_cols),
+            'priority_columns': sum(1 for c in all_priority_cols if not c.get('clean')),
+            'clean_columns_included': sum(1 for c in all_priority_cols if c.get('clean')),
             'chunks_count': len(chunks),
             'retrieved_chunks_count': retrieval_context.get('retrieved_chunks_count', 0),
             'retrieval': retrieval_context.get('retrieval_policy'),
@@ -3922,11 +5116,15 @@ def _count_series_changes(before_series, after_series):
 
 def _run_bio_value_correction_pass(dataframe, progress_callback=None):
     """
-    For each biological column matched via medical_kb, extract all unique values,
-    ask the LLM which ones are aberrant and how to correct them, then return
-    a value_mappings dict covering every row in the dataset.
+    For each biological column matched via LOINC (primary) or medical_kb (fallback),
+    extract all unique values, ask the LLM which ones are aberrant and how to correct
+    them, then return a value_mappings dict covering every row in the dataset.
+
+    LOINC matching provides authoritative reference ranges and official source citations.
+    medical_kb is used as fallback when no LOINC code is found.
     """
     from .preprocess_rag import _load_medical_kb
+    from .loinc_mapper import match_column_to_loinc, get_reference_range, validate_value_against_loinc
 
     def _notify(msg):
         try:
@@ -3942,7 +5140,7 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
     model_name = os.environ.get('OLLAMA_PREPROCESS_MODEL') or os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b-instruct')
     num_ctx = _env_int('OLLAMA_NUM_CTX', 16384)
     candidate_bases = _get_ollama_candidate_bases()
-    timeout_seconds = 60
+    timeout_seconds = _env_int('OLLAMA_BIO_TIMEOUT_SECONDS', 300)
 
     col_names = list(dataframe.columns)
     all_value_mappings = {}
@@ -3965,17 +5163,41 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
         if not unique_vals:
             continue
 
-        impossible_above = doc.get('impossible_above')
-        impossible_below = doc.get('impossible_below')
-        critical_high = doc.get('critical_high')
+        # Try LOINC match first — provides authoritative ranges and source citations
+        loinc_entry = match_column_to_loinc(matched_col)
+        loinc_ref = get_reference_range(loinc_entry, population='dialysis') if loinc_entry else None
+
+        # Build bounds: LOINC takes priority over KB
+        if loinc_entry:
+            impossible_above = loinc_entry.get('impossible_above')
+            impossible_below = loinc_entry.get('impossible_below')
+            critical_high = loinc_ref.get('critical_high') if loinc_ref else doc.get('critical_high')
+            critical_low = loinc_ref.get('critical_low') if loinc_ref else None
+            normal_low = loinc_ref.get('low') if loinc_ref else (doc.get('normal') or [None, None])[0]
+            normal_high = loinc_ref.get('high') if loinc_ref else (doc.get('normal') or [None, None])[1]
+            unit = loinc_entry.get('unit', doc.get('unit', ''))
+            label = loinc_entry.get('component', doc.get('label', matched_col))
+            loinc_code = loinc_entry.get('loinc_code', '')
+            loinc_source = loinc_ref.get('source', 'LOINC') if loinc_ref else 'LOINC'
+        else:
+            impossible_above = doc.get('impossible_above')
+            impossible_below = doc.get('impossible_below')
+            critical_high = doc.get('critical_high')
+            critical_low = None
+            normal_low = (doc.get('normal') or [None, None])[0]
+            normal_high = (doc.get('normal') or [None, None])[1]
+            unit = doc.get('unit', '')
+            label = doc.get('label', matched_col)
+            loinc_code = None
+            loinc_source = 'medical_kb'
 
         # Only call LLM if suspicious values exist
-        def _is_suspicious(v):
-            if impossible_above is not None and v > impossible_above:
+        def _is_suspicious(v, _imp_above=impossible_above, _imp_below=impossible_below, _crit_high=critical_high):
+            if _imp_above is not None and v > _imp_above:
                 return True
-            if impossible_below is not None and v < impossible_below:
+            if _imp_below is not None and v < _imp_below:
                 return True
-            if critical_high is not None and v > critical_high * 3:
+            if _crit_high is not None and v > _crit_high * 3:
                 return True
             return False
 
@@ -3983,19 +5205,28 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
         if not suspicious:
             continue
 
-        _notify(f'Correction biologique : {matched_col} ({len(suspicious)} valeur(s) suspecte(s))...')
+        loinc_info = f' [LOINC {loinc_code}, source: {loinc_source}]' if loinc_code else ' [source: medical_kb]'
+        _notify(f'Correction biologique LOINC : {matched_col}{loinc_info} ({len(suspicious)} valeur(s) suspecte(s))...')
 
-        normal = doc.get('normal', [None, None])
-        unit = doc.get('unit', '')
         notes = doc.get('notes', '')
         errors = doc.get('common_errors', [])
+        unit_conversions = (loinc_entry.get('unit_conversions', []) if loinc_entry else [])
 
         prompt = (
             f'Tu es un expert en nephrologie. Analyse les valeurs de la colonne "{matched_col}" '
-            f'({doc.get("label", matched_col)}, unite: {unit}). '
-            f'Plage normale: {normal[0]}-{normal[1]} {unit}. '
-            f'Valeur critique max: {critical_high}. Valeur impossible au-dessus de: {impossible_above}. '
+            f'({label}, unite officielle LOINC: {unit}'
+            + (f', LOINC {loinc_code}' if loinc_code else '')
+            + f'). '
+            f'Plage normale ({loinc_source}): {normal_low}-{normal_high} {unit}. '
         )
+        if critical_high is not None:
+            prompt += f'Seuil critique haut: {critical_high}. '
+        if critical_low is not None:
+            prompt += f'Seuil critique bas: {critical_low}. '
+        if impossible_above is not None:
+            prompt += f'Valeur physiologiquement impossible au-dessus de: {impossible_above}. '
+        if unit_conversions:
+            prompt += 'Conversions d\'unites connues: ' + '; '.join(c.get('note', '') for c in unit_conversions[:3]) + '. '
         if notes:
             prompt += f'Note clinique: {notes} '
         if errors:
@@ -4004,7 +5235,7 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
             f'Voici toutes les valeurs uniques non-nulles presentes dans le dataset: {unique_vals}. '
             f'Valeurs suspectes identifiees statistiquement: {suspicious}. '
             'Pour chaque valeur aberrante ou biologiquement impossible, propose la valeur corrigee. '
-            'Si une valeur est simplement elevee mais cliniquement plausible, ne la corrige pas. '
+            'Si une valeur est simplement elevee mais cliniquement plausible en dialyse, ne la corrige pas. '
             'Reponds UNIQUEMENT avec un JSON: {"corrections": {"valeur_erronee": valeur_corrigee, ...}} '
             'Si aucune correction n\'est necessaire: {"corrections": {}}'
         )
@@ -4014,7 +5245,7 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
             'prompt': prompt,
             'stream': False,
             'format': 'json',
-            'options': {'temperature': 0.05, 'num_predict': 256, 'num_ctx': num_ctx},
+            'options': {'temperature': 0.05, 'num_predict': 512, 'num_ctx': num_ctx},
         }
         request_data = json.dumps(request_payload).encode('utf-8')
 
@@ -4027,10 +5258,21 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
                     headers={'Content-Type': 'application/json'},
                     method='POST',
                 )
-                with urllib_request.urlopen(req, timeout=timeout_seconds) as resp:
-                    body = resp.read().decode('utf-8')
+                body = _ollama_urlopen_wall_clock(req, wall_timeout=timeout_seconds)
                 raw = json.loads(body).get('response', '{}')
-                parsed = json.loads(raw) if isinstance(raw, str) else raw
+                try:
+                    parsed = json.loads(raw) if isinstance(raw, str) else raw
+                except json.JSONDecodeError:
+                    # Attempt to recover truncated JSON by closing the object
+                    try:
+                        raw_fixed = raw.strip().rstrip(',').rstrip('"').rstrip(':')
+                        if not raw_fixed.endswith('}'):
+                            raw_fixed += '}'
+                        if not raw_fixed.endswith('}}'):
+                            raw_fixed += '}'
+                        parsed = json.loads(raw_fixed)
+                    except Exception:
+                        parsed = {}
                 corrections = parsed.get('corrections') if isinstance(parsed, dict) else {}
                 if not isinstance(corrections, dict):
                     corrections = {}
@@ -4064,13 +5306,366 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
             all_value_mappings[matched_col] = typed_corrections
             all_applied.append({
                 'action': 'bio_value_correction',
-                'column': matched_col,
-                'corrections': {str(k): v for k, v in typed_corrections.items()},
+                'count': len(typed_corrections),
                 'cells_changed': cells_changed,
+                'details': {
+                    'columns': [{
+                        'column': matched_col,
+                        'cells_changed': cells_changed,
+                        'corrections': {str(k): v for k, v in typed_corrections.items()},
+                        'loinc_code': loinc_code,
+                        'loinc_source': loinc_source,
+                        'reference_range': {'low': normal_low, 'high': normal_high, 'unit': unit},
+                    }]
+                },
             })
-            logger.info('[BIO_PASS] col=%s corrections=%s cells_changed=%s', matched_col, typed_corrections, cells_changed)
+            logger.info('[BIO_PASS] col=%s loinc=%s corrections=%s cells_changed=%s', matched_col, loinc_code, typed_corrections, cells_changed)
 
     return all_value_mappings, all_applied
+
+
+def _run_llm_flagged_corrections(dataframe, llm_issues, already_corrected_columns=None, progress_callback=None):
+    """
+    For columns flagged by the LLM as critical/warning but NOT covered by the bio KB,
+    ask the LLM to CLASSIFY each suspicious value before deciding whether to correct it:
+      - "error"        : clear data entry error (sentinel, typo, biologically impossible) → correct
+      - "extreme_real" : extreme but clinically plausible for a critically ill patient   → keep, flag only
+      - "uncertain"    : context insufficient to decide                                   → keep, flag only
+    Only "error" values are auto-corrected.
+    Fallback (LLM unavailable): only correct obvious sentinel values (9999, -1, -99, -999, 99999).
+    """
+    # Sentinel values that are always errors regardless of context (0 is NOT a sentinel — it means absent/no)
+    _SENTINEL_VALUES = {9999.0, 99999.0, 999.0, -1.0, -99.0, -999.0}
+
+    def _notify(msg):
+        try:
+            if progress_callback:
+                progress_callback(msg)
+        except Exception:
+            pass
+
+    already_corrected = set(already_corrected_columns or [])
+
+    # Collect numeric columns with statistically extreme values that were flagged
+    target_columns = {}
+    for issue in (llm_issues or []):
+        if not isinstance(issue, dict):
+            continue
+        col = issue.get('column')
+        if not col or col in already_corrected or col not in dataframe.columns:
+            continue
+        severity = str(issue.get('severity', '')).lower()
+        if severity not in ('critical', 'warning', 'error'):
+            continue
+        series = dataframe[col]
+        numeric_series = pd.to_numeric(series, errors='coerce')
+        valid_count = numeric_series.notna().sum()
+        if valid_count < 3:
+            continue
+        q1 = numeric_series.quantile(0.25)
+        q3 = numeric_series.quantile(0.75)
+        iqr = q3 - q1
+        if iqr == 0:
+            continue
+        lower = q1 - 3 * iqr
+        upper = q3 + 3 * iqr
+        suspicious = [
+            float(v) for v in numeric_series.dropna().unique().tolist()
+            if v < lower or v > upper
+        ]
+        if not suspicious:
+            continue
+        median_val = float(numeric_series.median())
+        # Include a few representative normal values so LLM can judge context
+        normal_sample = sorted([
+            float(v) for v in numeric_series.dropna().tolist()
+            if lower <= v <= upper
+        ])
+        normal_sample = normal_sample[:3] + normal_sample[-3:] if len(normal_sample) > 6 else normal_sample
+        target_columns[col] = {
+            'explanation': issue.get('explanation', ''),
+            'suspicious': suspicious,
+            'median': median_val,
+            'normal_sample': normal_sample,
+        }
+        already_corrected.add(col)
+
+    if not target_columns:
+        return {}, [], set()
+
+    _notify(f"Analyse LLM de {len(target_columns)} colonne(s) suspecte(s) avant correction...")
+
+    # Build prompt: LLM must identify the likely data-entry mistake and reconstruct the intended value
+    col_desc_parts = []
+    for col, info in target_columns.items():
+        col_desc_parts.append(
+            f'Colonne "{col}": valeurs_normales={info["normal_sample"]}, '
+            f'mediane={info["median"]:.2f}, '
+            f'valeurs_suspectes={info["suspicious"]}. '
+            f'Probleme: {info["explanation"]}'
+        )
+    col_desc = '\n'.join(col_desc_parts)
+
+    prompt = (
+        'Tu es expert en données médicales. Analyse ces valeurs suspectes et détermine la cause probable de chaque anomalie. '
+        'Raisonne ainsi pour chaque valeur suspecte:\n'
+        '1. Compare la valeur suspecte aux valeurs normales de la colonne.\n'
+        '2. Détermine si c\'est une erreur de saisie logique:\n'
+        '   - Chiffre en trop: 200 → 20 (zéro ajouté par erreur)\n'
+        '   - Virgule oubliée: 555 → 5.55 ou 55.5 (choisir la plus proche de la médiane)\n'
+        '   - Facteur x10 ou x100: 120 → 12 si la médiane est ~12\n'
+        '   - Valeur codée sans signification: 9999, -1, -99, 999 → remplacer par médiane\n'
+        '   - Valeur biologiquement impossible: reconstruire selon le contexte\n'
+        '3. Si c\'est une valeur extrême mais cliniquement possible pour un patient critique → ne pas corriger.\n'
+        '4. Si tu ne peux pas déduire logiquement la valeur voulue → utilise null.\n'
+        'Classification:\n'
+        '- "error": erreur de saisie identifiable avec valeur_corrigee reconstruite logiquement\n'
+        '- "extreme_real": valeur extreme mais médicalement plausible\n'
+        '- "uncertain": impossible à déterminer\n'
+        'Reponds UNIQUEMENT en JSON:\n'
+        '{"analyses": {"nom_colonne": {"valeur_suspecte_en_string": {"classification": "error"|"extreme_real"|"uncertain", '
+        '"valeur_corrigee": nombre_ou_null, "raison": "ex: zero en trop, mediane=X"}}}}\n'
+        f'Colonnes:\n{col_desc}'
+    )
+
+    model_name = os.environ.get('OLLAMA_PREPROCESS_MODEL') or os.environ.get('OLLAMA_MODEL', 'qwen2.5:3b-instruct')
+    num_ctx = _env_int('OLLAMA_NUM_CTX', 4096)
+    candidate_bases = _get_ollama_candidate_bases()
+    request_payload = {
+        'model': model_name,
+        'prompt': prompt,
+        'stream': False,
+        'format': 'json',
+        'options': {'temperature': 0.0, 'num_predict': 512, 'num_ctx': num_ctx},
+    }
+    request_data = json.dumps(request_payload).encode('utf-8')
+
+    llm_analyses = {}
+    for ollama_base in candidate_bases:
+        try:
+            req = urllib_request.Request(
+                f'{ollama_base}/api/generate',
+                data=request_data,
+                headers={'Content-Type': 'application/json'},
+                method='POST',
+            )
+            body = _ollama_urlopen_wall_clock(req, wall_timeout=120)
+            raw = json.loads(body).get('response', '{}')
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            llm_analyses = parsed.get('analyses') if isinstance(parsed, dict) else {}
+            if not isinstance(llm_analyses, dict):
+                llm_analyses = {}
+            break
+        except Exception as exc:
+            logger.warning('[LLM_FLAGGED] %s error=%s', ollama_base, exc)
+            continue
+
+    all_value_mappings = {}
+    all_applied = []
+    all_flagged_only = []  # values LLM said are extreme_real or uncertain
+    knn_columns = set()    # columns where NaN was set — need KNN imputation
+
+    for col, info in target_columns.items():
+        col_analyses = llm_analyses.get(col) if isinstance(llm_analyses.get(col), dict) else {}
+
+        typed_corrections = {}
+        flagged_kept = []
+
+        for suspicious_val in info['suspicious']:
+            val_key = str(int(suspicious_val)) if suspicious_val == int(suspicious_val) else str(suspicious_val)
+            analysis = col_analyses.get(val_key) or col_analyses.get(str(suspicious_val)) or {}
+            classification = str(analysis.get('classification', '')).lower()
+            raison = analysis.get('raison', '')
+            corrected_val = analysis.get('valeur_corrigee')
+
+            if classification == 'error':
+                if corrected_val is not None:
+                    # LLM reconstructed the intended value (e.g. 200→20) — use it
+                    _add_typed_key(typed_corrections, suspicious_val, corrected_val)
+                    logger.info('[LLM_FLAGGED] CORRECTED col=%s val=%s -> %s reason=%s', col, suspicious_val, corrected_val, raison)
+                else:
+                    # LLM confirmed error but couldn't estimate → nullify for KNN imputation
+                    _add_typed_key(typed_corrections, suspicious_val, float('nan'))
+                    knn_columns.add(col)
+                    logger.info('[LLM_FLAGGED] NULLIFIED col=%s val=%s (KNN will impute) reason=%s', col, suspicious_val, raison)
+            elif classification in ('extreme_real', 'uncertain'):
+                # Keep value as-is, record it as flagged for manual review
+                flagged_kept.append({'value': suspicious_val, 'classification': classification, 'raison': raison})
+                logger.info('[LLM_FLAGGED] KEPT col=%s val=%s classification=%s reason=%s', col, suspicious_val, classification, raison)
+            else:
+                # LLM did not classify — sentinels → NaN for KNN, others → keep
+                if suspicious_val in _SENTINEL_VALUES:
+                    _add_typed_key(typed_corrections, suspicious_val, float('nan'))
+                    knn_columns.add(col)
+                    logger.info('[LLM_FLAGGED] SENTINEL_NULLIFIED col=%s val=%s -> NaN (KNN imputation)', col, suspicious_val)
+                else:
+                    flagged_kept.append({'value': suspicious_val, 'classification': 'uncertain', 'raison': 'Non classifié par le LLM — conservé par précaution'})
+
+        if typed_corrections:
+            before_series = dataframe[col].copy()
+            replaced = dataframe[col].replace(typed_corrections)
+            cells_changed = _count_series_changes(before_series, replaced)
+            all_value_mappings[col] = typed_corrections
+            all_applied.append({
+                'action': 'llm_value_correction',
+                'count': len(typed_corrections),
+                'cells_changed': cells_changed,
+                'details': {
+                    'columns': [{
+                        'column': col,
+                        'cells_changed': cells_changed,
+                        'corrections': {str(k): v for k, v in typed_corrections.items()},
+                        'explanation': info.get('explanation', ''),
+                        'kept_as_real': flagged_kept,
+                    }]
+                },
+            })
+
+        if flagged_kept and not typed_corrections:
+            # Column only has extreme_real/uncertain values → record as flagged, no correction
+            all_flagged_only.append({'col': col, 'kept': flagged_kept})
+
+    # If LLM was completely unavailable (no analyses at all), nullify sentinels for KNN imputation
+    if not llm_analyses and target_columns:
+        _notify("LLM indisponible — sentinelles nullifiées pour imputation KNN.")
+        for col, info in target_columns.items():
+            typed_corrections = {}
+            for v in info['suspicious']:
+                if v in _SENTINEL_VALUES:
+                    _add_typed_key(typed_corrections, v, float('nan'))
+                    knn_columns.add(col)
+            if typed_corrections:
+                before_series = dataframe[col].copy()
+                replaced = dataframe[col].replace(typed_corrections)
+                cells_changed = _count_series_changes(before_series, replaced)
+                all_value_mappings[col] = typed_corrections
+                all_applied.append({
+                    'action': 'llm_value_correction',
+                    'count': len(typed_corrections),
+                    'cells_changed': cells_changed,
+                    'details': {
+                        'columns': [{
+                            'column': col,
+                            'cells_changed': cells_changed,
+                            'corrections': {str(k): None for k in typed_corrections},
+                            'explanation': info.get('explanation', '') + ' [sentinelle nullifiée → imputation KNN]',
+                            'kept_as_real': [],
+                            'knn_imputation_pending': True,
+                        }]
+                    },
+                })
+
+    return all_value_mappings, all_applied, list(knn_columns)
+
+
+def _run_model_imputation(dataframe, columns_to_impute, n_neighbors=5, progress_callback=None):
+    """
+    Fill NaN values (set by aberrant value replacement) using KNN imputation.
+
+    KNN estimates each missing value from the k most similar patients based on
+    all other numeric columns — more contextual than a global median.
+
+    Returns (imputed_df, imputed_report) where imputed_report lists imputed cells
+    flagged as needs_review=True.
+    """
+    import numpy as np
+
+    def _notify(msg):
+        try:
+            if progress_callback:
+                progress_callback(msg)
+        except Exception:
+            pass
+
+    if not columns_to_impute:
+        return dataframe, []
+
+    try:
+        from sklearn.impute import KNNImputer
+    except ImportError:
+        _notify("scikit-learn non disponible — imputation KNN ignorée.")
+        return dataframe, []
+
+    # Only numeric columns can be imputed by KNN
+    numeric_cols = list(dataframe.select_dtypes(include=[np.number]).columns)
+    target_cols = [c for c in columns_to_impute if c in numeric_cols]
+    if not target_cols:
+        return dataframe, []
+
+    _notify(f"Imputation KNN ({len(target_cols)} colonne(s) avec valeurs aberrantes nullifiées)...")
+
+    # Snapshot: which cells are NaN before imputation
+    df_numeric = dataframe[numeric_cols].copy()
+    was_nan_before = df_numeric[target_cols].isnull()
+
+    k = max(1, min(n_neighbors, len(dataframe) - 1))
+    imputer = KNNImputer(n_neighbors=k)
+    try:
+        imputed_array = imputer.fit_transform(df_numeric)
+    except Exception as exc:
+        _notify(f"Imputation KNN échouée: {exc}")
+        return dataframe, []
+
+    df_imputed = pd.DataFrame(imputed_array, columns=numeric_cols, index=dataframe.index)
+
+    result_df = dataframe.copy()
+    imputed_report = []
+
+    for col in target_cols:
+        imputed_mask = was_nan_before[col]
+        if not imputed_mask.any():
+            continue
+        result_df[col] = df_imputed[col]
+        imputed_count = int(imputed_mask.sum())
+        sample_imputed = [
+            round(float(df_imputed.loc[idx, col]), 4)
+            for idx in dataframe.index[imputed_mask][:5]
+        ]
+        imputed_report.append({
+            'column': col,
+            'imputed_count': imputed_count,
+            'method': f'KNN (k={k})',
+            'sample_values': sample_imputed,
+            'needs_review': True,
+            'note': 'Valeur estimée par similarité avec les autres patients — à vérifier',
+        })
+        _notify(f"KNN: {col} — {imputed_count} valeur(s) imputée(s)")
+
+    return result_df, imputed_report
+
+
+def _add_typed_key(corrections_dict, numeric_val, corrected_val):
+    """Add a numeric value and its int/str variants as keys in corrections_dict.
+    corrected_val must be a scalar (int, float, None). If the LLM returned a dict or list,
+    extract the first numeric value found, otherwise skip.
+    """
+    # Guard: pandas Series.replace cannot accept dict/list as replacement value
+    if isinstance(corrected_val, dict):
+        # Try to extract a numeric value from common LLM response patterns
+        corrected_val = (
+            corrected_val.get('valeur_corrigee')
+            or corrected_val.get('value')
+            or corrected_val.get('suggestion')
+            or corrected_val.get('corrected')
+            or None
+        )
+    if isinstance(corrected_val, (list, tuple)):
+        corrected_val = corrected_val[0] if corrected_val else None
+    if corrected_val is not None and not isinstance(corrected_val, (int, float)):
+        try:
+            corrected_val = float(corrected_val)
+        except (ValueError, TypeError):
+            corrected_val = None  # drop uncoercible values
+
+    try:
+        float_key = float(numeric_val)
+        int_key = int(float_key) if float_key == int(float_key) else None
+        candidates = [float_key, int_key, str(int_key) if int_key is not None else None, str(float_key)]
+        for candidate in candidates:
+            if candidate is not None:
+                corrections_dict[candidate] = corrected_val
+    except Exception:
+        corrections_dict[numeric_val] = corrected_val
 
 
 def _apply_llm_correction_plan(dataframe, llm_analysis):
@@ -4154,8 +5749,12 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved or not isinstance(mapping, dict):
                 continue
+            # Filter out nested dict/list values — Series.replace only accepts scalars
+            flat_mapping = {k: v for k, v in mapping.items() if not isinstance(v, (dict, list))}
+            if not flat_mapping:
+                continue
             before_series = corrected[resolved].copy()
-            corrected[resolved] = corrected[resolved].replace(mapping)
+            corrected[resolved] = corrected[resolved].replace(flat_mapping)
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             mapping_count += 1
             total_cells_changed += cells_changed
@@ -4209,6 +5808,39 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'count': cast_count,
                 'cells_changed': total_cells_changed,
                 'details': {'columns': cast_details},
+            })
+
+    unit_conversions = correction_plan.get('unit_conversions') or {}
+    if isinstance(unit_conversions, dict):
+        conv_count = 0
+        conv_details = []
+        total_cells_changed = 0
+        for column_name, spec in unit_conversions.items():
+            resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
+            if not resolved or not isinstance(spec, dict):
+                continue
+            factor = spec.get('factor')
+            if not factor:
+                continue
+            before_series = corrected[resolved].copy()
+            numeric_col = pd.to_numeric(corrected[resolved], errors='coerce')
+            corrected[resolved] = (numeric_col * factor).round(4)
+            cells_changed = _count_series_changes(before_series, corrected[resolved])
+            conv_count += 1
+            total_cells_changed += cells_changed
+            conv_details.append({
+                'column': resolved,
+                'from_unit': spec.get('from_unit', '?'),
+                'to_unit': spec.get('to_unit', '?'),
+                'factor': factor,
+                'cells_changed': cells_changed,
+            })
+        if conv_count:
+            applied_actions.append({
+                'action': 'unit_conversions',
+                'count': conv_count,
+                'cells_changed': total_cells_changed,
+                'details': {'columns': conv_details},
             })
 
     parse_dates = correction_plan.get('parse_dates') or []
@@ -4273,8 +5905,11 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                     except (ValueError, TypeError):
                         continue
             elif not isinstance(strategy_spec, dict):
-                # strategy_spec is a bare value
-                if pd.api.types.is_numeric_dtype(corrected[resolved]):
+                if strategy_spec is None:
+                    # None means "fill needed, no strategy specified" → promote to mode
+                    strategy_spec = {'strategy': 'mode'}
+                elif pd.api.types.is_numeric_dtype(corrected[resolved]):
+                    # Guard: reject non-numeric bare values on numeric columns (e.g. LLM proposes "x")
                     try:
                         float(str(strategy_spec))
                     except (ValueError, TypeError):
@@ -4452,8 +6087,27 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
 
     quality_score = llm_analysis.get('quality_score') if isinstance(llm_analysis, dict) else None
     if not isinstance(quality_score, (int, float)):
+        # Base score from LLM issues
         raw_score = 100 - (severity_count.get('critical', 0) * 15) - (severity_count.get('warning', 0) * 6) - (severity_count.get('info', 0) * 2)
-        quality_score = max(5, min(100, int(raw_score)))
+        # Add penalty from technical profile (missing values, duplicates, outliers)
+        tp = technical_profile if isinstance(technical_profile, dict) else {}
+        missing_pct = float(tp.get('missing_pct') or 0)
+        duplicate_rows = int(tp.get('duplicate_rows') or 0)
+        total_rows = max(1, int(tp.get('row_count') or len(dataframe.index)))
+        outlier_total = sum(
+            int(c.get('outlier_count') or 0)
+            for c in (tp.get('columns_with_issues') or tp.get('columns_profile') or [])
+            if isinstance(c, dict)
+        )
+        type_error_cols = sum(
+            1 for c in (tp.get('columns_with_issues') or [])
+            if isinstance(c, dict) and c.get('type_issue')
+        )
+        raw_score -= missing_pct * 0.4
+        raw_score -= min(20, (duplicate_rows / total_rows) * 100 * 0.5)
+        raw_score -= min(10, outlier_total * 0.5)
+        raw_score -= type_error_cols * 3
+        quality_score = max(5, min(100, int(round(raw_score))))
     else:
         quality_score = max(0, min(100, int(round(float(quality_score)))))
 
@@ -4884,13 +6538,14 @@ class PatientPreprocessAnalyzeView(APIView):
 
         # Dispatcher la task Celery de manière asynchrone
         try:
-            analyze_preprocess_async.delay(
+            task_result = analyze_preprocess_async.delay(
                 session_id=session_id,
                 file_path=temp_file_path,
                 user_id=request.user.id,
                 use_llm=str(request.data.get('use_llm', 'true')).lower() not in ['0', 'false', 'no', 'non']
             )
             queued_session = _load_preprocess_session(session_id) or session
+            queued_session['celery_task_id'] = task_result.id
             _append_preprocess_event(
                 queued_session,
                 event_type='analysis_dispatched',
@@ -4925,6 +6580,9 @@ class PatientPreprocessStatusView(APIView):
         except Exception:
             return Response({'error': 'Session non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
 
+        if session is None:
+            return Response({'error': 'Session non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+
         if session.get('status') == 'completed':
             report = session.get('report', {})
             llm_internal_status = report.get('llm_internal_status', {}) if isinstance(report, dict) else {}
@@ -4956,6 +6614,25 @@ class PatientPreprocessStatusView(APIView):
                 status=status.HTTP_200_OK,
             )
         else:  # pending or in_progress
+            # Detect stale sessions: if updated_at > PREPROCESS_TIMEOUT_MINUTES ago, mark as error
+            try:
+                timeout_minutes = int(os.environ.get('PREPROCESS_TIMEOUT_MINUTES', '30'))
+                updated_at_str = session.get('updated_at') or session.get('created_at')
+                if updated_at_str:
+                    from django.utils.dateparse import parse_datetime
+                    updated_at = parse_datetime(updated_at_str)
+                    if updated_at and (timezone.now() - updated_at).total_seconds() > timeout_minutes * 60:
+                        return Response(
+                            {
+                                'preprocess_id': preprocess_id,
+                                'status': 'error',
+                                'error': 'Le worker a été interrompu (redémarrage ou timeout). Veuillez relancer l\'analyse.',
+                                'message': 'Analyse interrompue — relancez le fichier.',
+                            },
+                            status=status.HTTP_200_OK,
+                        )
+            except Exception:
+                pass
             return Response(
                 {
                     'preprocess_id': preprocess_id,
@@ -5251,11 +6928,13 @@ class PatientPreprocessExportView(APIView):
     permission_classes = [CanViewPatients]
 
     def get(self, request, session_id):
+        from openpyxl.styles import PatternFill, Font, Alignment
         session = _load_preprocess_session(session_id)
         if not session:
             return Response({'error': 'Session de pretraitement introuvable.'}, status=status.HTTP_404_NOT_FOUND)
 
         source = str(request.query_params.get('source', 'corrected')).lower()
+        original_rows = session.get('original_rows', [])
         rows_key = 'original_rows' if source == 'original' else 'corrected_rows'
         rows = session.get(rows_key, [])
         columns = session.get('columns', [])
@@ -5263,15 +6942,190 @@ class PatientPreprocessExportView(APIView):
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            dataframe.to_excel(writer, index=False, sheet_name='preprocess_dataset')
-        buffer.seek(0)
+            dataframe.to_excel(writer, index=False, sheet_name='Données')
 
+            ws = writer.sheets['Données']
+
+            # Style header row
+            header_fill = PatternFill(start_color='0A2B3E', end_color='0A2B3E', fill_type='solid')
+            header_font = Font(bold=True, color='FFFFFF', size=10)
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # Highlight changed cells (corrected version only)
+            if source == 'corrected' and original_rows:
+                corrected_fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
+                corrected_font = Font(bold=True, color='B45309', size=10)
+                orig_df = _rows_to_dataframe(original_rows, columns=columns)
+                cols_list = list(dataframe.columns)
+                for row_idx in range(len(dataframe)):
+                    for col_idx, col in enumerate(cols_list):
+                        if col in orig_df.columns and row_idx < len(orig_df):
+                            orig_val = orig_df.iloc[row_idx][col]
+                            new_val = dataframe.iloc[row_idx][col]
+                            if str(orig_val) != str(new_val):
+                                cell = ws.cell(row=row_idx + 2, column=col_idx + 1)
+                                cell.fill = corrected_fill
+                                cell.font = corrected_font
+
+            # Add a second sheet: corrections summary
+            report = session.get('report', {})
+            issues = report.get('all_issues') or report.get('issues') or []
+            issue_by_col = {i.get('column'): i for i in issues if i.get('column')}
+
+            if source == 'corrected' and original_rows:
+                ws2 = writer.book.create_sheet('Corrections')
+                headers2 = ['N° Ligne', 'ID Patient', 'Colonne', 'Valeur originale', 'Valeur corrigée', 'Type', 'Justification']
+                ws2.append(headers2)
+                for cell in ws2[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+
+                id_col = next(
+                    (k for k in (original_rows[0].keys() if original_rows else [])
+                     if any(kw in str(k).lower() for kw in ('id', 'identifiant', 'patient'))),
+                    None,
+                )
+                orig_df2 = _rows_to_dataframe(original_rows, columns=columns)
+                cols_list2 = list(dataframe.columns)
+                for row_idx in range(len(dataframe)):
+                    for col in cols_list2:
+                        if col in orig_df2.columns and row_idx < len(orig_df2):
+                            orig_val = orig_df2.iloc[row_idx][col]
+                            new_val = dataframe.iloc[row_idx][col]
+                            if str(orig_val) != str(new_val):
+                                issue = issue_by_col.get(col, {})
+                                patient_id = original_rows[row_idx].get(id_col, '') if id_col and row_idx < len(original_rows) else ''
+                                ws2.append([
+                                    row_idx + 1,
+                                    patient_id,
+                                    col,
+                                    orig_val,
+                                    new_val,
+                                    issue.get('category') or issue.get('type') or 'correction',
+                                    issue.get('explanation') or 'Correction automatique',
+                                ])
+                                cell_new = ws2.cell(row=ws2.max_row, column=5)
+                                cell_new.fill = corrected_fill
+                                cell_new.font = corrected_font
+
+        buffer.seek(0)
         response = HttpResponse(
             buffer.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
         response['Content-Disposition'] = f'attachment; filename="preprocess_{session_id}_{source}.xlsx"'
         return response
+
+
+class PatientPreprocessCellCorrectionsView(APIView):
+    """Return per-cell diff between original and corrected rows with justifications."""
+    permission_classes = [CanViewPatients]
+
+    def get(self, request, session_id):
+        session = _load_preprocess_session(session_id)
+        if not session:
+            return Response({'error': 'Session introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        original_rows = session.get('original_rows', [])
+        corrected_rows = session.get('corrected_rows', original_rows)
+        report = session.get('report', {})
+
+        issues = report.get('all_issues') or report.get('issues') or []
+        issue_by_col = {}
+        for issue in issues:
+            col = issue.get('column')
+            if col and col not in issue_by_col:
+                issue_by_col[col] = issue
+
+        id_col = next(
+            (k for k in (original_rows[0].keys() if original_rows else [])
+             if any(kw in str(k).lower() for kw in ('id', 'identifiant', 'patient'))),
+            None,
+        )
+
+        cell_corrections = []
+        for row_idx, (orig_row, corr_row) in enumerate(zip(original_rows, corrected_rows)):
+            for col in orig_row:
+                old_val = orig_row.get(col)
+                new_val = corr_row.get(col)
+                if old_val is None and new_val is None:
+                    continue
+                if str(old_val) != str(new_val):
+                    issue = issue_by_col.get(col, {})
+                    cell_corrections.append({
+                        'row': row_idx + 1,
+                        'patient_id': orig_row.get(id_col, row_idx + 1) if id_col else row_idx + 1,
+                        'column': col,
+                        'old_value': old_val,
+                        'new_value': new_val,
+                        'type': issue.get('category') or issue.get('type') or 'correction',
+                        'severity': issue.get('severity') or 'warning',
+                        'justification': issue.get('explanation') or 'Correction automatique',
+                    })
+
+        # Also include flagged issues (no correction applied) that aren't in cell_corrections
+        corrected_cols = {c['column'] for c in cell_corrections}
+        flagged = []
+        for issue in issues:
+            col = issue.get('column')
+            if col and col not in corrected_cols:
+                flagged.append({
+                    'row': None,
+                    'patient_id': None,
+                    'column': col,
+                    'old_value': None,
+                    'new_value': None,
+                    'type': issue.get('category') or 'anomalie',
+                    'severity': issue.get('severity') or 'warning',
+                    'justification': issue.get('explanation') or '—',
+                    'flagged_only': True,
+                })
+
+        return Response({
+            'total_corrections': len(cell_corrections),
+            'total_flagged': len(flagged),
+            'corrections': cell_corrections,
+            'flagged': flagged,
+        })
+
+
+class PatientPreprocessApplyOverridesView(APIView):
+    """Apply manual user overrides to corrected_rows in the session."""
+    permission_classes = [CanViewPatients]
+
+    def post(self, request, session_id):
+        session = _load_preprocess_session(session_id)
+        if not session:
+            return Response({'error': 'Session introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        overrides = request.data.get('overrides', [])
+        if not isinstance(overrides, list):
+            return Response({'error': 'overrides doit être une liste.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        corrected_rows = session.get('corrected_rows') or session.get('original_rows') or []
+        manual_overrides = session.get('manual_overrides', {})
+
+        applied = 0
+        for ov in overrides:
+            row_idx = ov.get('row')
+            col = ov.get('column')
+            new_val = ov.get('new_value')
+            if row_idx is None or not col:
+                continue
+            row_idx = int(row_idx) - 1  # convert 1-based to 0-based
+            if 0 <= row_idx < len(corrected_rows):
+                corrected_rows[row_idx][col] = new_val
+                manual_overrides[f'{row_idx + 1}_{col}'] = new_val
+                applied += 1
+
+        session['corrected_rows'] = corrected_rows
+        session['manual_overrides'] = manual_overrides
+        _save_preprocess_session(session)
+
+        return Response({'applied': applied, 'total_overrides': len(manual_overrides)})
 
 
 class PatientPreprocessIntegrateView(APIView):
@@ -5297,6 +7151,196 @@ class PatientPreprocessIntegrateView(APIView):
         result_payload['integration_source'] = source
         result_payload['quality_score'] = session.get('report', {}).get('summary', {}).get('quality_score')
         return Response(result_payload, status=result_status)
+
+
+class PatientPreprocessCancelView(APIView):
+    permission_classes = [CanViewPatients]
+
+    def post(self, request, session_id):
+        session = _load_preprocess_session(session_id)
+        if session:
+            session['status'] = 'error'
+            session['error'] = 'Analyse annulée par l\'utilisateur.'
+            _save_preprocess_session(session)
+        try:
+            from config.celery import app as celery_app
+            # Terminate the running task if we have its ID
+            task_id = (session or {}).get('celery_task_id')
+            if task_id:
+                celery_app.control.revoke(task_id, terminate=True, signal='SIGTERM')
+            # Also revoke all reserved (prefetched) tasks for this user
+            inspect = celery_app.control.inspect()
+            reserved = inspect.reserved() or {}
+            for worker_tasks in reserved.values():
+                for t in worker_tasks:
+                    celery_app.control.revoke(t['id'], terminate=False)
+            # Purge anything still in Redis queue
+            celery_app.control.purge()
+        except Exception:
+            pass
+        return Response({'status': 'cancelled'}, status=status.HTTP_200_OK)
+
+
+class PatientPreprocessSubmitValidationView(APIView):
+    """Submit preprocessing result for chief/admin validation before integration."""
+    permission_classes = [CanViewPatients]
+
+    def post(self, request, session_id):
+        from .models import PreprocessValidationRequest
+        session = _load_preprocess_session(session_id)
+        if not session:
+            return Response({'error': 'Session introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        if session.get('status') != 'completed':
+            return Response({'error': 'Analyse non terminée.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        source = str(request.data.get('source', 'corrected')).lower()
+        report = session.get('report', {})
+        summary = report.get('summary', {})
+
+        vr = PreprocessValidationRequest.objects.create(
+            session_id=session_id,
+            source=source,
+            source_file_name=session.get('source_file_name', ''),
+            submitted_by=request.user,
+            rows_count=summary.get('rows') or 0,
+            columns_count=summary.get('columns') or 0,
+            quality_score=summary.get('quality_score'),
+        )
+        return Response({'validation_id': vr.id, 'status': 'pending'}, status=status.HTTP_201_CREATED)
+
+
+class PatientPreprocessValidationListView(APIView):
+    """List pending validation requests — chef_service and super_admin only."""
+    permission_classes = [CanViewPatients]
+
+    def get(self, request):
+        from .models import PreprocessValidationRequest
+        from django.utils import timezone as tz
+
+        role_name = str(getattr(getattr(request.user, 'role', None), 'nom', '') or '')
+        if role_name not in ('super_admin', 'chef_service'):
+            return Response({'error': 'Accès réservé au chef de service et à l\'administrateur.'}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = PreprocessValidationRequest.objects.select_related('submitted_by', 'reviewed_by')
+        filter_status = request.query_params.get('status', 'pending')
+        if filter_status != 'all':
+            qs = qs.filter(status=filter_status)
+
+        data = []
+        for vr in qs[:50]:
+            data.append({
+                'id': vr.id,
+                'session_id': vr.session_id,
+                'source': vr.source,
+                'source_file_name': vr.source_file_name,
+                'submitted_by': str(getattr(vr.submitted_by, 'username', '') or ''),
+                'submitted_at': vr.submitted_at.isoformat() if vr.submitted_at else None,
+                'status': vr.status,
+                'rows_count': vr.rows_count,
+                'columns_count': vr.columns_count,
+                'quality_score': vr.quality_score,
+                'reviewed_by': str(getattr(vr.reviewed_by, 'username', '') or ''),
+                'reviewed_at': vr.reviewed_at.isoformat() if vr.reviewed_at else None,
+                'comment': vr.comment,
+            })
+        return Response({'results': data, 'count': len(data)})
+
+
+class PatientPreprocessValidationDetailView(APIView):
+    """Preview data mapped to platform structure + approve/reject."""
+    permission_classes = [CanViewPatients]
+
+    def get(self, request, validation_id):
+        """Return preview of data mapped to Patient columns."""
+        from .models import PreprocessValidationRequest
+        try:
+            vr = PreprocessValidationRequest.objects.get(id=validation_id)
+        except PreprocessValidationRequest.DoesNotExist:
+            return Response({'error': 'Validation introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        session = _load_preprocess_session(vr.session_id)
+        if not session:
+            return Response({'error': 'Session de prétraitement introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        rows_key = 'original_rows' if vr.source == 'original' else 'corrected_rows'
+        rows = session.get(rows_key) or session.get('corrected_rows') or []
+        columns = session.get('columns', [])
+        preview = rows[:50]
+
+        report = session.get('report', {})
+        issues = report.get('issues', []) or report.get('all_issues', [])
+        cross_issues = (report.get('dataset_profile') or {}).get('cross_column_issues', [])
+
+        return Response({
+            'id': vr.id,
+            'session_id': vr.session_id,
+            'source': vr.source,
+            'source_file_name': vr.source_file_name,
+            'status': vr.status,
+            'submitted_by': str(getattr(vr.submitted_by, 'username', '') or ''),
+            'submitted_at': vr.submitted_at.isoformat() if vr.submitted_at else None,
+            'rows_count': vr.rows_count,
+            'columns_count': vr.columns_count,
+            'quality_score': vr.quality_score,
+            'columns': columns,
+            'preview_rows': preview,
+            'issues_count': len(issues),
+            'cross_column_issues': cross_issues[:10],
+            'comment': vr.comment,
+        })
+
+    def post(self, request, validation_id):
+        """Approve or reject the validation request."""
+        from .models import PreprocessValidationRequest
+        from django.utils import timezone as tz
+
+        role_name = str(getattr(getattr(request.user, 'role', None), 'nom', '') or '')
+        if role_name not in ('super_admin', 'chef_service'):
+            return Response({'error': 'Accès réservé au chef de service et à l\'administrateur.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            vr = PreprocessValidationRequest.objects.get(id=validation_id)
+        except PreprocessValidationRequest.DoesNotExist:
+            return Response({'error': 'Validation introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if vr.status != 'pending':
+            return Response({'error': f'Cette demande est déjà {vr.status}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        action = str(request.data.get('action', '')).lower()
+        comment = str(request.data.get('comment', ''))
+
+        if action == 'approve':
+            session = _load_preprocess_session(vr.session_id)
+            if not session:
+                return Response({'error': 'Session introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+            rows_key = 'original_rows' if vr.source == 'original' else 'corrected_rows'
+            rows = session.get(rows_key) or session.get('corrected_rows') or []
+            columns = session.get('columns', [])
+            dataframe = _rows_to_dataframe(rows, columns=columns)
+
+            result_payload, result_status = _integrate_dataframe_into_patients(
+                dataframe,
+                request_user=request.user,
+                source_file_name=vr.source_file_name or f'preprocess_{vr.session_id[:8]}.xlsx',
+            )
+            vr.status = 'approved'
+            vr.reviewed_by = request.user
+            vr.reviewed_at = tz.now()
+            vr.comment = comment
+            vr.save()
+            result_payload['validation_id'] = vr.id
+            return Response(result_payload, status=result_status)
+
+        elif action == 'reject':
+            vr.status = 'rejected'
+            vr.reviewed_by = request.user
+            vr.reviewed_at = tz.now()
+            vr.comment = comment
+            vr.save()
+            return Response({'validation_id': vr.id, 'status': 'rejected'})
+
+        return Response({'error': 'Action invalide. Utilisez "approve" ou "reject".'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PatientImportExcelView(APIView):

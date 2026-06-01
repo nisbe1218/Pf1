@@ -1172,6 +1172,12 @@ function PatientsManagement() {
     return tableSchemaFields.filter((field) => !fixedKeys.has(field.key));
   }, [tableSchemaFields]);
 
+  const columnLabelMap = useMemo(() => {
+    const map = {};
+    tableSchemaFields.forEach((f) => { if (f.label) map[f.key] = f.label; });
+    return map;
+  }, [tableSchemaFields]);
+
   const patientColumnKeys = useMemo(() => {
     const orderedKeys = Array.from(DEFAULT_PATIENT_COLUMN_KEYS);
     const seenKeys = new Set(orderedKeys);
@@ -3128,7 +3134,7 @@ function PatientsManagement() {
           <AppSidebar onValidateInsertion={handleValidateInsertion} onViewImport={() => { /* Scroll to validation panel */ if (isValidationPending) { const elem = document.querySelector('[data-validation-panel]'); elem?.scrollIntoView({ behavior: 'smooth' }); } }} />
         </Grid>
 
-        <Grid item xs={12} sx={{ minWidth: 0, ml: { md: '88px' } }}>
+        <Grid item xs={12} sx={{ minWidth: 0, ml: { md: '252px' } }}>
           <Stack spacing={2.5}>
         {mainSection === 'data_patient' ? (
           <>
@@ -3208,7 +3214,7 @@ function PatientsManagement() {
               : `Nouvelle importation en attente de validation. ${validatorPhrase} pouvez valider l'insertion pour rendre les données disponibles sur toute la plateforme.`}
           </Alert>
         )}
-        {error && <Alert severity="error" sx={{ borderRadius: "14px", fontFamily: "inherit" }}>{error}</Alert>}
+        {error && <Alert severity="error" onClose={() => setError('')} sx={{ borderRadius: "14px", fontFamily: "inherit" }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ borderRadius: "14px", fontFamily: "inherit" }}>{success}</Alert>}
 
         {/* ── Rapport colonnes dynamiques détectées lors de l'import ── */}
@@ -3295,11 +3301,11 @@ function PatientsManagement() {
                             textTransform: 'none',
                             borderRadius: 2,
                             fontWeight: 800,
-                            background: 'linear-gradient(135deg, #1e2d5a 0%, #3d5a8a 48%, #9e3d6a 100%)',
+                            background: 'linear-gradient(135deg, #1A8FA8 0%, #D47A8E 100%)',
                             color: '#fff',
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            boxShadow: '0 12px 28px rgba(30,45,90,0.18), 0 4px 12px rgba(158,61,106,0.10)',
-                            '&:hover': { filter: 'brightness(1.03)', boxShadow: '0 14px 32px rgba(30,45,90,0.22), 0 6px 14px rgba(158,61,106,0.14)' },
+                            border: 'none',
+                            boxShadow: '0 6px 20px rgba(26,143,168,0.28)',
+                            '&:hover': { filter: 'brightness(1.06)', boxShadow: '0 8px 24px rgba(26,143,168,0.36)' },
                             whiteSpace: 'nowrap'
                           }}
                         >
@@ -3448,7 +3454,7 @@ function PatientsManagement() {
                           size="small"
                           variant="contained"
                           onClick={handleSearch}
-                          sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, minWidth: 120 }}
+                          sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, minWidth: 120, background: 'linear-gradient(135deg, #1A8FA8 0%, #D47A8E 100%)', boxShadow: '0 6px 20px rgba(26,143,168,0.28)', '&:hover': { filter: 'brightness(1.06)', boxShadow: '0 8px 24px rgba(26,143,168,0.36)' } }}
                         >
                           {t('patientsApply')}
                         </Button>
@@ -3539,7 +3545,7 @@ function PatientsManagement() {
                               }}
                               title={dynamicColumnKeys.has(columnKey) ? 'Colonne dynamique (importée automatiquement)' : undefined}
                             >
-                              {columnKey}
+                              {FIELD_LABEL_MAP[columnKey] || columnLabelMap[columnKey] || columnKey}
                             </TableCell>
                           ))}
                         </TableRow>

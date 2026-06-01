@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec medical_backend python -c ' *)",
+      "Bash(docker exec *)"
+    ]
+  }
+}

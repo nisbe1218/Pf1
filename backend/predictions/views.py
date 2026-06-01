@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 os.environ.setdefault('OMP_NUM_THREADS', '1')
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('MKL_NUM_THREADS', '1')
-# import joblib  # TEMPORAIREMENT COMMENTÉ POUR DÉBLOQUER DJANGO
+import joblib
 import numpy as np
 import pandas as pd
 from django.conf import settings
@@ -21,7 +21,7 @@ from sklearn.ensemble import (
     RandomForestClassifier,
     VotingClassifier,
 )
-from sklearn.impute import SimpleImputer
+from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -40,7 +40,7 @@ from sklearn.model_selection import (
 )
 from sklearn.pipeline import FunctionTransformer, Pipeline
 from sklearn.preprocessing import OneHotEncoder, PowerTransformer, StandardScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import resample
 
@@ -239,8 +239,8 @@ def get_model_map(scale_pos_weight=None):
         'logistic_regression': LogisticRegression(
             max_iter=2000, solver='saga', class_weight='balanced', C=0.5
         ),
-        'svm': CalibratedClassifierCV(
-            LinearSVC(max_iter=5000, dual=False, class_weight='balanced'), cv=3
+        'svm': SVC(
+            C=0.01, kernel='linear', class_weight='balanced', probability=False, random_state=42, max_iter=5000
         ),
         'decision_tree': DecisionTreeClassifier(
             max_depth=6, random_state=42, class_weight='balanced', min_samples_leaf=5
@@ -745,41 +745,59 @@ def extract_features_from_patient(patient, feature_keys):
 # ── Labels de prédiction ──────────────────────────────────────────────────────
 
 def mortality_label(patient):
-    """Retourne 1 si le patient est décédé dans l'année suivant l'évaluation initiale.
+    """Retourne 1 si le patient est décédé dans les 365 jours suivant le début de dialyse.
 
-    Priorise "devenir_statut" lorsque le statut de décès est disponible.
+    Priorité de vérification :
+    1. extra_data.delai_jusquau_deces_jours (importé depuis Excel, source de vérité)
+    2. devenir_date_deces - dialyse_date_debut (calcul depuis dates)
+    3. devenir_statut seul (sans contrainte 1 an — fallback dégradé)
     """
+    is_dead = False
     status = getattr(patient, 'devenir_statut', None)
     if status is not None:
         normalized_status = str(status).strip().lower()
-        if 'dece' in normalized_status or 'deced' in normalized_status or 'décédé' in normalized_status:
-            return 1
+        if 'dece' in normalized_status or 'décédé' in normalized_status:
+            is_dead = True
+
+    if not is_dead:
         return 0
 
-    death_date = getattr(patient, 'devenir_date_deces', None)
-    evaluation_date = getattr(patient, 'date_evaluation_initiale', None)
-    if not death_date or not evaluation_date:
-        return 0
-
-    if isinstance(evaluation_date, datetime):
-        eval_dt = evaluation_date
-    elif isinstance(evaluation_date, date):
-        eval_dt = datetime.combine(evaluation_date, datetime.min.time())
-    else:
+    # Source 1 — délai en jours stocké directement depuis le fichier Excel
+    extra = getattr(patient, 'extra_data', None) or {}
+    delai = extra.get('delai_jusquau_deces_jours')
+    if delai is not None:
         try:
-            eval_dt = datetime.fromisoformat(str(evaluation_date))
-        except Exception:
-            return 0
+            return 1 if int(float(str(delai))) <= 365 else 0
+        except (ValueError, TypeError):
+            pass
 
-    try:
-        parsed = datetime.fromisoformat(str(death_date))
-    except ValueError:
-        try:
-            parsed = datetime.strptime(str(death_date), '%Y-%m-%d')
-        except Exception:
-            return 0
+    # Source 2 — calcul depuis devenir_date_deces et dialyse_date_debut
+    death_date_raw = getattr(patient, 'devenir_date_deces', None)
+    dialyse_start_raw = getattr(patient, 'dialyse_date_debut', None)
 
-    return 1 if parsed <= eval_dt + timedelta(days=365) else 0
+    if death_date_raw and dialyse_start_raw:
+        def _parse_dt(raw):
+            if isinstance(raw, datetime):
+                return raw
+            if isinstance(raw, date):
+                return datetime.combine(raw, datetime.min.time())
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d'):
+                try:
+                    return datetime.strptime(str(raw).strip(), fmt)
+                except ValueError:
+                    pass
+            try:
+                return datetime.fromisoformat(str(raw).strip())
+            except Exception:
+                return None
+
+        dt_death = _parse_dt(death_date_raw)
+        dt_start = _parse_dt(dialyse_start_raw)
+        if dt_death and dt_start:
+            return 1 if dt_death <= dt_start + timedelta(days=365) else 0
+
+    # Source 3 — fallback : décédé sans contrainte temporelle connue → compté comme décès à 1 an
+    return 1
 
 
 def coagulation_label(patient):
@@ -865,10 +883,45 @@ def get_preprocessor(numeric_features, categorical_features):
     )
 
 
+def get_svm_preprocessor(numeric_features, categorical_features):
+    """Construit un ColumnTransformer optimisé pour SVM avec KNN imputation."""
+    transformers = []
+
+    if numeric_features:
+        numeric_transformer = Pipeline([
+            ('imputer', KNNImputer(n_neighbors=3)),
+            ('power', PowerTransformer(method='yeo-johnson')),
+            ('scaler', StandardScaler()),
+        ])
+        transformers.append(('numeric', numeric_transformer, numeric_features))
+
+    if categorical_features:
+        categorical_transformer = Pipeline([
+            ('cast', FunctionTransformer(cast_to_string, validate=False)),
+            ('imputer', SimpleImputer(strategy='constant', fill_value='inconnu')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False, drop='if_binary')),
+        ])
+        transformers.append(('categorical', categorical_transformer, categorical_features))
+
+    return ColumnTransformer(
+        transformers=transformers,
+        remainder='drop',
+        sparse_threshold=0,
+    )
+
+
 def get_pipeline(estimator, numeric_features, categorical_features):
     """Construit un Pipeline complet prétraitement + classifieur."""
     return Pipeline([
         ('preprocessor', get_preprocessor(numeric_features, categorical_features)),
+        ('classifier', estimator),
+    ])
+
+
+def get_svm_pipeline(estimator, numeric_features, categorical_features):
+    """Construit un Pipeline optimisé pour SVM avec KNN imputation."""
+    return Pipeline([
+        ('preprocessor', get_svm_preprocessor(numeric_features, categorical_features)),
         ('classifier', estimator),
     ])
 
@@ -1114,14 +1167,99 @@ def train_models(target_type, feature_keys=None):
                     estimator, param_distributions, X_train_fit, y_train_fit, numeric_features, categorical_features,
                 )
             elif name == 'svm':
-                param_distributions = {
-                    'classifier__estimator__C': [0.01, 0.1, 0.5, 1.0, 2.0],
-                    'classifier__estimator__loss': ['hinge', 'squared_hinge'],
-                    'classifier__cv': [3],
-                }
-                pipeline, best_params, best_search_score = tune_estimator(
-                    estimator, param_distributions, X_train_fit, y_train_fit, numeric_features, categorical_features,
+                # SVM uses 32 engineered features (24 clinical + 8 interaction terms)
+                from .models.feature_mapping import (
+                    extract_features_for_patient as _svm_extract,
+                    get_feature_order as _svm_feature_order,
                 )
+                svm_feature_keys = _svm_feature_order()
+                label_fn_svm = mortality_label if target_type == 'mortalite' else coagulation_label
+                svm_rows = []
+                svm_labels = []
+                for _pat in Patient.objects.all():
+                    _feat = _svm_extract(_pat)
+                    svm_rows.append({k: (v if v is not None else np.nan) for k, v in _feat.items()})
+                    svm_labels.append(label_fn_svm(_pat))
+                if not svm_rows:
+                    report.append({
+                        'model': name, 'error': 'Aucun patient pour SVM',
+                        'accuracy': None, 'precision': None, 'recall': None, 'f1': None,
+                        'pr_auc': None, 'auc': None, 'cv_pr_auc_mean': None, 'cv_pr_auc_std': None,
+                        'cv_auc_mean': None, 'cv_auc_std': None,
+                        'n_train': None, 'n_test': None, 'feature_keys': svm_feature_keys,
+                    })
+                    continue
+                X_svm = pd.DataFrame(svm_rows, columns=svm_feature_keys)
+                y_svm = np.array(svm_labels, dtype=int)
+                valid_svm = X_svm.notna().sum(axis=1) >= max(1, len(svm_feature_keys) // 3)
+                X_svm = X_svm[valid_svm].reset_index(drop=True)
+                y_svm = y_svm[valid_svm]
+                svm_unique, svm_counts = np.unique(y_svm, return_counts=True)
+                if len(svm_unique) < 2 or len(y_svm) < 20:
+                    report.append({
+                        'model': name,
+                        'error': f'Données insuffisantes ({len(y_svm)} patients, {len(svm_unique)} classes)',
+                        'accuracy': None, 'precision': None, 'recall': None, 'f1': None,
+                        'pr_auc': None, 'auc': None, 'cv_pr_auc_mean': None, 'cv_pr_auc_std': None,
+                        'cv_auc_mean': None, 'cv_auc_std': None,
+                        'n_train': None, 'n_test': None, 'feature_keys': svm_feature_keys,
+                    })
+                    continue
+                svm_class_dist = {int(l): int(c) for l, c in zip(svm_unique, svm_counts)}
+                X_svm_train, X_svm_test, y_svm_train, y_svm_test = train_test_split(
+                    X_svm, y_svm, test_size=0.25, random_state=42, stratify=y_svm
+                )
+                # All SVM features are numeric floats
+                # CalibratedClassifierCV(sigmoid) calibrates probabilities via 5-fold Platt scaling
+                _base_svm = get_svm_pipeline(estimator, svm_feature_keys, [])
+                svm_pipeline = CalibratedClassifierCV(_base_svm, method='sigmoid', cv=5)
+                svm_pipeline.fit(X_svm_train, y_svm_train)
+                y_prob_svm = svm_pipeline.predict_proba(X_svm_test)[:, 1]
+                svm_threshold = find_best_threshold(y_svm_test, y_prob_svm)
+                y_pred_svm = (y_prob_svm >= svm_threshold).astype(int)
+                svm_has_both = len(np.unique(y_svm_test)) > 1
+                svm_auc = float(roc_auc_score(y_svm_test, y_prob_svm)) if svm_has_both else None
+                svm_pr_auc = float(average_precision_score(y_svm_test, y_prob_svm)) if svm_has_both else None
+                svm_f1 = float(f1_score(y_svm_test, y_pred_svm, zero_division=0))
+                svm_prec = float(precision_score(y_svm_test, y_pred_svm, zero_division=0))
+                svm_rec = float(recall_score(y_svm_test, y_pred_svm, zero_division=0))
+                svm_acc = float(accuracy_score(y_svm_test, y_pred_svm))
+                svm_meta = {
+                    'feature_keys': svm_feature_keys,
+                    'threshold': svm_threshold,
+                    'class_distribution': svm_class_dist,
+                    'metrics': {
+                        'auc': svm_auc, 'pr_auc': svm_pr_auc, 'f1': svm_f1,
+                        'precision': svm_prec, 'recall': svm_rec,
+                        'n_train': len(X_svm_train), 'n_test': len(X_svm_test),
+                    },
+                }
+                joblib.dump(svm_pipeline, get_model_path(target_type, name))
+                joblib.dump(svm_meta, get_features_path(target_type, name))
+                svm_score = svm_pr_auc if svm_pr_auc is not None else svm_auc if svm_auc is not None else svm_f1
+                if svm_score is not None and svm_score > best_score:
+                    best_score = svm_score
+                    best_model_instance = svm_pipeline
+                    best_model_name = name
+                    best_feature_metadata = svm_meta
+                report.append({
+                    'model': name,
+                    'accuracy': round(svm_acc, 4),
+                    'precision': round(svm_prec, 4),
+                    'recall': round(svm_rec, 4),
+                    'f1': round(svm_f1, 4),
+                    'pr_auc': round(svm_pr_auc, 4) if svm_pr_auc is not None else None,
+                    'auc': round(svm_auc, 4) if svm_auc is not None else None,
+                    'cv_pr_auc_mean': None, 'cv_pr_auc_std': None,
+                    'cv_auc_mean': None, 'cv_auc_std': None,
+                    'threshold': round(svm_threshold, 3),
+                    'class_distribution': svm_class_dist,
+                    'scale_pos_weight': None,
+                    'n_train': len(X_svm_train),
+                    'n_test': len(X_svm_test),
+                    'feature_keys': svm_feature_keys,
+                })
+                continue
             elif name == 'xgboost':
                 param_distributions = {
                     'classifier__n_estimators': [100, 150, 200, 250],
@@ -1826,3 +1964,153 @@ class PredictionMetricsView(APIView):
                 metrics[name] = {'trained': False}
 
         return Response({'prediction_type': prediction_type, 'models': metrics}, status=status.HTTP_200_OK)
+
+
+class PredictionPatientView(APIView):
+    """
+    POST /predictions/predict-patient/
+    Body: {
+        "prediction_type": "mortalite"|"coagulation",
+        "patient_id": <int>
+    }
+
+    Effectue une prédiction automatique pour un patient.
+    Extrait automatiquement toutes les features disponibles depuis la base de données
+    et utilise le modèle SVM Linéaire entraîné.
+    """
+    def post(self, request):
+        prediction_type = request.data.get('prediction_type')
+        patient_id = request.data.get('patient_id')
+
+        # ── Validation des entrées ────────────────────────────────────────────
+        if prediction_type not in ('mortalite', 'coagulation'):
+            return Response(
+                {'error': 'prediction_type doit être "mortalite" ou "coagulation".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not patient_id:
+            return Response(
+                {'error': 'patient_id est requis.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Chargement du patient ─────────────────────────────────────────────
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return Response(
+                {'error': f'Patient avec ID {patient_id} non trouvé.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── Chargement du modèle SVM ──────────────────────────────────────────
+        best_path = get_best_path(prediction_type)
+        best_features_path = get_best_features_path(prediction_type)
+
+        if not best_path.exists() or not best_features_path.exists():
+            trained, error_msg = ensure_trained_models(prediction_type, None)
+            if not trained:
+                return Response(
+                    {'error': error_msg or 'Aucun modèle entraîné trouvé et l\'entraînement automatique a échoué.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        feature_metadata = load_feature_metadata(best_features_path) if best_features_path.exists() else {'feature_keys': ALL_KNOWN_FEATURES, 'threshold': 0.5}
+        feature_keys_trained = feature_metadata['feature_keys']
+
+        try:
+            pipeline = joblib.load(best_path)
+        except Exception as exc:
+            return Response(
+                {'error': f'Erreur lors du chargement du modèle : {str(exc)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # ── Extraction des features depuis le patient ──────────────────────────
+        row = extract_features_from_patient(patient, feature_keys_trained)
+        doi_score = row.get('doietal_risk_score')
+        doi_score = float(round(doi_score, 2)) if isinstance(doi_score, float) and not np.isnan(doi_score) else None
+        doi_category = None
+        if doi_score is not None:
+            if doi_score <= 4:
+                doi_category = 'Faible'
+            elif doi_score <= 6:
+                doi_category = 'Modéré'
+            elif doi_score <= 8:
+                doi_category = 'Élevé'
+            else:
+                doi_category = 'Très élevé'
+
+        input_df = pd.DataFrame([row], columns=feature_keys_trained)
+
+        # ── Prédiction ────────────────────────────────────────────────────────
+        try:
+            probability = float(pipeline.predict_proba(input_df)[:, 1][0])
+        except AttributeError:
+            # Fallback pour modèles sans predict_proba
+            try:
+                raw = float(pipeline.decision_function(input_df)[0])
+                probability = float(1 / (1 + np.exp(-raw)))
+            except Exception as exc:
+                return Response(
+                    {'error': f'Erreur lors de la prédiction : {str(exc)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        except Exception as exc:
+            return Response(
+                {'error': f'Erreur lors de la prédiction : {str(exc)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        score = round(float(np.clip(probability * 100, 0, 100)), 1)
+        risk_level = 'Faible' if score <= 30 else 'Modéré' if score <= 70 else 'Élevé'
+        factors = build_interpretation(pipeline, feature_keys_trained)
+
+        # ── Recommandation clinique ────────────────────────────────────────────
+        if risk_level == 'Élevé':
+            recommendation = (
+                'Risque élevé détecté : surveillance intensive recommandée, '
+                'adaptation thérapeutique urgente et consultation spécialisée.'
+            )
+        elif risk_level == 'Modéré':
+            recommendation = (
+                'Risque modéré : suivi renforcé, optimisation des paramètres cliniques '
+                'et réévaluation à court terme.'
+            )
+        else:
+            recommendation = (
+                'Risque faible : maintien du suivi standard avec contrôle périodique.'
+            )
+
+        # ── Sauvegarde dans l'historique ──────────────────────────────────────
+        if PREDICTION_LOG_AVAILABLE:
+            try:
+                PredictionLog.objects.create(
+                    patient_id=str(patient_id),
+                    prediction_type=prediction_type,
+                    model='svm_linear',
+                    score=score,
+                    risk_level=risk_level,
+                    features_used=feature_keys_trained,
+                )
+            except Exception:
+                pass  # Ne pas bloquer la réponse si la sauvegarde échoue
+
+        return Response(
+            {
+                'prediction_type': prediction_type,
+                'model': 'svm_linear',
+                'patient_id': patient_id,
+                'score': score,
+                'probability': round(probability, 4),
+                'risk_level': risk_level,
+                'recommendation': recommendation,
+                'factors': factors,
+                'features_used': feature_keys_trained,
+                'n_features': len(feature_keys_trained),
+                'doietal_risk_score': doi_score,
+                'doietal_risk_category': doi_category,
+            },
+            status=status.HTTP_200_OK,
+        )

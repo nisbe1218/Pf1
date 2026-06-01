@@ -1,10 +1,10 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "domain": "nephrologie_dialyse",
   "documents": [
     {
       "id": "potassium",
-      "patterns": ["potassium", "kaliemie", "kalium", "k_basal"],
+      "patterns": ["potassium", "kaliemie", "kalium", "k_basal", "potassium_basale"],
       "label": "Kaliémie (potassium)",
       "unit": "mmol/L",
       "normal": [3.5, 5.5],
@@ -17,7 +17,7 @@
     },
     {
       "id": "phosphore",
-      "patterns": ["phosphore", "phosphate", "phospho"],
+      "patterns": ["phosphore", "phosphate", "phospho", "phosphore_basale"],
       "label": "Phosphorémie (phosphore)",
       "unit": "mmol/L",
       "normal": [0.8, 1.5],
@@ -30,7 +30,7 @@
     },
     {
       "id": "calcium",
-      "patterns": ["calcium", "calcemie", "ca_basal"],
+      "patterns": ["calcium", "calcemie", "ca_basal", "calcium_basale"],
       "label": "Calcémie (calcium)",
       "unit": "mmol/L",
       "normal": [2.15, 2.65],
@@ -43,7 +43,7 @@
     },
     {
       "id": "pth",
-      "patterns": ["pth", "parathormone", "parathyroid"],
+      "patterns": ["pth", "parathormone", "parathyroid", "pth_basale"],
       "label": "PTH (parathormone)",
       "unit": "pg/mL",
       "normal": [15, 65],
@@ -56,7 +56,7 @@
     },
     {
       "id": "ferritine",
-      "patterns": ["ferritine", "ferritin", "fer_serique"],
+      "patterns": ["ferritine", "ferritin", "fer_serique", "ferritine_basale"],
       "label": "Ferritinémie (ferritine)",
       "unit": "ng/mL",
       "normal": [20, 300],
@@ -69,7 +69,7 @@
     },
     {
       "id": "vitamine_d",
-      "patterns": ["vitamine_d", "vitd", "25oh", "calcitriol", "cholecalciferol"],
+      "patterns": ["vitamine_d", "vitd", "25oh", "calcitriol", "cholecalciferol", "vitamine_d_basale"],
       "label": "Vitamine D (25-OH)",
       "unit": "ng/mL",
       "normal": [30, 80],
@@ -82,7 +82,7 @@
     },
     {
       "id": "albumine",
-      "patterns": ["albumine", "albumin"],
+      "patterns": ["albumine", "albumin", "albumine_basale"],
       "label": "Albuminémie",
       "unit": "g/L",
       "normal": [35, 50],
@@ -95,7 +95,7 @@
     },
     {
       "id": "hemoglobine",
-      "patterns": ["hemoglobine", "hb", "hgb", "haemoglobin"],
+      "patterns": ["hemoglobine", "hb", "hgb", "haemoglobin", "hemoglobine_basale"],
       "label": "Hémoglobine",
       "unit": "g/dL",
       "normal": [12.0, 17.5],
@@ -107,9 +107,9 @@
       "common_errors": ["valeur en mmol/L non convertie (multiplier par 1.61)", "valeur g/L divisée par 10"]
     },
     {
-      "id": "creatinine",
+      "id": "creatinine_umol",
       "patterns": ["creatinine", "creatinin", "creat"],
-      "label": "Créatininémie",
+      "label": "Créatininémie (µmol/L)",
       "unit": "µmol/L",
       "normal": [60, 110],
       "critical_low": 30,
@@ -120,9 +120,22 @@
       "common_errors": ["valeur en mg/dL non convertie (facteur x88.4)", "valeur 0 post-dialyse fréquente mais biologiquement impossible"]
     },
     {
-      "id": "uree",
+      "id": "creatinine_mg_l",
+      "patterns": ["creatinine_basale_mg", "creatinine_mg/l", "creatinine_basale_mg/l"],
+      "label": "Créatininémie (mg/L)",
+      "unit": "mg/L",
+      "normal": [6.8, 12.5],
+      "critical_low": 3.0,
+      "critical_high": 170.0,
+      "impossible_below": 0,
+      "impossible_above": 600,
+      "notes": "Unité française mg/L. Normal adulte sain: 6.8-12.5 mg/L (= 60-110 µmol/L). En dialyse/IRC terminale: 56-170 mg/L (= 500-1500 µmol/L) plausible. Valeur < 3 ou > 300 = erreur de saisie probable. Facteur de conversion: 1 mg/L = 8.84 µmol/L.",
+      "common_errors": ["valeur en µmol/L saisie à la place de mg/L (diviser par 8.84)", "valeur en mg/dL (facteur x10 pour mg/L)"]
+    },
+    {
+      "id": "uree_mmol",
       "patterns": ["uree", "urea", "bun"],
-      "label": "Urée sanguine",
+      "label": "Urée sanguine (mmol/L)",
       "unit": "mmol/L",
       "normal": [2.5, 8.0],
       "critical_low": 1.0,
@@ -133,8 +146,21 @@
       "common_errors": ["confusion BUN (mg/dL) vs urée totale mmol/L"]
     },
     {
+      "id": "uree_g_l",
+      "patterns": ["uree_basale_g", "uree_g/l", "uree_basale_g/l"],
+      "label": "Urée sanguine (g/L)",
+      "unit": "g/L",
+      "normal": [0.15, 0.48],
+      "critical_low": 0.06,
+      "critical_high": 3.0,
+      "impossible_below": 0,
+      "impossible_above": 12,
+      "notes": "Unité française g/L. Normal adulte sain: 0.15-0.48 g/L (= 2.5-8 mmol/L). En IRC terminale/dialyse pré-séance: 1.2-3.0 g/L attendue (= 20-50 mmol/L). Valeur > 6 g/L = erreur probable. Facteur: 1 mmol/L = 0.0601 g/L.",
+      "common_errors": ["valeur en mmol/L saisie à la place de g/L (multiplier par 0.06)", "virgule décimale manquante: 15 au lieu de 1.5"]
+    },
+    {
       "id": "bicarbonates",
-      "patterns": ["bicarbonate", "bicarb", "hco3", "co2"],
+      "patterns": ["bicarbonate", "bicarb", "hco3", "co2", "bicarbonates_basaux"],
       "label": "Bicarbonates (réserve alcaline)",
       "unit": "mmol/L",
       "normal": [22, 29],
@@ -147,7 +173,7 @@
     },
     {
       "id": "sodium",
-      "patterns": ["sodium", "natremie", "na_basal"],
+      "patterns": ["sodium", "natremie", "na_basal", "sodium_basal"],
       "label": "Natrémie (sodium)",
       "unit": "mmol/L",
       "normal": [136, 145],
@@ -160,7 +186,7 @@
     },
     {
       "id": "dfge",
-      "patterns": ["dfge", "egfr", "gfr", "clairance", "mdrd", "ckd_epi"],
+      "patterns": ["dfge", "egfr", "gfr", "clairance", "mdrd", "ckd_epi", "dfge_mdrd"],
       "label": "DFGe (débit de filtration glomérulaire estimé)",
       "unit": "mL/min/1.73m²",
       "normal": [60, 120],
@@ -173,7 +199,7 @@
     },
     {
       "id": "proteinurie",
-      "patterns": ["proteinurie", "proteinuria", "protein_urin", "albumin_urin"],
+      "patterns": ["proteinurie", "proteinuria", "protein_urin", "albumin_urin", "proteinurie_basale"],
       "label": "Protéinurie",
       "unit": "g/24h ou g/L",
       "normal": [0, 0.15],
@@ -186,7 +212,7 @@
     },
     {
       "id": "charlson",
-      "patterns": ["charlson", "cci", "comorbidite_score", "comorbidity"],
+      "patterns": ["charlson", "cci", "comorbidite_score", "comorbidity", "Charlson"],
       "label": "Score de Charlson (CCI)",
       "unit": "score entier",
       "normal": [0, 37],
@@ -212,7 +238,7 @@
     },
     {
       "id": "suivi_predialyse",
-      "patterns": ["suivi_predialyse", "suivi_pre_dialyse", "predialysis_follow"],
+      "patterns": ["suivi_predialyse", "suivi_pre_dialyse", "predialysis_follow", "suivi_predialyse_mois"],
       "label": "Durée du suivi pré-dialyse",
       "unit": "mois",
       "normal": [0, 120],
@@ -225,7 +251,7 @@
     },
     {
       "id": "delai_deces",
-      "patterns": ["delai_deces", "delai_jusquau_deces", "survival_days", "temps_survie"],
+      "patterns": ["delai_deces", "delai_jusquau_deces", "survival_days", "temps_survie", "delai_jusquau_deces_jours"],
       "label": "Délai jusqu'au décès",
       "unit": "jours",
       "normal": [0, 7300],
@@ -233,14 +259,88 @@
       "critical_high": 10000,
       "impossible_below": 0,
       "impossible_above": 50000,
-      "notes": "Valeur en jours depuis début dialyse. 0 = décès le jour même. Valeur > 20000 = plus de 54 ans post-dialyse, suspecte. Valeur négative = décès avant début dialyse (erreur de chronologie).",
+      "notes": "Valeur en jours depuis début dialyse. 0 = décès le jour même. Valeur > 20000 = plus de 54 ans post-dialyse, suspecte. Valeur négative = décès avant début dialyse (erreur de chronologie). Valeur manquante = patient toujours en vie (censuré).",
       "common_errors": ["valeur en mois saisie à la place de jours (multiplier par 30)"]
     },
     {
+      "id": "seances_semaine",
+      "patterns": ["seances_par_semaine", "seances_semaine", "sessions_week", "frequency_dialysis"],
+      "label": "Séances de dialyse par semaine",
+      "unit": "séances/semaine",
+      "normal": [3, 3],
+      "critical_low": 1,
+      "critical_high": 5,
+      "impossible_below": 0,
+      "impossible_above": 7,
+      "notes": "Standard hémodialyse: 3 séances/semaine. Valeur 2 = dialyse insuffisante (signaler). Valeur 4-5 = dialyse intensive (plausible). Valeur 0 ou > 7 = erreur de saisie.",
+      "common_errors": ["valeur en séances/mois saisie à la place de séances/semaine (diviser par 4)", "valeur 0 = erreur"]
+    },
+    {
+      "id": "jours_hospitalisation",
+      "patterns": ["jours_hospitalisation", "duree_hospitalisation", "hospital_days", "los"],
+      "label": "Jours d'hospitalisation",
+      "unit": "jours",
+      "normal": [0, 30],
+      "critical_low": 0,
+      "critical_high": 365,
+      "impossible_below": 0,
+      "impossible_above": 1825,
+      "notes": "Durée totale d'hospitalisation. 0 = aucune hospitalisation (valide). Valeur > 365 = plus d'un an hospitalisé = erreur probable ou cumul pluriannuel. Valeur négative = impossible.",
+      "common_errors": ["valeur négative = erreur de saisie", "cumul sur plusieurs années saisi comme une seule période"]
+    },
+    {
+      "id": "nombre_hospitalisations",
+      "patterns": ["nombre_hospitalisations", "nb_hospitalisations", "hospitalisation_count", "n_hospitalisations"],
+      "label": "Nombre d'hospitalisations",
+      "unit": "entier",
+      "normal": [0, 10],
+      "critical_low": 0,
+      "critical_high": 50,
+      "impossible_below": 0,
+      "impossible_above": 200,
+      "notes": "Nombre total d'hospitalisations. 0 = aucune (valide). Valeur > 50 sur une courte période = suspect. Valeur négative = impossible. Type attendu: integer.",
+      "common_errors": ["stocké en float au lieu de int", "valeur négative = erreur"]
+    },
+    {
+      "id": "jours_catheter_fistule",
+      "patterns": ["jours_entre_cathetere", "jours_entre_cathetere_et_fistule", "cathetere_to_fistule"],
+      "label": "Jours entre cathéter et fistule artério-veineuse",
+      "unit": "jours",
+      "normal": [0, 730],
+      "critical_low": 0,
+      "critical_high": 1825,
+      "impossible_below": 0,
+      "impossible_above": 5000,
+      "notes": "Délai en jours entre la pose du cathéter initial et la création/utilisation de la FAV. 0 = FAV créée avant dialyse (valide). Valeur manquante = cathéter sans conversion en FAV. Valeur négative = erreur chronologique.",
+      "common_errors": ["valeur négative = erreur de date", "valeur manquante = pas de FAV créée (valide)"]
+    },
+    {
+      "id": "distance_centre",
+      "patterns": ["distance_au_centre", "distance_centre", "km_centre"],
+      "label": "Distance au centre de dialyse",
+      "unit": "km",
+      "normal": [0, 100],
+      "critical_low": 0,
+      "critical_high": 500,
+      "impossible_below": 0,
+      "impossible_above": 2000,
+      "notes": "Distance domicile-centre en km. 0 = patient résidant au centre ou données manquantes. Valeur > 500 km = atypique, vérifier. Valeur négative = impossible.",
+      "common_errors": ["valeur en miles non convertie (multiplier par 1.6)", "valeur 0 = domicile inconnu ou données manquantes"]
+    },
+    {
       "id": "binaire_clinique",
-      "patterns": ["deces", "hemodialyse", "dialyse_peritoneale", "transplantation", "hypertension",
-                   "cardiopathie", "infection", "hospitalisation", "evenement", "complication",
-                   "urgence", "planifie", "bilan", "liste_attente"],
+      "patterns": [
+        "deces", "hemodialyse", "dialyse_peritoneale", "transplantation", "hypertension",
+        "cardiopathie", "infection", "hospitalisation", "evenement", "complication",
+        "urgence", "planifie", "bilan", "liste_attente", "uropathie", "goutte",
+        "hereditaire", "toxique", "nephrotoxique", "asthenie", "douleur", "nausee",
+        "diurese", "prurit", "asymptomatique", "conscience", "biopsie", "cathetere",
+        "fistule", "peritoneal", "information_transplantation", "education",
+        "comprehension", "connaissance", "surveillance", "regime", "traitement",
+        "acces", "admission", "immunisation", "transfusion", "electrolytique",
+        "cardiovasculaire", "hemorragie", "dysfonction", "convulsive", "changement",
+        "cause_deces", "cardiaque", "infectieuse", "couverture"
+      ],
       "label": "Variable binaire clinique (0/1)",
       "unit": "binaire",
       "normal": [0, 1],
@@ -248,8 +348,8 @@
       "critical_high": 1,
       "impossible_below": 0,
       "impossible_above": 1,
-      "notes": "Variable indicatrice: 0 = absent, 1 = présent. Toute valeur hors {0, 1} est une erreur de codage. Type attendu: integer. Valeur float (0.0, 1.0) = correction type_cast integer nécessaire.",
-      "common_errors": ["stocké en float (0.0/1.0) au lieu de int (0/1)", "valeur 2 ou -1 = erreur de codage"]
+      "notes": "Variable indicatrice: 0 = absent/non, 1 = présent/oui. Toute valeur hors {0, 1} est une erreur de codage. Type attendu: integer. Valeur float (0.0, 1.0) = correction type_cast integer nécessaire. Une colonne constante à 0 ou à 1 est VALIDE si tous les patients partagent la même condition.",
+      "common_errors": ["stocké en float (0.0/1.0) au lieu de int (0/1)", "valeur 2 ou -1 = erreur de codage", "valeur manquante interprétée comme 0 à tort"]
     },
     {
       "id": "sexe",
@@ -263,6 +363,45 @@
       "impossible_above": null,
       "notes": "Codage attendu: 0=Féminin, 1=Masculin (ou 1=F, 2=M selon convention). Valeurs texte ('M','F','H','Homme','Femme') doivent être normalisées. Type attendu: integer.",
       "common_errors": ["valeurs texte mixtes non standardisées", "stocké en float"]
+    },
+    {
+      "id": "etiologie_mrc",
+      "patterns": ["etiologie_mrc", "etiologie", "cause_mrc", "nephropathy_cause"],
+      "label": "Étiologie de la maladie rénale chronique",
+      "unit": "catégorie",
+      "normal": [null, null],
+      "critical_low": null,
+      "critical_high": null,
+      "impossible_below": null,
+      "impossible_above": null,
+      "notes": "Variable catégorielle. Valeurs attendues: diabete, hypertension, glomerulonephrite, polykystose, inconnue, autre, etc. Vérifier la cohérence d'encodage (casse, accents, abréviations). Valeur manquante = étiologie inconnue (signaler).",
+      "common_errors": ["encodage incohérent: 'diabete' vs 'Diabète' vs 'DT2'", "valeurs numériques codant des catégories sans dictionnaire"]
+    },
+    {
+      "id": "type_acces",
+      "patterns": ["type_acces", "type_acces_initial", "acces_vasculaire"],
+      "label": "Type d'accès vasculaire initial",
+      "unit": "catégorie",
+      "normal": [null, null],
+      "critical_low": null,
+      "critical_high": null,
+      "impossible_below": null,
+      "impossible_above": null,
+      "notes": "Variable catégorielle. Valeurs attendues: catheter_femoral, catheter_tunnellise, fistule_arterioveineuse, catheter_peritoneal. Vérifier cohérence avec colonnes binaires associées (cathetere_femoral, fistule_arterioveineuse etc.).",
+      "common_errors": ["encodage incohérent: 'FAV' vs 'fistule' vs 'fistule_arterioveineuse'"]
+    },
+    {
+      "id": "cause_deces_cat",
+      "patterns": ["cause_deces"],
+      "label": "Cause de décès (catégorielle)",
+      "unit": "catégorie",
+      "normal": [null, null],
+      "critical_low": null,
+      "critical_high": null,
+      "impossible_below": null,
+      "impossible_above": null,
+      "notes": "Variable catégorielle. Vérifier cohérence avec cause_deces_cardiaque et cause_deces_infectieuse (colonnes binaires). Si deces=0 alors cause_deces devrait être manquant/null.",
+      "common_errors": ["cause_deces renseignée malgré deces=0 (incohérence logique)"]
     }
   ]
 }

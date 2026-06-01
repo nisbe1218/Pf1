@@ -407,3 +407,34 @@ class PatientFormField(models.Model):
 
 	def __str__(self):
 		return f"{self.template.name} - {self.label}"
+
+
+class PreprocessValidationRequest(models.Model):
+	STATUS_CHOICES = [
+		('pending', 'En attente de validation'),
+		('approved', 'Validé et intégré'),
+		('rejected', 'Rejeté'),
+	]
+
+	session_id = models.CharField(max_length=64)
+	source = models.CharField(max_length=20, default='corrected')  # 'corrected' or 'original'
+	source_file_name = models.CharField(max_length=255, blank=True)
+	submitted_by = models.ForeignKey(
+		'users.Utilisateur', on_delete=models.SET_NULL, null=True, related_name='submitted_validations'
+	)
+	submitted_at = models.DateTimeField(auto_now_add=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+	reviewed_by = models.ForeignKey(
+		'users.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_validations'
+	)
+	reviewed_at = models.DateTimeField(null=True, blank=True)
+	comment = models.TextField(blank=True)
+	rows_count = models.PositiveIntegerField(default=0)
+	columns_count = models.PositiveIntegerField(default=0)
+	quality_score = models.FloatField(null=True, blank=True)
+
+	class Meta:
+		ordering = ['-submitted_at']
+
+	def __str__(self):
+		return f"Validation {self.session_id[:8]} — {self.status}"

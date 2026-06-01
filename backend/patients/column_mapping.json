@@ -120,6 +120,16 @@
     "transformation": "fusion (valeurs multiples → liste)"
   },
   {
+    "main": "dyspnee",
+    "platform": "presentation_symptomes",
+    "transformation": "fusion (valeurs multiples → liste)"
+  },
+  {
+    "main": "oedemes_surcharge",
+    "platform": "presentation_symptomes",
+    "transformation": "fusion (valeurs multiples → liste)"
+  },
+  {
     "main": "douleur_abdominale",
     "platform": "presentation_symptomes",
     "transformation": "fusion (valeurs multiples → liste)"
@@ -150,13 +160,27 @@
     "transformation": "direct"
   },
   {
+    "main": "uree_basale_g_l",
+    "platform": "biologie_uree_g_l",
+    "transformation": "direct"
+  },
+  {
     "main": "creatinine_basale",
     "platform": "biologie_creatinine_mg_l",
     "transformation": "direct"
   },
-  
+  {
+    "main": "creatinine_basale_mg_l",
+    "platform": "biologie_creatinine_mg_l",
+    "transformation": "direct"
+  },
   {
     "main": "hemoglobine_basale",
+    "platform": "biologie_hemoglobine_g_dl",
+    "transformation": "direct"
+  },
+  {
+    "main": "hemoglobine_basale_g_dl",
     "platform": "biologie_hemoglobine_g_dl",
     "transformation": "direct"
   },
@@ -208,6 +232,11 @@
   {
     "main": "proteinurie_basale",
     "platform": "biologie_proteinurie_g_24h",
+    "transformation": "direct"
+  },
+  {
+    "main": "du_residuelle",
+    "platform": "dialyse_statut_fonction_renale_residuelle",
     "transformation": "direct"
   },
   {
@@ -399,5 +428,20 @@
     "main": "cause_deces_infectieuse",
     "platform": "devenir_cause_deces",
     "transformation": "fusion (cardiaque/infectieux → cause)"
+  },
+  {
+    "main": "couverture_medicale",
+    "platform": "demographie_couverture_sociale",
+    "transformation": "direct"
+  },
+  {
+    "main": "diabete",
+    "platform": "comorbidite_statut_diabete",
+    "transformation": "direct"
+  },
+  {
+    "main": "delai_jusquau_deces_jours",
+    "platform": "extra_data",
+    "transformation": "inclus dans extra_data"
   }
 ]

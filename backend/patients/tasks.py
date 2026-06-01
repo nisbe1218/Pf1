@@ -14,6 +14,8 @@ from .views import (
     _build_retrieval_context,
     _apply_llm_correction_plan,
     _run_bio_value_correction_pass,
+    _run_llm_flagged_corrections,
+    _run_model_imputation,
     _build_preprocess_report,
     _dataframe_to_rows,
     _save_preprocess_session,
@@ -31,6 +33,8 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
         """Update session with progress message"""
         try:
             session = _load_preprocess_session(session_id)
+            if not session:
+                return
             session['progress_message'] = msg
             _append_preprocess_event(
                 session,
@@ -67,7 +71,12 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
         update_session_progress("Découpage intelligent en chunks...")
         chunks = _build_preprocess_chunks(dataframe, technical_profile)
         update_session_progress(f"Chunks détectés: {len(chunks)}")
-        retrieval_context = _build_retrieval_context(dataframe, chunks, technical_profile, progress_callback=update_session_progress)
+        retrieval_context = _build_retrieval_context(
+            dataframe, chunks, technical_profile,
+            stage_name='diagnostic',
+            max_chunks=3,
+            progress_callback=update_session_progress,
+        )
         update_session_progress(f"Retrieval: {retrieval_context.get('retrieval_policy')}")
 
         # Call LLM only (this might take time, hence async)
@@ -83,12 +92,16 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
             dataframe,
             technical_profile,
             progress_callback=update_session_progress,
+            precomputed_chunks=chunks,
+            precomputed_retrieval_context=retrieval_context,
         )
 
-        update_session_progress("Fusion des résultats LLM et contextuels...")
+        update_session_progress("Application du plan de correction LLM...")
         corrected_df, applied_actions = _apply_llm_correction_plan(dataframe, llm_analysis)
+        n_corrections = sum(a.get('cells_changed', 0) for a in applied_actions)
+        update_session_progress(f"Plan LLM appliqué: {len(applied_actions)} action(s), {n_corrections} cellule(s) modifiée(s).")
 
-        update_session_progress("Correction des valeurs biologiques aberrantes...")
+        update_session_progress("Correction des valeurs biologiques aberrantes (KB médicale)...")
         bio_mappings, bio_actions = _run_bio_value_correction_pass(
             corrected_df,
             progress_callback=update_session_progress,
@@ -96,6 +109,40 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
         if bio_mappings:
             corrected_df = corrected_df.replace(bio_mappings)
             applied_actions.extend(bio_actions)
+
+        # Extract columns already handled by bio pass
+        bio_corrected_cols = set()
+        for bio_action in bio_actions:
+            for col_detail in (bio_action.get('details', {}).get('columns') or []):
+                if isinstance(col_detail, dict) and col_detail.get('column'):
+                    bio_corrected_cols.add(col_detail['column'])
+
+        update_session_progress("Correction LLM des valeurs aberrantes détectées...")
+        llm_issues = llm_analysis.get('issues') if isinstance(llm_analysis, dict) else []
+        flagged_mappings, flagged_actions, knn_columns = _run_llm_flagged_corrections(
+            corrected_df,
+            llm_issues=llm_issues or [],
+            already_corrected_columns=bio_corrected_cols,
+            progress_callback=update_session_progress,
+        )
+        if flagged_mappings:
+            corrected_df = corrected_df.replace(flagged_mappings)
+            applied_actions.extend(flagged_actions)
+
+        update_session_progress("Imputation KNN des valeurs nullifiées (estimation contextuelle)...")
+        corrected_df, knn_report = _run_model_imputation(
+            corrected_df,
+            columns_to_impute=knn_columns,
+            n_neighbors=5,
+            progress_callback=update_session_progress,
+        )
+        if knn_report:
+            applied_actions.append({
+                'action': 'knn_imputation',
+                'count': sum(r['imputed_count'] for r in knn_report),
+                'cells_changed': sum(r['imputed_count'] for r in knn_report),
+                'details': {'columns': knn_report, 'needs_review': True},
+            })
 
         update_session_progress("Génération du rapport final...")
         report = _build_preprocess_report(
@@ -163,7 +210,7 @@ def analyze_preprocess_async(self, session_id, file_path, user_id, use_llm=True)
         
         # Save error session
         try:
-            session = _load_preprocess_session(session_id)
+            session = _load_preprocess_session(session_id) or {}
         except Exception:
             session = {}
         

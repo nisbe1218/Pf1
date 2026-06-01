@@ -36,7 +36,7 @@ const PROFILE_THEME = {
   sidebarBackground: '#fcf7f9',
 };
 
-const APP_SIDEBAR_WIDTH = 88;
+const APP_SIDEBAR_WIDTH = 220;
 
 const softCardSx = {
   elevation: 0,

@@ -1,0 +1,336 @@
+{
+  "version": "LOINC_2.76",
+  "domain": "nephrology_dialysis",
+  "source": "LOINC - Regenstrief Institute (https://loinc.org) + KDIGO Clinical Practice Guidelines",
+  "note": "Reference ranges are population-specific. Dialysis ranges follow KDIGO 2017 guidelines. Validate with a nephrologist before clinical use.",
+  "codes": [
+    {
+      "loinc_code": "2823-3",
+      "long_name": "Potassium [Moles/volume] in Serum or Plasma",
+      "short_name": "Potassium SerPl",
+      "component": "Potassium",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "potassium",
+      "patterns": ["potassium", "kaliemie", "kalium", "k_basal", "k+", "potassium_serique"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 3.5, "high": 5.0, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 3.5, "high": 5.5, "critical_low": 2.5, "critical_high": 6.5, "unit": "mmol/L", "source": "KDIGO 2017"}
+      ],
+      "unit_conversions": [{"from": "mEq/L", "factor": 1.0, "note": "mEq/L = mmol/L for K+"}],
+      "impossible_below": 0,
+      "impossible_above": 15
+    },
+    {
+      "loinc_code": "2777-1",
+      "long_name": "Phosphate [Mass/volume] in Serum or Plasma",
+      "short_name": "Phosphate SerPl",
+      "component": "Phosphate",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "phosphore",
+      "patterns": ["phosphore", "phosphate", "phospho", "phosphore_serique", "phos"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 0.8, "high": 1.5, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 0.8, "high": 1.78, "critical_low": 0.3, "critical_high": 3.0, "unit": "mmol/L", "source": "KDIGO-MBD 2017"}
+      ],
+      "unit_conversions": [{"from": "mg/dL", "factor": 0.3229, "note": "mg/dL × 0.3229 = mmol/L"}],
+      "impossible_below": 0,
+      "impossible_above": 20
+    },
+    {
+      "loinc_code": "17861-6",
+      "long_name": "Calcium [Mass/volume] in Serum or Plasma",
+      "short_name": "Calcium SerPl",
+      "component": "Calcium",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "calcium",
+      "patterns": ["calcium", "calcemie", "ca_basal", "calcium_total", "ca2+"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 2.15, "high": 2.65, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 2.1, "high": 2.5, "critical_low": 1.5, "critical_high": 3.5, "unit": "mmol/L", "source": "KDIGO-MBD 2017"}
+      ],
+      "unit_conversions": [{"from": "mg/dL", "factor": 0.2495, "note": "mg/dL × 0.2495 = mmol/L"}],
+      "impossible_below": 0,
+      "impossible_above": 20
+    },
+    {
+      "loinc_code": "2731-8",
+      "long_name": "Parathyrin.intact [Units/volume] in Serum or Plasma",
+      "short_name": "PTHi SerPl",
+      "component": "Parathyrin.intact",
+      "system": "Ser/Plas",
+      "unit": "pg/mL",
+      "kb_id": "pth",
+      "patterns": ["pth", "parathormone", "parathyroid", "pth_intact", "ipth"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 15, "high": 65, "unit": "pg/mL", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 130, "high": 585, "critical_low": 0, "critical_high": 2000, "unit": "pg/mL", "source": "KDIGO-MBD 2017 (2x-9x ULN)"}
+      ],
+      "unit_conversions": [{"from": "pmol/L", "factor": 9.43, "note": "pmol/L × 9.43 = pg/mL"}],
+      "impossible_below": 0,
+      "impossible_above": 5000
+    },
+    {
+      "loinc_code": "2276-4",
+      "long_name": "Ferritin [Mass/volume] in Serum or Plasma",
+      "short_name": "Ferritin SerPl",
+      "component": "Ferritin",
+      "system": "Ser/Plas",
+      "unit": "ng/mL",
+      "kb_id": "ferritine",
+      "patterns": ["ferritine", "ferritin", "fer_serique", "ferritine_serique"],
+      "reference_ranges": [
+        {"population": "adult_general_male", "low": 30, "high": 300, "unit": "ng/mL", "source": "LOINC"},
+        {"population": "adult_general_female", "low": 13, "high": 150, "unit": "ng/mL", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 200, "high": 500, "critical_low": 10, "critical_high": 2000, "unit": "ng/mL", "source": "KDIGO-Anemia 2012"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 50000
+    },
+    {
+      "loinc_code": "1989-3",
+      "long_name": "25-hydroxyvitamin D3 [Mass/volume] in Serum or Plasma",
+      "short_name": "25-OHD3 SerPl",
+      "component": "25-hydroxyvitamin D3",
+      "system": "Ser/Plas",
+      "unit": "ng/mL",
+      "kb_id": "vitamine_d",
+      "patterns": ["vitamine_d", "vitd", "25oh", "calcitriol", "cholecalciferol", "vit_d", "25_oh_vit_d"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 30, "high": 80, "unit": "ng/mL", "source": "LOINC/Endocrine Society"},
+        {"population": "dialysis", "low": 20, "high": 80, "critical_low": 10, "critical_high": 150, "unit": "ng/mL", "source": "KDIGO-MBD 2017"}
+      ],
+      "unit_conversions": [{"from": "nmol/L", "factor": 0.4006, "note": "nmol/L × 0.4006 = ng/mL"}],
+      "impossible_below": 0,
+      "impossible_above": 500
+    },
+    {
+      "loinc_code": "1751-7",
+      "long_name": "Albumin [Mass/volume] in Serum or Plasma",
+      "short_name": "Albumin SerPl",
+      "component": "Albumin",
+      "system": "Ser/Plas",
+      "unit": "g/L",
+      "kb_id": "albumine",
+      "patterns": ["albumine", "albumin", "albumine_serique", "alb"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 35, "high": 50, "unit": "g/L", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 30, "high": 50, "critical_low": 20, "critical_high": 60, "unit": "g/L", "source": "KDIGO-Nutrition 2020"}
+      ],
+      "unit_conversions": [{"from": "g/dL", "factor": 10.0, "note": "g/dL × 10 = g/L"}],
+      "impossible_below": 0,
+      "impossible_above": 100
+    },
+    {
+      "loinc_code": "718-7",
+      "long_name": "Hemoglobin [Mass/volume] in Blood",
+      "short_name": "Hemoglobin Bld",
+      "component": "Hemoglobin",
+      "system": "Bld",
+      "unit": "g/dL",
+      "kb_id": "hemoglobine",
+      "patterns": ["hemoglobine", "hb", "hgb", "haemoglobin", "hemoglobine_sanguine", "hb_total"],
+      "reference_ranges": [
+        {"population": "adult_male", "low": 13.5, "high": 17.5, "unit": "g/dL", "source": "LOINC/WHO"},
+        {"population": "adult_female", "low": 12.0, "high": 16.0, "unit": "g/dL", "source": "LOINC/WHO"},
+        {"population": "dialysis_kdigo", "low": 10.0, "high": 11.5, "critical_low": 7.0, "critical_high": 13.0, "unit": "g/dL", "source": "KDIGO-Anemia 2012"}
+      ],
+      "unit_conversions": [{"from": "mmol/L", "factor": 1.6113, "note": "mmol/L × 1.6113 = g/dL"}],
+      "impossible_below": 0,
+      "impossible_above": 25
+    },
+    {
+      "loinc_code": "2160-0",
+      "long_name": "Creatinine [Mass/volume] in Serum or Plasma",
+      "short_name": "Creatinine SerPl",
+      "component": "Creatinine",
+      "system": "Ser/Plas",
+      "unit": "µmol/L",
+      "kb_id": "creatinine",
+      "patterns": ["creatinine", "creatinin", "creat", "creatininemie", "creat_ser"],
+      "reference_ranges": [
+        {"population": "adult_male", "low": 62, "high": 115, "unit": "µmol/L", "source": "LOINC"},
+        {"population": "adult_female", "low": 53, "high": 97, "unit": "µmol/L", "source": "LOINC"},
+        {"population": "ckd_stage5_dialysis", "low": 400, "high": 1500, "critical_low": 30, "critical_high": 2000, "unit": "µmol/L", "source": "Clinical practice IRC terminale"}
+      ],
+      "unit_conversions": [{"from": "mg/dL", "factor": 88.42, "note": "mg/dL × 88.42 = µmol/L"}],
+      "impossible_below": 0,
+      "impossible_above": 5000
+    },
+    {
+      "loinc_code": "22664-7",
+      "long_name": "Urea [Moles/volume] in Serum or Plasma",
+      "short_name": "Urea SerPl",
+      "component": "Urea",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "uree",
+      "patterns": ["uree", "urea", "bun", "uree_serique", "azote_ureique"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 2.5, "high": 8.0, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "ckd_stage5_dialysis", "low": 10, "high": 50, "critical_low": 1.0, "critical_high": 100.0, "unit": "mmol/L", "source": "Clinical practice IRC terminale"}
+      ],
+      "unit_conversions": [
+        {"from": "mg/dL_BUN", "factor": 0.357, "note": "BUN mg/dL × 0.357 = urée mmol/L"},
+        {"from": "mg/dL_urea", "factor": 0.1665, "note": "urée mg/dL × 0.1665 = urée mmol/L"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 200
+    },
+    {
+      "loinc_code": "1963-8",
+      "long_name": "Bicarbonate [Moles/volume] in Serum or Plasma",
+      "short_name": "HCO3 SerPl",
+      "component": "Bicarbonate",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "bicarbonates",
+      "patterns": ["bicarbonate", "bicarb", "hco3", "co2_total", "reserve_alcaline"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 22, "high": 29, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "dialysis_kdigo", "low": 22, "high": 26, "critical_low": 15, "critical_high": 35, "unit": "mmol/L", "source": "KDIGO-CKD 2012"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 50
+    },
+    {
+      "loinc_code": "2951-2",
+      "long_name": "Sodium [Moles/volume] in Serum or Plasma",
+      "short_name": "Sodium SerPl",
+      "component": "Sodium",
+      "system": "Ser/Plas",
+      "unit": "mmol/L",
+      "kb_id": "sodium",
+      "patterns": ["sodium", "natremie", "na_basal", "na+", "sodium_serique"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 136, "high": 145, "unit": "mmol/L", "source": "LOINC"},
+        {"population": "dialysis", "low": 135, "high": 145, "critical_low": 125, "critical_high": 155, "unit": "mmol/L", "source": "Clinical practice"}
+      ],
+      "unit_conversions": [{"from": "mEq/L", "factor": 1.0, "note": "mEq/L = mmol/L for Na+"}],
+      "impossible_below": 80,
+      "impossible_above": 200
+    },
+    {
+      "loinc_code": "62238-1",
+      "long_name": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by CKD-EPI",
+      "short_name": "eGFR CKD-EPI",
+      "component": "Glomerular filtration rate/1.73 sq M.predicted",
+      "system": "Ser/Plas/Bld",
+      "unit": "mL/min/1.73m²",
+      "kb_id": "dfge",
+      "patterns": ["dfge", "egfr", "gfr", "clairance", "mdrd", "ckd_epi", "debit_filtration", "dfg"],
+      "reference_ranges": [
+        {"population": "adult_normal", "low": 60, "high": 120, "unit": "mL/min/1.73m²", "source": "KDIGO-CKD 2012"},
+        {"population": "ckd_stage5", "low": 0, "high": 15, "critical_low": 0, "critical_high": 200, "unit": "mL/min/1.73m²", "source": "KDIGO-CKD 2012 (stade 5 < 15)"}
+      ],
+      "ckd_stages": {
+        "G1": {"min": 90, "label": "Normal ou élevé"},
+        "G2": {"min": 60, "max": 89, "label": "Légèrement diminué"},
+        "G3a": {"min": 45, "max": 59, "label": "Légèrement à modérément diminué"},
+        "G3b": {"min": 30, "max": 44, "label": "Modérément à sévèrement diminué"},
+        "G4": {"min": 15, "max": 29, "label": "Sévèrement diminué"},
+        "G5": {"max": 14, "label": "Insuffisance rénale terminale"}
+      },
+      "impossible_below": 0,
+      "impossible_above": 200
+    },
+    {
+      "loinc_code": "2888-6",
+      "long_name": "Protein [Mass/volume] in Urine",
+      "short_name": "Protein Ur",
+      "component": "Protein",
+      "system": "Urine",
+      "unit": "g/24h",
+      "kb_id": "proteinurie",
+      "patterns": ["proteinurie", "proteinuria", "protein_urin", "albumin_urin", "proteines_urinaires"],
+      "reference_ranges": [
+        {"population": "adult_general", "low": 0, "high": 0.15, "unit": "g/24h", "source": "LOINC"},
+        {"population": "nephrotic_syndrome", "low": 3.5, "high": 20, "unit": "g/24h", "source": "Clinical definition"}
+      ],
+      "unit_conversions": [{"from": "mg/L", "factor": 0.001, "note": "mg/L ÷ 1000 = g/L (approx)"}],
+      "impossible_below": 0,
+      "impossible_above": 100
+    },
+    {
+      "loinc_code": "30525-0",
+      "long_name": "Age",
+      "short_name": "Age",
+      "component": "Age",
+      "system": "^Patient",
+      "unit": "years",
+      "kb_id": "age",
+      "patterns": ["age", "age_annees", "age_patient", "age_ans", "annees"],
+      "reference_ranges": [
+        {"population": "adult_nephrology", "low": 18, "high": 100, "unit": "years", "source": "Clinical practice"},
+        {"population": "pediatric_dialysis", "low": 0, "high": 18, "unit": "years", "source": "Clinical practice"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 130
+    },
+    {
+      "loinc_code": "46098-0",
+      "long_name": "Sex",
+      "short_name": "Sex",
+      "component": "Sex",
+      "system": "^Patient",
+      "unit": "coded",
+      "kb_id": "sexe",
+      "patterns": ["sexe", "genre", "sex", "gender", "sexe_patient"],
+      "reference_ranges": [],
+      "expected_values": [
+        {"code": 0, "labels": ["F", "f", "female", "femme", "féminin", "féminine", "0"]},
+        {"code": 1, "labels": ["M", "m", "male", "homme", "masculin", "1", "H", "h"]}
+      ],
+      "impossible_below": null,
+      "impossible_above": null
+    },
+    {
+      "loinc_code": "33765-9",
+      "long_name": "Charlson Comorbidity Index",
+      "short_name": "CCI",
+      "component": "Charlson comorbidity index",
+      "system": "^Patient",
+      "unit": "score",
+      "kb_id": "charlson",
+      "patterns": ["charlson", "cci", "comorbidite_score", "comorbidity", "indice_charlson"],
+      "reference_ranges": [
+        {"population": "general", "low": 0, "high": 37, "unit": "score", "source": "Charlson 1987"},
+        {"population": "dialysis_typical", "low": 4, "high": 12, "unit": "score", "source": "Clinical practice"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 37
+    },
+    {
+      "loinc_code": "LP7057-0",
+      "long_name": "Predialysis follow-up duration",
+      "short_name": "Pre-dialysis follow-up",
+      "component": "Predialysis follow-up",
+      "system": "^Patient",
+      "unit": "months",
+      "kb_id": "suivi_predialyse",
+      "patterns": ["suivi_predialyse", "suivi_pre_dialyse", "predialysis_follow", "duree_suivi_predialyse"],
+      "reference_ranges": [
+        {"population": "general", "low": 0, "high": 240, "unit": "months", "source": "Clinical practice"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 600
+    },
+    {
+      "loinc_code": "LP7058-0",
+      "long_name": "Time to death from dialysis start",
+      "short_name": "Survival days",
+      "component": "Survival time",
+      "system": "^Patient",
+      "unit": "days",
+      "kb_id": "delai_deces",
+      "patterns": ["delai_deces", "delai_jusquau_deces", "survival_days", "temps_survie", "duree_survie"],
+      "reference_ranges": [
+        {"population": "dialysis", "low": 0, "high": 10000, "unit": "days", "source": "Clinical practice"}
+      ],
+      "impossible_below": 0,
+      "impossible_above": 50000
+    }
+  ]
+}

@@ -265,6 +265,9 @@ function MonitorBoard() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lastPrediction, setLastPrediction] = useState(null);
+  const [patientPrediction, setPatientPrediction] = useState(null);
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
 
   const roleLabel = roleLabels[user?.role] || (language === 'en' ? 'User' : 'Utilisateur');
 
@@ -273,9 +276,10 @@ function MonitorBoard() {
       setLoading(true);
       setError('');
       try {
-        const [patientsResponse, predictionsResponse] = await Promise.all([
+        const [patientsResponse, predictionsResponse, lastPredResp] = await Promise.all([
           api.get('patients/'),
           api.get('predictions/history/?days=365'),
+          api.get('predictions/latest-mortalite/').catch(() => null),
         ]);
 
         const extractArray = (resp) => {
@@ -289,6 +293,7 @@ function MonitorBoard() {
         setInitialPatients(fetched);
         setPatients(fetched.slice(0, 12));
         setPredictions(Array.isArray(predictionsResponse.data) ? predictionsResponse.data : []);
+        if (lastPredResp?.data?.success) setLastPrediction(lastPredResp.data);
       } catch (requestError) {
         setError(language === 'en' ? 'Unable to load the Patient Monitoring Board.' : 'Impossible de charger le Patient Monitoring Board.');
       } finally {
@@ -457,6 +462,7 @@ function MonitorBoard() {
 
   const handlePatientSelect = async (patient) => {
     setSelectedPatient(patient);
+    setPatientPrediction(null);
     setError('');
     try {
       const [patientResponse, historyResponse] = await Promise.all([
@@ -468,7 +474,18 @@ function MonitorBoard() {
     } catch (requestError) {
       setPatientDetails(patient);
       setPatientAuditEvents([]);
-      setError('Les détails complets du patient n’ont pas pu être chargés.');
+      setError("Les détails complets du patient n'ont pas pu être chargés.");
+    }
+    // Lire la prédiction déjà lancée pour ce patient (sans relancer le modèle)
+    setLoadingPrediction(true);
+    try {
+      const predResp = await api.get(`predictions/stored-mortalite/${patient.id}/`);
+      if (predResp.data?.success) setPatientPrediction(predResp.data);
+      else setPatientPrediction(null);
+    } catch (_) {
+      setPatientPrediction(null);
+    } finally {
+      setLoadingPrediction(false);
     }
   };
 
@@ -500,19 +517,21 @@ function MonitorBoard() {
       [t('monitorFullName'), `${source.prenom || ''} ${source.nom || ''}`.trim() || '-'],
       [t('monitorAge'), source.age || source.demographie_age_ans || '-'],
       [t('monitorSex'), source.sexe || source.demographie_sexe || '-'],
-      [t('monitorDisease'), source.maladie || '-'],
-      [t('monitorInclusionStatus'), source.statut_inclusion || '-'],
-      [t('monitorConsent'), toBooleanDisplay(source.statut_consentement) || '-'],
+      ['Durée dialyse', source.dialyse_duree_dialyse_mois != null && source.dialyse_duree_dialyse_mois !== '' ? `${source.dialyse_duree_dialyse_mois} mois` : '-'],
+      ['Séances / semaine', source.dialyse_seances_par_semaine != null && source.dialyse_seances_par_semaine !== '' ? `${source.dialyse_seances_par_semaine}` : '-'],
+      ['Hospitalisations', source.complication_nombre_hospitalisations != null && source.complication_nombre_hospitalisations !== '' ? `${source.complication_nombre_hospitalisations}` : '-'],
       [t('monitorLastUpdate'), formatDateTime(source.updated_at || source.derniere_mise_a_jour, language)],
     ];
   }, [language, patientDetails, selectedPatient, t]);
 
-  const patientRiskScore = latestPrediction?.score ?? latestPrediction?.probability ?? null;
+  const patientRiskScore = patientPrediction?.score_risque ?? latestPrediction?.score ?? latestPrediction?.probability ?? null;
+  const patientRiskLevel = patientPrediction?.niveau_risque ?? latestPrediction?.risk_level ?? null;
+  const patientRiskColor = patientRiskLevel === 'Elevé' || patientRiskLevel === 'Élevé' ? '#E74C3C' : patientRiskLevel === 'Modéré' ? '#E67E22' : patientRiskLevel === 'Faible' ? '#27AE60' : boardTheme.textMuted;
 
   return (
     <Box sx={{ minHeight: '100vh', background: 'linear-gradient(160deg,#f7f0f5 0%,#edf4fb 42%,#f4eef8 100%)' }}>
       <AppSidebar />
-      <Box sx={{ ml: { md: '94px' }, px: { xs: 2, md: 3 }, py: 3, maxWidth: 1760, mx: 'auto' }}>
+      <Box sx={{ ml: { md: '252px' }, px: { xs: 2, md: 3 }, py: 3, maxWidth: 1760, mx: 'auto' }}>
         <Card elevation={0} sx={{ borderRadius: 5, border: `1px solid ${boardTheme.border}`, boxShadow: '0 18px 52px rgba(15, 23, 42, 0.08)', overflow: 'hidden', mb: 3, background: '#fff' }}>
           <CardContent sx={{ p: 3, position: 'relative' }}>
             <Box
@@ -658,9 +677,20 @@ function MonitorBoard() {
                         ))}
                         <Box>
                           <Typography variant="caption" color="text.secondary">{t('monitorRiskLabel')}</Typography>
-                          <Typography variant="h4" fontWeight={900} sx={{ color: patientRiskScore ? boardTheme.medicalBlue : boardTheme.textMuted }}>
-                            {patientRiskScore !== null ? `${patientRiskScore}%` : 'N/A'}
-                          </Typography>
+                          {loadingPrediction ? (
+                            <Typography variant="body2" color="text.secondary">Calcul...</Typography>
+                          ) : (
+                            <>
+                              <Typography variant="h4" fontWeight={900} sx={{ color: patientRiskScore ? patientRiskColor : boardTheme.textMuted }}>
+                                {patientRiskScore !== null ? `${patientRiskScore}%` : 'N/A'}
+                              </Typography>
+                              {patientRiskLevel && (
+                                <Typography variant="caption" sx={{ color: patientRiskColor, fontWeight: 700 }}>
+                                  {patientRiskLevel}
+                                </Typography>
+                              )}
+                            </>
+                          )}
                         </Box>
                       </Stack>
                     </CardContent>
@@ -821,37 +851,75 @@ function MonitorBoard() {
                           <Typography variant="h6" fontWeight={900}>{t('monitorAITitle')}</Typography>
                         </Stack>
                         <Divider />
-                        {latestPrediction ? (
-                          <Stack spacing={1.5}>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">{t('monitorModelLabel')}</Typography>
-                              <Typography variant="body1" fontWeight={800}>{latestPrediction.model || '-'}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">{t('monitorScoreLabel')}</Typography>
-                              <Typography variant="h4" fontWeight={900} sx={{ color: boardTheme.medicalBlue }}>{latestPrediction.score ?? latestPrediction.probability ?? '-'}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">{t('monitorRiskLevelLabel')}</Typography>
-                              <Chip label={latestPrediction.risk_level || '-'} sx={{ mt: 0.5, fontWeight: 800, bgcolor: 'rgba(26,107,138,0.10)', color: boardTheme.medicalBlue }} />
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">{t('monitorInterpretationLabel')}</Typography>
-                              <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.7 }}>
-                                {latestPrediction.recommendation || t('monitorNoRecommendation')}
-                              </Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">{t('monitorFactorsLabel')}</Typography>
-                              <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.7 }}>
-                                {(latestPrediction.factors || []).length ? latestPrediction.factors.join(', ') : t('monitorNoFactors')}
-                              </Typography>
-                            </Box>
-                            <Typography variant="caption" color="text.secondary">
-                              {language === 'en' ? 'Last analysis' : 'Dernière analyse'}: {formatDateTime(latestPrediction.created_at, language)}
-                            </Typography>
+                        {loadingPrediction ? (
+                          <Stack alignItems="center" py={3}>
+                            <Typography variant="body2" color="text.secondary">Analyse en cours...</Typography>
                           </Stack>
-                        ) : (
+                        ) : patientPrediction ? (() => {
+                          const pp = patientPrediction;
+                          const niv = pp.niveau_risque || 'Inconnu';
+                          const rc = niv === 'Elevé' || niv === 'Élevé' ? '#E74C3C' : niv === 'Modéré' ? '#E67E22' : '#27AE60';
+                          const proba = pp.probabilite_deces || 0;
+                          const _ty = (pp.seuil_youden || 0.194) * 100;
+                          const _ts = (pp.seuil_spec90 || 0.357) * 100;
+                          const grad = `linear-gradient(90deg,#27AE60 0%,#27AE60 ${_ty}%,#f39c12 ${_ty+2}%,#E67E22 ${_ts}%,#e74c3c ${_ts+2}%,#c0392b 100%)`;
+                          return (
+                            <Stack spacing={1.5}>
+                              {/* Jauge + zone */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
+                                  <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,0,0,.08)" strokeWidth="13" />
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke={rc} strokeWidth="13" strokeLinecap="round"
+                                      strokeDasharray={`${Math.min(proba,.999)*2*Math.PI*50} ${2*Math.PI*50}`}
+                                      transform="rotate(-90 60 60)"
+                                      style={{ filter: `drop-shadow(0 0 4px ${rc}80)` }} />
+                                  </svg>
+                                  <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Typography sx={{ fontWeight: 900, fontSize: '1rem', color: '#1e2d5a', lineHeight: 1 }}>{pp.score_risque}</Typography>
+                                    <Typography sx={{ fontSize: '0.65rem', color: rc, fontWeight: 800 }}>%</Typography>
+                                  </Box>
+                                </Box>
+                                <Box>
+                                  <Typography sx={{ fontWeight: 900, fontSize: '1.4rem', color: rc, lineHeight: 1 }}>{niv}</Typography>
+                                  <Typography variant="caption" color="text.secondary">Risque rel. {pp.risque_relatif || '—'}×</Typography>
+                                </Box>
+                              </Box>
+                              {/* Spectre */}
+                              <Box>
+                                <Box sx={{ position: 'relative', height: 7, borderRadius: 4, background: grad, mb: 0.5 }}>
+                                  <Box sx={{ position: 'absolute', left: `${Math.min(proba*100,97)}%`, top: '50%',
+                                    transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%',
+                                    background: 'white', border: `2px solid ${rc}`, boxShadow: `0 0 0 2px ${rc}40` }} />
+                                </Box>
+                              </Box>
+                              {/* Recommandation */}
+                              <Box sx={{ p: 1.5, borderRadius: 2, background: `${rc}08`, border: `1px solid ${rc}20` }}>
+                                <Typography variant="caption" sx={{ color: rc, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', mb: 0.5 }}>
+                                  Recommandation
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#444', lineHeight: 1.6, fontSize: '0.78rem' }}>
+                                  {pp.recommendation || '-'}
+                                </Typography>
+                              </Box>
+                              {/* Facteurs */}
+                              {pp.factors && pp.factors.length > 0 && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                    Facteurs déterminants
+                                  </Typography>
+                                  <Stack spacing={0.5}>
+                                    {pp.factors.slice(0,3).map((f, i) => (
+                                      <Typography key={f.label} variant="caption" sx={{ color: '#555' }}>
+                                        {i+1}. {f.label.replace(/_/g,' ')} ({f.weight > 0 ? '+' : ''}{f.weight})
+                                      </Typography>
+                                    ))}
+                                  </Stack>
+                                </Box>
+                              )}
+                            </Stack>
+                          );
+                        })() : (
                           <Stack spacing={1.5} alignItems="flex-start">
                             <Typography variant="body2" color="text.secondary">
                               {t('monitorNoPrediction')}
@@ -934,6 +1002,79 @@ function MonitorBoard() {
                   </DialogActions>
                 </Dialog>
               </Grid>
+            ) : false ? (
+              (() => {
+                const lp = lastPrediction;
+                const niveau = lp.niveau_risque || 'Inconnu';
+                const riskColor = niveau === 'Élevé' ? '#E74C3C' : niveau === 'Modéré' ? '#E67E22' : '#27AE60';
+                const proba = lp.probabilite_deces || 0;
+                const _ty = (lp.seuil_youden || 0.194) * 100;
+                const _ts = (lp.seuil_spec90 || 0.357) * 100;
+                const grad = `linear-gradient(90deg,#27AE60 0%,#27AE60 ${_ty}%,#f39c12 ${_ty+2}%,#E67E22 ${_ts}%,#e74c3c ${_ts+2}%,#c0392b 100%)`;
+                const missing = lp.features_missing || 0;
+                const cachedAt = lp.cached_at ? new Date(lp.cached_at).toLocaleString('fr-FR') : '—';
+                return (
+                  <Card elevation={0} sx={{ borderRadius: 5, border: `1.5px solid ${riskColor}28`, boxShadow: `0 18px 52px ${riskColor}14, 0 4px 16px rgba(15,23,42,0.06)`, overflow: 'hidden' }}>
+                    {/* Header */}
+                    <Box sx={{ background: 'linear-gradient(145deg,#f7f9fc,#eef1f7)', p: 2.5, borderBottom: '1px solid rgba(0,0,0,.07)' }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Chip label="Dernière prédiction du système" size="small"
+                          sx={{ bgcolor: 'rgba(26,107,138,.09)', color: boardTheme.medicalBlue, fontWeight: 700, fontSize: '0.7rem' }} />
+                        <Typography variant="caption" sx={{ color: boardTheme.textMuted, fontSize: '0.65rem' }}>{cachedAt}</Typography>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" spacing={2.5}>
+                        {/* Mini jauge SVG */}
+                        <Box sx={{ position: 'relative', width: 90, height: 90, flexShrink: 0 }}>
+                          <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,0,0,.08)" strokeWidth="12" />
+                            <circle cx="60" cy="60" r="50" fill="none" stroke={riskColor} strokeWidth="12" strokeLinecap="round"
+                              strokeDasharray={`${Math.min(proba, .999) * 2 * Math.PI * 50} ${2 * Math.PI * 50}`}
+                              transform="rotate(-90 60 60)"
+                              style={{ filter: `drop-shadow(0 0 5px ${riskColor}80)` }} />
+                          </svg>
+                          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography sx={{ fontWeight: 900, fontSize: '1.3rem', color: '#1e2d5a', lineHeight: 1 }}>{lp.score_risque}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: riskColor, fontWeight: 800 }}>%</Typography>
+                          </Box>
+                        </Box>
+                        {/* Infos patient + zone */}
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 900, fontSize: '1.6rem', color: riskColor, lineHeight: 1 }}>{niveau}</Typography>
+                          <Typography sx={{ color: '#555', fontSize: '0.78rem', mt: 0.3 }}>
+                            {lp.patient_name || '—'}  ·  {lp.patient_id_plateforme || `ID #${lp.patient_id}`}
+                          </Typography>
+                          <Stack direction="row" spacing={1} mt={1}>
+                            <Chip label={`Risque rel. ${lp.risque_relatif || '—'}×`} size="small"
+                              sx={{ bgcolor: `${riskColor}12`, color: riskColor, fontWeight: 700, fontSize: '0.65rem', border: `1px solid ${riskColor}25` }} />
+                            <Chip label={`${32 - missing}/32 variables`} size="small"
+                              sx={{ bgcolor: 'rgba(0,0,0,.04)', color: '#555', fontWeight: 600, fontSize: '0.65rem' }} />
+                          </Stack>
+                        </Box>
+                      </Stack>
+                      {/* Spectre */}
+                      <Box mt={2}>
+                        <Typography sx={{ color: 'rgba(0,0,0,.35)', fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '.08em', mb: 0.8 }}>
+                          Position sur le spectre — cohorte HD-478
+                        </Typography>
+                        <Box sx={{ position: 'relative', height: 8, borderRadius: 4, background: grad }}>
+                          <Box sx={{ position: 'absolute', left: `${Math.min(proba * 100, 97)}%`, top: '50%',
+                            transform: 'translate(-50%,-50%)', width: 14, height: 14, borderRadius: '50%',
+                            background: 'white', border: `2.5px solid ${riskColor}`, boxShadow: `0 0 0 2px ${riskColor}40` }} />
+                        </Box>
+                      </Box>
+                    </Box>
+                    {/* Recommandation */}
+                    <CardContent sx={{ p: 2.5 }}>
+                      <Typography variant="caption" sx={{ color: riskColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', fontSize: '0.65rem', display: 'block', mb: 0.8 }}>
+                        Recommandation clinique
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#444', lineHeight: 1.7, fontSize: '0.84rem' }}>
+                        {lp.recommendation || '—'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                );
+              })()
             ) : (
               <Card elevation={0} sx={{ borderRadius: 5, border: `1px solid ${boardTheme.border}`, boxShadow: '0 18px 52px rgba(15, 23, 42, 0.08)' }}>
                 <CardContent sx={{ p: 4 }}>
