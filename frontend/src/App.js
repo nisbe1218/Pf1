@@ -7,7 +7,7 @@ import Login from './pages/auth/Login';
 import Unauthorized from './pages/unauthorized/Unauthorized';
 import PatientsManagement from './pages/patients/PatientsManagement';
 import ModelAI from './pages/model-ai/ModelAI';
-import Preprocessing from './pages/preprocessing/Preprocessing';
+import ValidationRequests from './pages/preprocessing/ValidationRequests';
 import Profile from './pages/profile/Profile';
 import MonitorBoard from './pages/monitor/MonitorBoard';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -39,7 +39,10 @@ function App() {
 
               <Route element={<ProtectedRoute allowedRoles={['super_admin', 'chef_service', 'professeur', 'resident']} />}>
                 <Route path="/patients" element={<PatientsManagement />} />
-                <Route path="/preprocessing" element={<Preprocessing />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['super_admin', 'chef_service']} />}>
+                <Route path="/validation-requests" element={<ValidationRequests />} />
               </Route>
 
               {/* Les autres rôles viendront ici (ex: routes admin, route patients) */}

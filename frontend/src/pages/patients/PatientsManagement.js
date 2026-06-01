@@ -965,6 +965,7 @@ function PatientsManagement() {
   const validatorPhrase = `Vous, en tant que ${roleLabel.toLowerCase()},`;
   const navigate = useNavigate();
   const location = useLocation();
+  const _initialTab = new URLSearchParams(location.search).get('tab') || 'gestion';
   const fileInputRef = useRef(null);
   const [patients, setPatients] = useState([]);
   const [schemaTemplate, setSchemaTemplate] = useState(null);
@@ -998,7 +999,7 @@ function PatientsManagement() {
   const [deletingSelection, setDeletingSelection] = useState(false);
   const [rejectingInsertion, setRejectingInsertion] = useState(false);
   const [mainSection, setMainSection] = useState('data_patient');
-  const [activeTab, setActiveTab] = useState('gestion');
+  const [activeTab, setActiveTab] = useState(_initialTab);
   const [analysisView, setAnalysisView] = useState('synthese');
   const [profile3dAngle, setProfile3dAngle] = useState(35);
 

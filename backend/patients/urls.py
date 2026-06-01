@@ -33,6 +33,10 @@ urlpatterns = [
     path('preprocess/health/', PatientPreprocessHealthView.as_view(), name='patient_preprocess_health'),
     path('preprocess/metrics/timeline/', PatientPreprocessMetricsTimelineView.as_view(), name='patient_preprocess_metrics_timeline'),
     path('preprocess/analyze/', PatientPreprocessAnalyzeView.as_view(), name='patient_preprocess_analyze'),
+    # Validation routes MUST come before <str:session_id> to avoid shadowing
+    path('preprocess/validations/', PatientPreprocessValidationListView.as_view(), name='patient_preprocess_validation_list'),
+    path('preprocess/validations/<int:validation_id>/', PatientPreprocessValidationDetailView.as_view(), name='patient_preprocess_validation_detail'),
+    # Session-specific routes
     path('preprocess/<str:preprocess_id>/status/', PatientPreprocessStatusView.as_view(), name='patient_preprocess_status'),
     path('preprocess/<str:session_id>/', PatientPreprocessSessionView.as_view(), name='patient_preprocess_session'),
     path('preprocess/<str:session_id>/rows/', PatientPreprocessRowsView.as_view(), name='patient_preprocess_rows'),
@@ -43,8 +47,6 @@ urlpatterns = [
     path('preprocess/<str:session_id>/integrate/', PatientPreprocessIntegrateView.as_view(), name='patient_preprocess_integrate'),
     path('preprocess/<str:session_id>/cancel/', PatientPreprocessCancelView.as_view(), name='patient_preprocess_cancel'),
     path('preprocess/<str:session_id>/submit-validation/', PatientPreprocessSubmitValidationView.as_view(), name='patient_preprocess_submit_validation'),
-    path('preprocess/validations/', PatientPreprocessValidationListView.as_view(), name='patient_preprocess_validation_list'),
-    path('preprocess/validations/<int:validation_id>/', PatientPreprocessValidationDetailView.as_view(), name='patient_preprocess_validation_detail'),
     path('<int:pk>/', PatientDetailView.as_view(), name='patient_detail'),
     path('import/', PatientImportExcelView.as_view(), name='patient_import_excel'),
     path('import-excel/', PatientImportExcelView.as_view(), name='patient_import_excel_legacy'),

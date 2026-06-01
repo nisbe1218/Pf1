@@ -1,0 +1,150 @@
+{
+  "numeric_ranges": {
+    "age_annees":                            {"min": 0,   "max": 120,  "unit": "années",   "context": "âge patient dialysé"},
+    "suivi_predialyse_mois":                 {"min": 0,   "max": 360,  "unit": "mois",     "context": "durée suivi prédialyse (max 30 ans)"},
+    "Charlson":                              {"min": 0,   "max": 37,   "unit": "score",    "context": "Charlson Comorbidity Index"},
+    "charlson":                              {"min": 0,   "max": 37,   "unit": "score",    "context": "Charlson Comorbidity Index"},
+    "uree_basale_g/l":                       {"min": 0.1, "max": 5.0,  "unit": "g/L",      "context": "urée basale patient IRC/dialyse"},
+    "creatinine_basale_mg/l":                {"min": 20,  "max": 400,  "unit": "mg/L",     "context": "créatinine basale IRC (stade 4-5: attendu 60-300 mg/L, min abaissé à 20 pour IRC stade 3)"},
+    "dfge_mdrd":                             {"min": 1,   "max": 150,  "unit": "mL/min/1.73m²", "context": "DFG estimé MDRD (dialyse: attendu <15, suivi prédialyse: 15-30)"},
+    "hemoglobine_basale_g/dl":               {"min": 4,   "max": 22,   "unit": "g/dL",     "context": "hémoglobine basale (dialyse: souvent 7-12 g/dL, anémie fréquente)"},
+    "albumine_basale":                       {"min": 15,  "max": 60,   "unit": "g/L",      "context": "albumine basale en g/L (dialyse: attendu 30-45, <30 = malnutrition)"},
+    "potassium_basale":                      {"min": 2.0, "max": 9.0,  "unit": "mmol/L",   "context": "kaliémie basale mmol/L (IRC: hyperkaliémie fréquente, >6.5 = urgence)"},
+    "calcium_basale":                        {"min": 40,  "max": 150,  "unit": "mg/L",     "context": "calcémie basale en mg/L (normal 85-105, dialyse: hypocalcémie fréquente 55-84, min abaissé à 40 pour couvrir hypocalcémies sévères plausibles)"},
+    "phosphore_basale":                      {"min": 10,  "max": 200,  "unit": "mg/L",     "context": "phosphorémie basale mg/L (normal 25-45, IRC: 46-110, >155 = très élevé)"},
+    "bicarbonates_basaux":                   {"min": 5,   "max": 40,   "unit": "mmol/L",   "context": "bicarbonates mmol/L (IRC: acidose métabolique fréquente, attendu 15-22)"},
+    "sodium_basal":                          {"min": 110, "max": 165,  "unit": "mmol/L",   "context": "natrémie mmol/L (normal 135-145)"},
+    "pth_basale":                            {"min": 5,   "max": 5000, "unit": "pg/mL",    "context": "PTH basale pg/mL (hyperparathyroïdie secondaire IRC: souvent 300-2000)"},
+    "ferritine_basale":                      {"min": 5,   "max": 5000, "unit": "ng/mL",    "context": "ferritinémie basale ng/mL = µg/L (dialyse: cible 200-500, surcharge >1000)"},
+    "vitamine_d_basale":                     {"min": 0,   "max": 200,  "unit": "ng/mL",    "context": "vitamine D basale ng/mL (carence sévère <10, insuffisance <30, toxicité >150)"},
+    "proteinurie_basale":                    {"min": 0,   "max": 50,   "unit": "g/24h",    "context": "protéinurie basale g/24h (normal <0.15, néphrotique >3.5, max physiologique ~50)"},
+    "seances_par_semaine":                   {"min": 1,   "max": 7,    "unit": "séances",  "context": "hémodialyse: standard=3 séances/semaine"},
+    "distance_au_centre":                    {"min": 0,   "max": 1000, "unit": "km",       "context": "distance domicile-centre dialyse"},
+    "jours_hospitalisation":                 {"min": 0,   "max": 730,  "unit": "jours",    "context": "durée totale d'hospitalisation"},
+    "nombre_hospitalisations":               {"min": 0,   "max": 100,  "unit": "count",    "context": "nombre d'hospitalisations"},
+    "delai_jusquau_deces_jours":             {"min": 0,   "max": 7300, "unit": "jours",    "context": "délai depuis inclusion jusqu'au décès (max 20 ans)"},
+    "jours_entre_cathetere_et_fistule_arterioveineuse": {"min": 0, "max": 1825, "unit": "jours", "context": "délai entre cathéter et création FAV (max 5 ans)"},
+    "annee_inclusion":                       {"min": 1990,"max": 2030, "unit": "année",    "context": "année d'inclusion dans le registre"},
+    "du_residuelle":                         {"min": 0,   "max": 5000, "unit": "mL/24h",  "context": "diurèse résiduelle (>5000 mL/24h = impossible physiologiquement)"},
+
+    "biologie_uree_g_l":                     {"min": 0.1, "max": 5.0,  "unit": "g/L",      "context": "urée suivi g/L (IRC stade 5: attendu 1.5-4.0)"},
+    "biologie_creatinine_mg_l":              {"min": 20,  "max": 400,  "unit": "mg/L",     "context": "créatinine suivi mg/L (dialyse: attendu 60-300)"},
+    "biologie_hemoglobine_g_dl":             {"min": 4,   "max": 22,   "unit": "g/dL",     "context": "hémoglobine suivi g/dL (dialyse: souvent 7-12, cible EPO 10-12)"},
+    "biologie_leucocytes_g_l":               {"min": 0.5, "max": 100,  "unit": "G/L",      "context": "leucocytes G/L (normal 4-10, infection >12, leucémie >30)"},
+    "biologie_plaquettes_g_l":               {"min": 10,  "max": 1500, "unit": "G/L",      "context": "plaquettes G/L (normal 150-400, thrombopénie <150, thrombocytose >500)"},
+    "biologie_albumine_g_l":                 {"min": 15,  "max": 60,   "unit": "g/L",      "context": "albumine suivi g/L (dialyse: cible >35, <30 = malnutrition)"},
+    "biologie_crp_mg_l":                     {"min": 0,   "max": 500,  "unit": "mg/L",     "context": "CRP mg/L (normal <5, infection légère 5-50, sepsis >100)"},
+    "biologie_sodium_mmol_l":                {"min": 110, "max": 165,  "unit": "mmol/L",   "context": "natrémie mmol/L (normal 135-145)"},
+    "biologie_potassium_mmol_l":             {"min": 2.0, "max": 9.0,  "unit": "mmol/L",   "context": "kaliémie mmol/L (normal 3.5-5.0, >6.5 = urgence dialyse)"},
+    "biologie_bicarbonates_mmol_l":          {"min": 5,   "max": 40,   "unit": "mmol/L",   "context": "bicarbonates mmol/L (IRC: acidose fréquente 15-20, normal 22-29)"},
+    "biologie_calcium_corrige_mg_l":         {"min": 60,  "max": 150,  "unit": "mg/L",     "context": "calcium corrigé albumine mg/L (normal 85-105, hypocalcémie <80, hypercalcémie >115)"},
+    "biologie_phosphore_mg_l":               {"min": 10,  "max": 200,  "unit": "mg/L",     "context": "phosphore mg/L (normal 25-45, IRC hyperphosphatémie 46-110, cible dialyse <55)"},
+    "biologie_pth_pg_ml":                    {"min": 5,   "max": 5000, "unit": "pg/mL",    "context": "PTH pg/mL (normal 15-65, hyperparathyroïdie secondaire IRC: 300-2000)"},
+    "biologie_ferritine_ng_ml":              {"min": 5,   "max": 5000, "unit": "ng/mL",    "context": "ferritine ng/mL (dialyse: cible 200-500, surcharge ferrique >800)"},
+    "biologie_saturation_transferrine_pct":  {"min": 0,   "max": 100,  "unit": "%",        "context": "saturation transferrine % (normal 20-50, carence fer <20, surcharge >50)"},
+    "biologie_vitamine_d_ng_ml":             {"min": 0,   "max": 200,  "unit": "ng/mL",    "context": "vitamine D ng/mL (carence sévère <10, insuffisance <30, toxicité >150)"},
+    "biologie_proteinurie_g_24h":            {"min": 0,   "max": 50,   "unit": "g/24h",    "context": "protéinurie g/24h (normal <0.15, syndrome néphrotique >3.5)"},
+    "biologie_hba1c_pct":                    {"min": 4,   "max": 20,   "unit": "%",        "context": "HbA1c % (normal <5.7, diabète ≥6.5, dialyse: peut être faussement bas)"}
+  },
+
+  "categorical_codes": {
+    "sexe": {
+      "codes": {"0": "femme", "1": "homme"},
+      "note": "colonne binaire: 0=femme 1=homme"
+    },
+    "deces": {
+      "codes": {"0": "non", "1": "oui", "9": "inconnu"},
+      "note": "IMPORTANT: 9=inconnu est une valeur VALIDE — ne JAMAIS la remplacer par null ou corriger"
+    },
+    "fistule_arterioveineuse": {
+      "codes": {"0": "non", "1": "oui"},
+      "note": "colonne binaire"
+    },
+    "statut_diurese": {
+      "codes": {"1": "anurique", "2": "diurese_preservee"},
+      "note": "colonne catégorielle: valeurs valides 1 ou 2 uniquement (PAS de 0)"
+    },
+    "couverture_medicale": {
+      "codes": {"0": "auto_paiement", "1": "ramed", "2": "amo", "3": "autre_assurance_publique"},
+      "note": "colonne catégorielle: 0=auto_paiement est une valeur valide, PAS un manquant"
+    },
+    "couverture_sociale": {
+      "codes": {"0": "auto_paiement", "1": "ramed", "2": "amo", "3": "autre_assurance_publique"},
+      "note": "colonne catégorielle: 0=auto_paiement est une valeur valide, PAS un manquant"
+    },
+    "etiologie_mrc": {
+      "codes": {
+        "1": "nephropathie_diabetique",
+        "2": "nephropathie_indeterminee",
+        "3": "vascularite_anca",
+        "4": "maladie_renale_polykystique",
+        "5": "nephroangiosclerose",
+        "6": "uropathie_obstructive",
+        "7": "nephropathie_lupique",
+        "8": "glomerulonephrite_membraneuse",
+        "9": "nephropathie_a_iga",
+        "10": "lgm_hsf",
+        "11": "amylose_myelome",
+        "12": "gn_crescentique",
+        "13": "syndrome_hemolytique_et_uremique",
+        "14": "glomerulopathie_c3",
+        "15": "necrose_corticale"
+      },
+      "note": "codes valides: 1 à 15 uniquement"
+    },
+    "groupe_etiologie_mrc": {
+      "codes": {
+        "1": "diabete",
+        "2": "nephroangiosclerose",
+        "3": "polykystose",
+        "4": "uropathie_obstructive",
+        "5": "lupus",
+        "6": "vascularite",
+        "7": "autre_glomerulaire",
+        "8": "autre",
+        "9": "indeterminee"
+      },
+      "note": "codes valides: 1 à 9 uniquement"
+    },
+    "type_acces_initial": {
+      "codes": {
+        "1": "cathetere_femoral",
+        "2": "cathetere_tunnellise",
+        "3": "fistule_arterioveineuse",
+        "4": "cathetere_peritoneal"
+      },
+      "note": "codes valides: 1 à 4 uniquement"
+    },
+    "groupe_jours_entre_cathetere": {
+      "codes": {
+        "0": "pas_d_intervalle",
+        "1": "0_30_jours",
+        "2": "31_181_jours",
+        "3": "plus_de_180_jours"
+      },
+      "note": "codes valides: 0 à 3 (0=pas d'intervalle est une valeur valide)"
+    },
+    "cause_deces": {
+      "codes": {
+        "1": "cardiovasculaire",
+        "2": "infection",
+        "3": "hemorragique",
+        "4": "autre",
+        "5": "indeterminee"
+      },
+      "note": "codes valides: 1 à 5 uniquement — manquant acceptable si deces=0"
+    },
+    "biologie_hbsag": {
+      "codes": {"0": "negatif", "1": "positif"},
+      "note": "sérologie HBsAg: 0=négatif 1=positif — colonne binaire, ne pas traiter 0 comme manquant"
+    },
+    "biologie_vhc": {
+      "codes": {"0": "negatif", "1": "positif"},
+      "note": "sérologie VHC: 0=négatif 1=positif — colonne binaire, ne pas traiter 0 comme manquant"
+    },
+    "biologie_vih": {
+      "codes": {"0": "negatif", "1": "positif"},
+      "note": "sérologie VIH: 0=négatif 1=positif — colonne binaire, ne pas traiter 0 comme manquant"
+    }
+  }
+}

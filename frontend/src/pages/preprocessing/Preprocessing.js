@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Box, Paper, Typography, Button, LinearProgress,
   Table, TableBody, TableCell, TableHead, TableRow,
@@ -7,7 +7,6 @@ import {
   FormControlLabel, FormControl, Divider, Tabs, Tab, IconButton,
 } from '@mui/material';
 import api from '../../services/api/axios';
-import { AuthContext } from '../../context/AuthContext';
 
 const PALETTE = {
   navy: '#0A2B3E',
@@ -171,8 +170,6 @@ export default function Preprocessing() {
   const [integrateSource, setIntegrateSource] = useState('corrected');
   const [integrateLoading, setIntegrateLoading] = useState(false);
   const [integrateSuccess, setIntegrateSuccess] = useState(null);
-  const { user } = useContext(AuthContext);
-  const isChefOrAdmin = user?.role === 'super_admin' || user?.role === 'chef_service';
 
   const isAllowedFileType = (f) => {
     const n = String(f?.name || '').toLowerCase();
@@ -324,16 +321,10 @@ export default function Preprocessing() {
   const handleIntegrateConfirm = async () => {
     setIntegrateLoading(true);
     try {
-      const resp = await api.post(`patients/preprocess/${session}/submit-validation/`, { source: integrateSource });
-      const validationId = resp.data?.validation_id;
-      if (isChefOrAdmin && validationId) {
-        await api.post(`patients/preprocess/validations/${validationId}/`, { action: 'approve' });
-        setIntegrateSuccess('inserted');
-      } else {
-        setIntegrateSuccess('pending');
-      }
-    } catch { alert('Erreur soumission.'); setIntegrateLoading(false); }
-    finally { setLoading(false); setIntegrateLoading(false); }
+      await api.post(`patients/preprocess/${session}/integrate/`, { source: integrateSource });
+      setIntegrateSuccess('inserted');
+    } catch { alert('Erreur lors de l\'intégration.'); }
+    finally { setIntegrateLoading(false); }
   };
 
   const pipelineStages = [
@@ -405,9 +396,13 @@ export default function Preprocessing() {
       } else if (actionType === 'bio_value_correction' || actionType === 'llm_value_correction') {
         const corrs = c?.corrections || {};
         correction = Object.entries(corrs).slice(0, 2).map(([f, t]) => `${f}→${t ?? 'NaN'}`).join(', ');
-        justification = c?.explanation || justification;
+        justification = c?.justification || c?.explanation || justification;
       } else if (actionType === 'knn_imputation') {
         correction = `${c?.imputed_count ?? 0} valeur(s) KNN`;
+      } else if (actionType === 'decimal_comma_fix') {
+        correction = 'Virgule → point (notation française)';
+      } else if (actionType === 'excel_artifact_cleanup') {
+        correction = 'Artefact Excel → null';
       } else correction = actionType;
       tableRows.push({ colName, actionType, correction, justification: justification || 'Correction automatique', cells: c?.cells_changed ?? c?.imputed_count ?? null, status: actionType === 'knn_imputation' ? 'knn' : 'corrected', severity: 'corrected' });
     });
@@ -553,31 +548,6 @@ export default function Preprocessing() {
                 </Button>
               )}
 
-              {/* Exporter corrigé */}
-              <Button variant="contained" onClick={() => handleExport('corrected')}
-                disabled={!session || loading || status !== 'completed'}
-                sx={{
-                  background: 'linear-gradient(135deg, #D47A8E 0%, #C46B82 50%, #A855A0 100%)',
-                  color: 'white', borderRadius: 2.5, px: 3, py: 1.5,
-                  fontWeight: 700, fontSize: 13, textTransform: 'none',
-                  boxShadow: '0 4px 15px #D47A8E66',
-                  transition: 'all 0.25s ease',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #C46B82 0%, #A855A0 100%)',
-                    boxShadow: '0 6px 22px #D47A8E88',
-                    transform: 'translateY(-2px)',
-                  },
-                  '&:disabled': { background: PALETTE.border, color: PALETTE.textMuted, boxShadow: 'none', transform: 'none' },
-                }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill="white"/>
-                    <path d="M4 20h16v-2H4v2z" fill="white"/>
-                  </svg>
-                  Exporter (.xlsx)
-                </Box>
-              </Button>
-
               {/* Suivant */}
               <Button variant="contained" onClick={handleIntegrate}
                 disabled={!session || loading || status !== 'completed'}
@@ -616,32 +586,17 @@ export default function Preprocessing() {
           <DialogContent sx={{ pt: 3 }}>
             {integrateSuccess ? (
               <Box sx={{ textAlign: 'center', py: 2 }}>
-                {integrateSuccess === 'inserted' ? (
-                  <>
-                    <Typography sx={{ color: PALETTE.green, fontWeight: 700, fontSize: 16, mb: 1 }}>
-                      ✓ Données intégrées avec succès !
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: PALETTE.textMuted }}>
-                      Les données ont été validées et insérées dans la plateforme.
-                    </Typography>
-                  </>
-                ) : (
-                  <>
-                    <Typography sx={{ color: PALETTE.orange, fontWeight: 700, fontSize: 16, mb: 1 }}>
-                      ✓ Import soumis pour validation !
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: PALETTE.textMuted }}>
-                      La version {integrateSource === 'corrected' ? 'corrigée' : 'originale'} est en attente de validation par le chef de service ou l'administrateur.
-                    </Typography>
-                  </>
-                )}
+                <Typography sx={{ color: PALETTE.green, fontWeight: 700, fontSize: 16, mb: 1 }}>
+                  ✓ Données intégrées avec succès !
+                </Typography>
+                <Typography variant="body2" sx={{ color: PALETTE.textMuted }}>
+                  Les données ont été insérées dans la plateforme.
+                </Typography>
               </Box>
             ) : (
               <>
                 <Typography variant="body2" sx={{ color: PALETTE.textMuted, mb: 2 }}>
-                  {isChefOrAdmin
-                    ? 'Choisissez la version à intégrer directement dans la plateforme.'
-                    : "Choisissez la version à soumettre pour validation. Le chef de service ou l'administrateur devra valider avant intégration."}
+                  Choisissez la version à intégrer dans la plateforme.
                 </Typography>
                 <FormControl component="fieldset" sx={{ width: '100%' }}>
                   <RadioGroup value={integrateSource} onChange={(e) => setIntegrateSource(e.target.value)}>
@@ -691,7 +646,7 @@ export default function Preprocessing() {
                 <Button variant="contained" onClick={handleIntegrateConfirm} disabled={integrateLoading}
                   sx={{ bgcolor: PALETTE.navy, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3,
                     '&:hover': { bgcolor: PALETTE.navyLight } }}>
-                  {integrateLoading ? <><CircularProgress size={14} sx={{ color: 'white', mr: 1 }} />Envoi...</> : (isChefOrAdmin ? 'Valider et intégrer' : 'Soumettre pour validation')}
+                  {integrateLoading ? <><CircularProgress size={14} sx={{ color: 'white', mr: 1 }} />Intégration...</> : 'Intégrer les données'}
                 </Button>
               </>
             )}

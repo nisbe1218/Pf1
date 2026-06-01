@@ -11,6 +11,7 @@ from http.client import RemoteDisconnected
 from urllib import request as urllib_request
 from urllib import error as urllib_error
 
+import numpy as np
 import pandas as pd
 from django.db import connection
 from django.db.models import Q
@@ -1472,15 +1473,29 @@ def _read_uploaded_dataframe(uploaded_file):
 # Used inside _build_technical_profile to surface rare aberrant values that
 # never appear in the 5-sample snapshot shown to the LLM.
 import re as _re_anomaly
+import json as _json_rules
+
+_MEDICAL_DOMAIN_RULES_PATH = os.path.join(os.path.dirname(__file__), 'medical_domain_rules.json')
+try:
+    with open(_MEDICAL_DOMAIN_RULES_PATH, 'r', encoding='utf-8') as _f:
+        _MEDICAL_DOMAIN_RULES = _json_rules.load(_f)
+except Exception:
+    _MEDICAL_DOMAIN_RULES = {'numeric_ranges': {}, 'categorical_codes': {}}
 
 _ANOMALY_EXCEL_DATE_ARTIFACTS = {
     '0/1/1900', '1/0/1900', '00/01/1900', '01/00/1900',
     '0/0/1900', '1/1/1900', '01/01/1900', '00/00/1900',
     '0-1-1900', '1-0-1900', '00-01-1900', '01-00-1900',
     '1900-01-00', '1900-00-01', '1900-01-01',
+    # pandas converts Excel serial 0 → Timestamp('1899-12-30') → ISO "1899-12-30"
+    '1899-12-30', '1899-12-31', '1899-12-29',
+    # pandas/openpyxl sometimes produce these for corrupt/zero date cells
+    '1900-01-00 00:00:00', '1899-12-30 00:00:00',
 }
 _ANOMALY_YEAR_TYPO_RE = _re_anomaly.compile(r'\b([3-9]\d{3}|21\d{2})\b')
 _ANOMALY_FUTURE_YEAR_RE = _re_anomaly.compile(r'\b(20[3-9]\d|2[1-9]\d{2})\b')
+# Dates before 1920 in a modern medical dataset = Excel artifact or data error
+_ANOMALY_ANCIENT_DATE_RE = _re_anomaly.compile(r'^(18\d{2}|19[01]\d)[-/]')
 
 _ANOMALY_DISGUISED_MISSING = frozenset({
     'n/a', 'na', 'nan', '?', '-', '--', '---', 'null', 'none', 'nil',
@@ -1515,6 +1530,38 @@ _ANOMALY_DATE_FMT = [
 ]
 
 # Column name keywords that imply non-negative values
+# ── SVM mortalité feature validation ─────────────────────────────────────────
+# Exact features expected by mortalite_svm.joblib — validated post-correction
+# to ensure the LLM did not introduce new errors on prediction-critical columns.
+_SVM_MORTALITE_FEATURES = {
+    # numeric (min, max)
+    'albumine_basale':              (15, 60),
+    'calcium_basale':               (60, 150),
+    'ferritine_basale':             (5, 5000),
+    'pth_basale':                   (5, 5000),
+    'du_residuelle':                (0, 5000),
+    'seances_par_semaine':          (1, 7),
+    'nombre_hospitalisations':      (0, 100),
+    'annee_inclusion':              (1990, 2030),
+    'etiologie_mrc':                (1, 15),
+    'couverture_medicale':          (0, 3),
+    # binary (only 0 or 1 allowed)
+    'fistule_arterioveineuse_creee':     'binary',
+    'admission_cathetere_tunnellise':    'binary',
+    'crise_convulsive':                  'binary',
+    'douleur_abdominale':               'binary',
+    'diabete':                          'binary',
+    'evenement_cardiovasculaire':        'binary',
+    'dyspnee':                          'binary',
+    'oedemes_surcharge':                'binary',
+    'hemodialyse':                      'binary',
+    'liste_attente_transplantation':     'binary',
+    'maladie_renale_hereditaire':        'binary',
+    'information_transplantation_donnee':'binary',
+    'hypertension':                     'binary',
+    'cardiopathie':                     'binary',
+}
+
 _ANOMALY_NONNEG_KEYWORDS = (
     'age', 'poids', 'taille', 'imc', 'bmi', 'score', 'glycemie',
     'tension', 'frequence', 'duree', 'pression', 'hemoglobine',
@@ -1571,15 +1618,19 @@ def _build_technical_profile(dataframe):
             _has_html = False
             _has_space = False
             _has_mojibake = False
+            _ancient_date_count = 0
             _unique_vals = non_null_series.astype(str).unique()[:500]
 
             for _v in _unique_vals:
                 _vs = _v.strip()
                 _vsl = _vs.lower()
 
-                # 1. Excel date base artifacts
+                # 1. Excel date base artifacts (includes pandas ISO output of serial 0)
                 if _vs in _ANOMALY_EXCEL_DATE_ARTIFACTS:
                     anomaly_candidates.append({'value': _v, 'type': 'artefact_excel'})
+                # 1b. Dates before 1920 in any column — likely Excel artifact or data error
+                elif _ANOMALY_ANCIENT_DATE_RE.match(_vs):
+                    _ancient_date_count += 1
 
                 # 2. Year typo (3023 instead of 2023, 2124 instead of 2024)
                 elif _ANOMALY_YEAR_TYPO_RE.search(_vs):
@@ -1623,6 +1674,12 @@ def _build_technical_profile(dataframe):
                     _has_mojibake = True
 
             # Aggregate anomalies — added once per column (not per value)
+            if _ancient_date_count > 0:
+                anomaly_candidates.append({
+                    'value': f'{_ancient_date_count} date(s) avant 1920 (artefact Excel probable, serial date 0 = 1899-12-30)',
+                    'type': 'artefact_excel',
+                    'count': _ancient_date_count,
+                })
             if _decimal_comma_count > 0:
                 anomaly_candidates.append({
                     'value': f'{_decimal_comma_count} valeur(s) ex: "{_unique_vals[0]}"',
@@ -2065,7 +2122,7 @@ def _build_technical_profile(dataframe):
                     ),
                 })
 
-        # Rule 6 — deces=0 but date_deces is filled
+        # Rule 6 — deces=0 (vivant) but date_deces is filled
         if s_dec is not None and s_ddate is not None:
             _mask = (pd.to_numeric(s_dec, errors='coerce') == 0) & s_ddate.notna()
             _n = int(_mask.sum())
@@ -2075,8 +2132,24 @@ def _build_technical_profile(dataframe):
                     'columns': [_col('deces'), _col('date_deces')],
                     'inconsistent_rows': _n,
                     'explanation': (
-                        f'{_n} patient(s) ont deces=0 mais une date_deces est renseignée. '
+                        f'{_n} patient(s) ont deces=0 (vivant) mais une date_deces est renseignée. '
                         f'Si le patient est vivant, date_deces doit être vide.'
+                    ),
+                })
+
+        # Rule 6b — deces=9 (inconnu) but date_deces is filled (contradictory)
+        if s_dec is not None and s_ddate is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 9) & s_ddate.notna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('date_deces')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=9 (statut inconnu) mais une date_deces est renseignée. '
+                        f'Si le statut de décès est inconnu, la date de décès ne devrait pas être renseignée. '
+                        f'Vérifier si le statut doit être corrigé à 1 (décédé) ou si la date doit être supprimée.'
                     ),
                 })
 
@@ -2092,6 +2165,21 @@ def _build_technical_profile(dataframe):
                     'inconsistent_rows': _n,
                     'explanation': (
                         f'{_n} patient(s) ont deces=0 mais delai_jusquau_deces_jours est renseigné.'
+                    ),
+                })
+
+        # Rule 7b — deces=9 (inconnu) but delai_jusquau_deces_jours is filled
+        if s_dec is not None and s_delai is not None:
+            _mask = (pd.to_numeric(s_dec, errors='coerce') == 9) & s_delai.notna()
+            _n = int(_mask.sum())
+            if _n > 0:
+                cross_column_issues.append({
+                    'type': 'contradiction_logique',
+                    'columns': [_col('deces'), _col('delai_jusquau_deces_jours')],
+                    'inconsistent_rows': _n,
+                    'explanation': (
+                        f'{_n} patient(s) ont deces=9 (statut inconnu) mais delai_jusquau_deces_jours est renseigné. '
+                        f'Un délai de décès ne peut pas être calculé si le statut de décès est inconnu.'
                     ),
                 })
 
@@ -2119,6 +2207,94 @@ def _build_technical_profile(dataframe):
         pass
     # ── End medical coherence rules ───────────────────────────────────────────
     # ──────────────────────────────────────────────────────────────────────────
+
+    # ── Medical domain validation (ranges + valid categorical codes) ──────────
+    _domain_numeric = _MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}
+    _domain_categorical = _MEDICAL_DOMAIN_RULES.get('categorical_codes') or {}
+
+    # Build a lookup: lowercase col name → column profile dict (for fast access)
+    _col_profile_map = {str(cp.get('column') or cp.get('name') or '').lower(): cp for cp in columns_profile}
+
+    for _col_name in dataframe.columns:
+        _col_key = str(_col_name).lower()
+        _cp = _col_profile_map.get(_col_key)
+        if _cp is None:
+            continue
+
+        # ── Numeric range validation ─────────────────────────────────────────
+        _rule = _domain_numeric.get(_col_name) or _domain_numeric.get(_col_key)
+        if _rule:
+            _num_series = pd.to_numeric(dataframe[_col_name], errors='coerce').dropna()
+            if not _num_series.empty:
+                _rmin, _rmax = _rule.get('min'), _rule.get('max')
+                _unit = _rule.get('unit', '')
+                _ctx = _rule.get('context', '')
+                _existing = list(_cp.get('anomaly_candidates') or [])
+                if _rmin is not None:
+                    _below = _num_series[_num_series < _rmin]
+                    if not _below.empty:
+                        _existing.append({
+                            'value': (
+                                f'{len(_below)} valeur(s) < {_rmin} {_unit} '
+                                f'(impossible pour {_ctx}): {_below.head(3).tolist()}'
+                            ),
+                            'type': 'valeur_aberrante',
+                            'count': int(len(_below)),
+                        })
+                if _rmax is not None:
+                    _above = _num_series[_num_series > _rmax]
+                    if not _above.empty:
+                        _existing.append({
+                            'value': (
+                                f'{len(_above)} valeur(s) > {_rmax} {_unit} '
+                                f'(impossible pour {_ctx}): {_above.head(3).tolist()}'
+                            ),
+                            'type': 'valeur_aberrante',
+                            'count': int(len(_above)),
+                        })
+                if _existing:
+                    _cp['anomaly_candidates'] = _existing[:12]
+
+        # ── Categorical code validation ───────────────────────────────────────
+        _cat_rule = _domain_categorical.get(_col_name) or _domain_categorical.get(_col_key)
+        if _cat_rule:
+            _valid_codes = set(str(k) for k in (_cat_rule.get('codes') or {}).keys())
+            _note = _cat_rule.get('note', '')
+            _code_labels = _cat_rule.get('codes') or {}
+            # Store domain metadata on column profile so LLM prompt sees it
+            _cp['domain_metadata'] = {
+                'valid_codes': _code_labels,
+                'note': _note,
+            }
+            # Detect values outside valid codes.
+            # Normalize float codes: "4.0" → "4" so valid integer codes stored as floats
+            # (common in pandas after CSV import) are not falsely flagged as invalid.
+            def _norm_cat_code(v):
+                s = str(v).strip()
+                try:
+                    f = float(s)
+                    if f == int(f):
+                        return str(int(f))
+                except (ValueError, TypeError):
+                    pass
+                return s
+            _str_series = dataframe[_col_name].dropna().apply(_norm_cat_code)
+            _invalid_mask = ~_str_series.isin(_valid_codes)
+            _invalid_vals = _str_series[_invalid_mask]
+            if not _invalid_vals.empty:
+                _vc = _invalid_vals.value_counts()
+                _existing = list(_cp.get('anomaly_candidates') or [])
+                for _bad_val, _bad_cnt in _vc.head(5).items():
+                    _existing.append({
+                        'value': (
+                            f'code invalide "{_bad_val}" ({_bad_cnt} occurrence(s)) — '
+                            f'codes valides: {list(_valid_codes)}'
+                        ),
+                        'type': 'code_invalide',
+                        'count': int(_bad_cnt),
+                    })
+                _cp['anomaly_candidates'] = _existing[:12]
+    # ── End medical domain validation ─────────────────────────────────────────
 
     profile = {
         'rows': total_rows,
@@ -3901,6 +4077,8 @@ _EXCEL_DATE_ARTIFACTS = {
     '0/0/1900', '1/1/1900', '01/01/1900', '00/00/1900',
     '0-1-1900', '1-0-1900', '00-01-1900', '01-00-1900',
     '1900-01-00', '1900-00-01', '1900-01-01',
+    '1899-12-30', '1899-12-31', '1899-12-29',
+    '1900-01-00 00:00:00', '1899-12-30 00:00:00',
 }
 
 
@@ -4350,18 +4528,39 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             'Si cross_column_issues est present dans le dataset, créer une issue pour chaque element avec la colonne principale concernee. '
 
             'CHAMP CRITIQUE anomaly_candidates: si une colonne contient ce champ, ces valeurs ont ete detectees '
-            'en scannant TOUT le fichier — elles sont garanties aberrantes meme si rares (1 occurrence sur 500). '
-            'Tu DOIS toutes les traiter dans correction_plan: '
-            'artefact_excel → null, annee_incorrecte → corriger le siecle, manquant_deguise → null, '
-            'separateur_decimal → remplacer "," par ".", valeur_negative_impossible → null, '
-            'booleen_incoherent → normaliser avec value_mappings, mojibake → signaler uniquement. '
+            'en scannant TOUT le fichier — elles sont garanties problematiques meme si rares (1 occurrence sur 500). '
+            'Tu DOIS toutes traiter dans correction_plan selon leur type: '
+            'artefact_excel → value_mappings vers null, '
+            'annee_incorrecte → corriger le siecle (ex 3023→2023) dans value_mappings, '
+            'manquant_deguise → value_mappings vers null, '
+            'separateur_decimal → value_mappings remplacer virgule par point, '
+            'valeur_negative_impossible → value_mappings vers null, '
+            'booleen_incoherent → normaliser oui/non/true/false → 1/0 dans value_mappings, '
+            'format_date_mixte → ajouter la colonne dans parse_dates, '
+            'valeur_numerique_texte → ajouter dans type_casts avec target_type numeric, '
+            'espace_parasite → ajouter dans trim_whitespace_columns, '
+            'colonne_constante ou colonne_quasi_constante → signaler en issue severity=info, '
+            'valeur_aberrante ou unite_melangee → signaler en issue et corriger si possible (value_mappings vers null si valeur unique impossible), '
+            'code_invalide → signaler en issue severity=warning et corriger dans value_mappings si la bonne valeur est deductible, sinon mettre null, '
+            'mojibake ou caractere_special → signaler en issue severity=warning uniquement. '
+            'CHAMPS min/max/outlier_count/sentinels: utilise ces statistiques pour detecter valeurs impossibles. '
+            'Si min ou max est hors normes medicales, signaler comme valeur_aberrante. '
+            'Si sentinels contient 999 ou -1, ces valeurs sont probablement des manquants deguises → null. '
+            'CHAMP samples: exemples de valeurs reelles de la colonne. '
+            'Utilise samples pour detecter formats incohérents (dates, casses, unites). '
+            'CHAMP domain_metadata: contient valid_codes (codes valides et leur signification) et note. '
+            'RESPECTER ABSOLUMENT les valid_codes — ne JAMAIS corriger ou remplacer une valeur qui est dans valid_codes. '
+            'Si domain_metadata.note dit "ne pas corriger", ne toucher a cette valeur sous aucun pretexte. '
+            'Exemple: deces=9 signifie "inconnu" selon domain_metadata — c est valide, ne pas remplacer par null. '
+            'Exemple: couverture_medicale=0 signifie "auto_paiement" — c est valide, ne pas traiter comme manquant. '
 
             'REGLES IMPORTANTES: '
             'COLONNES BINAIRES (is_binary=true ou valeurs uniquement {0,1}): '
-            'La valeur 0 signifie NON/ABSENT et 1 signifie OUI/PRESENT. '
-            'Ne jamais signaler 0 comme valeur_negative_impossible ni comme valeur_aberrante. '
-            'Une colonne binaire constante a 1.0 ou 0.0 est une information valide (tous les patients ont cette condition). '
+            'La valeur 0 signifie NON/ABSENT et 1 signifie OUI/PRESENT — ce sont des valeurs VALIDES, pas des manquants. '
+            'Ne JAMAIS signaler valeur_manquante pour une colonne binaire : 0 n est pas un manquant. '
+            'Ne JAMAIS signaler valeur_negative_impossible ni valeur_aberrante pour 0 ou 1. '
             'Ne pas signaler colonne_constante ni colonne_quasi_constante pour les colonnes binaires. '
+            'Une colonne binaire avec uniquement des 0 signifie que tous les patients ont la valeur NON — c est une information clinique valide. '
             'Le but est un correction_plan non vide et exploitable. '
             'Ne reponds jamais par {} si des anomalies existent. '
             'Si tu hesites, choisis la correction prudente. '
@@ -4378,7 +4577,8 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             '"correction_plan":{'
             '"rename_columns":{},"drop_columns":[],"value_mappings":{},'
             '"fill_missing":{},"type_casts":{},"parse_dates":[],'
-            '"trim_whitespace_columns":[],"default_values":{}}} '
+            '"trim_whitespace_columns":[],"default_values":{}},'
+            '"correction_justifications":{"nom_colonne":"raison concise: probleme detecte (ex: format date mixte dd/mm/yyyy et yyyy-mm-dd, 18% valeurs manquantes, valeurs sentinelles 999/-1), correction appliquee et impact"}} '
         )
         if _loinc_ref:
             prompt += _loinc_ref + ' '
@@ -4659,6 +4859,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                     'min': nc.get('min'), 'max': nc.get('max'),
                     'outlier_count': nc.get('outlier_count'),
                     'sentinel_counts': nc.get('sentinel_counts') or {},
+                    'is_binary': bool(nc.get('is_binary')),
                 }
         priority_cols = []   # all columns — minimal metadata only, LLM detects anomalies from real values
         clean_cols = []      # unused but kept for compatibility
@@ -4676,11 +4877,6 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             dtype_str = str(col.get('dtype') or '').lower()
             stats = num_stats.get(col_name, {})
 
-            # ── LLM-first architecture: send minimal metadata, no pre-detected anomalies ──
-            # The LLM detects anomalies directly from data_columns (real values).
-            # We only send: column name, type, missing count.
-            # We do NOT send: outlier_count, anomaly_candidates, sentinels, samples.
-            # Exception: keep cross_column_issues and is_binary flag (structural info).
             entry = {
                 'col': col_name,
                 'type': str(col.get('dtype') or ''),
@@ -4690,15 +4886,31 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             if stats.get('is_binary'):
                 entry['is_binary'] = True
 
-            # Keep cross-column coherence issues (structural, not statistical)
+            # Domain metadata (valid codes, note) — tells LLM exactly what values are valid
+            domain_meta = col.get('domain_metadata')
+            if domain_meta:
+                entry['domain_metadata'] = domain_meta
+
+            # Send ALL anomaly candidates — pre-scanned from 100% of rows by Python
+            # Field name matches prompt instruction: anomaly_candidates
             anomaly_candidates = col.get('anomaly_candidates') or []
-            structural_candidates = [
-                a for a in anomaly_candidates
-                if a.get('type') in ('colonne_vide', 'unite_melangee', 'contradiction_logique',
-                                     'valeur_invalide_x', 'valeur_numerique_texte', 'id_manquant')
-            ]
-            if structural_candidates:
-                entry['structural_hints'] = structural_candidates[:3]
+            if anomaly_candidates:
+                entry['anomaly_candidates'] = anomaly_candidates[:8]
+
+            # Add numeric stats (min/max/outliers/sentinels) for aberrant value detection
+            if not stats.get('is_binary'):
+                if stats.get('min') is not None:
+                    entry['min'] = stats['min']
+                if stats.get('max') is not None:
+                    entry['max'] = stats['max']
+                if stats.get('outlier_count'):
+                    entry['outlier_count'] = stats['outlier_count']
+                if stats.get('sentinel_counts'):
+                    entry['sentinels'] = stats['sentinel_counts']
+
+            # Add sample unique values for non-numeric columns (helps LLM see actual format)
+            if dtype_str in ('object', 'string', 'category') and col.get('sample_values'):
+                entry['samples'] = col['sample_values'][:5]
 
             priority_cols.append(entry)
 
@@ -4715,15 +4927,49 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
         for c in all_priority_cols
         if c.get('is_binary')
     }
+    # Binary columns with 0% actual missing (Python-confirmed) — LLM must not flag as missing
+    _col_missing_pct = {
+        str(col.get('column') or col.get('name') or ''): col.get('missing_pct', 0)
+        for col in (technical_profile.get('columns_profile') or [])
+    }
+    _binary_no_missing = {
+        col for col in _binary_col_names
+        if _col_missing_pct.get(col, 1) == 0
+    }
     # False positive categories that must never appear on binary columns
     _BINARY_FALSE_POSITIVE_CATS = {
         'valeur_negative_impossible', 'valeur_aberrante',
         'colonne_constante', 'colonne_quasi_constante',
     }
 
+    # ── Warmup: ensure Ollama model is loaded before first batch ──
+    _notify_progress('Chargement du modèle LLM...')
+    for _wb in candidate_bases:
+        try:
+            _warmup_payload = json.dumps({
+                'model': model_name,
+                'prompt': 'OK',
+                'stream': False,
+                'options': {'num_predict': 1, 'num_ctx': 512},
+            }).encode('utf-8')
+            _req = urllib_request.Request(
+                f'{_wb}/api/generate',
+                data=_warmup_payload,
+                headers={'Content-Type': 'application/json'},
+                method='POST',
+            )
+            with urllib_request.urlopen(_req, timeout=60) as _r:
+                _r.read()
+            logger.info('[WARMUP] Ollama model ready on %s', _wb)
+            break
+        except Exception as _e:
+            logger.warning('[WARMUP] %s: %s', _wb, _e)
+
     # ── Run LLM on each batch and merge results ──
     merged_issues_all = []
+    _seen_issue_keys = set()  # (column, category) pairs already in merged_issues_all
     merged_plan = {}
+    merged_justifications = {}
     merged_summaries = []
     batch_limitations = []
     last_result = None
@@ -4793,7 +5039,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
                     'total_batches': batch_total,
                     'note': 'Les colonnes avec clean=true semblent propres statistiquement mais peuvent contenir des valeurs illogiques — analyser les vraies valeurs dans data_csv.',
                 },
-                **(({'cross_column_issues': _cross_col}) if _cross_col and batch_idx == 0 else {}),
+                **(({'cross_column_issues': _cross_col}) if _cross_col else {}),
             },
             'rag_correction': rag_correction_context,
             **(({'data_columns': _data_columns}) if _data_columns else {}),
@@ -4826,55 +5072,26 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             batch_limitations.extend(batch_result.get('limitations') or [])
             continue
 
-        # Retry if plan is empty and batch had columns to fix
+        # Retry uniquement si le LLM n'a produit ni plan ni issues (réponse vide)
         batch_plan = batch_result.get('correction_plan') if isinstance(batch_result.get('correction_plan'), dict) else {}
         batch_issues = batch_result.get('issues') if isinstance(batch_result.get('issues'), list) else []
         plan_empty = _is_correction_plan_empty(batch_plan)
         issues_empty = len(batch_issues) == 0
 
-        # Collect all anomaly_candidates from this batch for smarter retry hint
-        _anomaly_lines = []
-        for _bc in batch_cols:
-            if not isinstance(_bc, dict):
-                continue
-            _col_name = _bc.get('col') or _bc.get('name') or ''
-            _ac = _bc.get('anomaly_candidates')
-            if isinstance(_ac, list) and _ac:
-                for _item in _ac[:10]:
-                    if isinstance(_item, dict):
-                        _val = _item.get('value', '')
-                        _cat = _item.get('type') or _item.get('category') or 'anomalie'
-                        _anomaly_lines.append(f'{_col_name}:{_cat}={repr(_val)}')
-            elif isinstance(_ac, dict):
-                for _cat, _vals in list(_ac.items())[:5]:
-                    for _v in (_vals if isinstance(_vals, list) else [_vals])[:3]:
-                        _anomaly_lines.append(f'{_col_name}:{_cat}={repr(_v)}')
-
-        has_anomaly_candidates = bool(_anomaly_lines)
-        # Retry when: (plan+issues both empty) OR (anomaly_candidates known but LLM returned 0 issues)
-        need_retry = (plan_empty and issues_empty and batch_cols) or (has_anomaly_candidates and issues_empty)
+        # Retry uniquement si le LLM était indisponible ou a renvoyé un JSON invalide
+        _lims = ' '.join(str(l) for l in (batch_result.get('limitations') or []))
+        need_retry = bool(batch_result.get('unavailable')) or 'invalide' in _lims.lower() or 'invalid' in _lims.lower()
         if need_retry:
             strict_retry_performed = True
-            _notify_progress(f'Batch {batch_idx + 1}/{batch_total} sans résultat, relance forcée...')
-            # Build explicit hint listing detected anomalies so LLM cannot miss them
-            _hint = ''
-            if _anomaly_lines:
-                _hint = (
-                    'ANOMALIES DÉTECTÉES PAR SCAN COMPLET — tu DOIS toutes les signaler dans issues et correction_plan: '
-                    + ', '.join(_anomaly_lines[:40])
-                    + '. Chacune doit apparaître dans issues avec sa category et dans correction_plan avec la correction appropriée.'
-                )
-            # Scale num_predict upward when many anomalies need to be reported
-            _anomaly_predict = max(single_pass_predict, single_pass_predict + len(_anomaly_lines) * 20)
-            _anomaly_predict = min(_anomaly_predict, 2000)
+            _notify_progress(f'Batch {batch_idx + 1}/{batch_total} : approfondissement de l\'analyse...')
             retry_result = _run_stage(
                 stage_name=f'batch_{batch_idx + 1}_retry_strict',
-                primary_prompt=_build_single_pass_prompt(batch_payload, strict=True, explicit_anomaly_hint=_hint),
-                fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True, explicit_anomaly_hint=_hint),
+                primary_prompt=_build_single_pass_prompt(batch_payload, strict=True),
+                fallback_prompt=_build_single_pass_prompt(compact_retry_payload, strict=True),
                 primary_pack=batch_payload,
                 fallback_pack=compact_retry_payload,
-                primary_predict=_anomaly_predict,
-                fallback_predict=max(single_retry_predict, _anomaly_predict // 2),
+                primary_predict=single_pass_predict,
+                fallback_predict=single_retry_predict,
             )
             if not retry_result.get('unavailable'):
                 batch_result = retry_result
@@ -4957,7 +5174,13 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             if auto_dates:
                 batch_plan['parse_dates'] = auto_dates
 
-        merged_plan = _merge_correction_plans(merged_plan, batch_plan)
+        # New batch takes precedence over accumulation — each batch owns its columns;
+        # swapping args ensures a later batch can override an earlier one for shared columns
+        # (e.g. cross-column issues now included in every batch).
+        merged_plan = _merge_correction_plans(batch_plan, merged_plan)
+        batch_justifications = batch_result.get('correction_justifications') or {}
+        if isinstance(batch_justifications, dict):
+            merged_justifications.update(batch_justifications)
         raw_batch_issues = batch_result.get('issues') if isinstance(batch_result.get('issues'), list) else []
         for issue in raw_batch_issues:
             if not isinstance(issue, dict):
@@ -4969,6 +5192,14 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
             cat = str(issue.get('category') or '')
             if col_name in _binary_col_names and cat in _BINARY_FALSE_POSITIVE_CATS:
                 continue
+            # valeur_manquante on a binary column with 0% real missing = LLM confusing 0 with null
+            if col_name in _binary_no_missing and cat in ('valeur_manquante', 'valeur_sentinelle'):
+                continue
+            # Dedup: skip if this exact (column, category) pair already reported
+            _issue_key = (col_name, cat)
+            if _issue_key in _seen_issue_keys:
+                continue
+            _seen_issue_keys.add(_issue_key)
             merged_issues_all.append(issue)
         if batch_result.get('summary'):
             merged_summaries.append(str(batch_result['summary']))
@@ -5010,6 +5241,7 @@ def _call_ollama_qwen_analysis(dataframe, technical_profile, progress_callback=N
         'issues': llm_issues,
         'recommendations': [],
         'correction_plan': correction_plan,
+        'correction_justifications': merged_justifications,
         'llm_proposed_correction_plan': merged_plan,
         'corrected_preview_rows': [],
         'column_assessment': [],
@@ -5088,9 +5320,9 @@ def _apply_llm_fill_strategy(series, strategy_spec):
             return series.fillna(float(numeric.median()))
         return series
     if strategy == 'forward_fill':
-        return series.fillna(method='ffill')
+        return series.ffill()
     if strategy == 'backward_fill':
-        return series.fillna(method='bfill')
+        return series.bfill()
 
     return series.fillna(value)
 
@@ -5234,9 +5466,9 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
         prompt += (
             f'Voici toutes les valeurs uniques non-nulles presentes dans le dataset: {unique_vals}. '
             f'Valeurs suspectes identifiees statistiquement: {suspicious}. '
-            'Pour chaque valeur aberrante ou biologiquement impossible, propose la valeur corrigee. '
+            'Pour chaque valeur aberrante ou biologiquement impossible, propose la valeur corrigee ET explique brievement pourquoi (ex: zero en trop, erreur unite, valeur impossible). '
             'Si une valeur est simplement elevee mais cliniquement plausible en dialyse, ne la corrige pas. '
-            'Reponds UNIQUEMENT avec un JSON: {"corrections": {"valeur_erronee": valeur_corrigee, ...}} '
+            'Reponds UNIQUEMENT avec un JSON: {"corrections": {"valeur_erronee": {"valeur_corrigee": valeur_ou_null, "raison": "explication courte"}, ...}} '
             'Si aucune correction n\'est necessaire: {"corrections": {}}'
         )
 
@@ -5250,6 +5482,7 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
         request_data = json.dumps(request_payload).encode('utf-8')
 
         corrections = {}
+        bio_reasons = {}
         for ollama_base in candidate_bases:
             try:
                 req = urllib_request.Request(
@@ -5273,9 +5506,17 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
                         parsed = json.loads(raw_fixed)
                     except Exception:
                         parsed = {}
-                corrections = parsed.get('corrections') if isinstance(parsed, dict) else {}
-                if not isinstance(corrections, dict):
-                    corrections = {}
+                corrections_raw = parsed.get('corrections') if isinstance(parsed, dict) else {}
+                if not isinstance(corrections_raw, dict):
+                    corrections_raw = {}
+                # Support both flat {val: corrected} and nested {val: {valeur_corrigee: ..., raison: ...}}
+                corrections = {}
+                for _rk, _rv in corrections_raw.items():
+                    if isinstance(_rv, dict):
+                        corrections[_rk] = _rv.get('valeur_corrigee')
+                        bio_reasons[_rk] = str(_rv.get('raison', ''))
+                    else:
+                        corrections[_rk] = _rv
                 break
             except Exception as exc:
                 logger.warning('[BIO_PASS] %s col=%s error=%s', ollama_base, matched_col, exc)
@@ -5299,11 +5540,50 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
             except Exception:
                 typed_corrections[raw_key] = corrected_val
 
+        # Guard: reject bio corrections that move a valid in-range value out of range
+        # (e.g. phosphore_basale=32 mg/L is valid [10-200], LLM must not map it to 1034)
+        _bio_num_domain = ((_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(matched_col)
+                           or (_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(matched_col.lower()))
+        if _bio_num_domain:
+            _bio_min = _bio_num_domain.get('min')
+            _bio_max = _bio_num_domain.get('max')
+            if _bio_min is not None and _bio_max is not None:
+                _guarded = {}
+                for _bk, _bv in typed_corrections.items():
+                    try:
+                        _bk_f = float(str(_bk))
+                        if _bio_min <= _bk_f <= _bio_max:
+                            # Source already valid — only allow if target also in range
+                            _is_null_bv = _bv is None or (isinstance(_bv, float) and np.isnan(_bv))
+                            if _is_null_bv:
+                                continue  # Don't nullify a valid value
+                            try:
+                                if not (_bio_min <= float(str(_bv)) <= _bio_max):
+                                    continue  # Target out of range — reject
+                            except (ValueError, TypeError):
+                                pass
+                    except (ValueError, TypeError):
+                        pass
+                    _guarded[_bk] = _bv
+                typed_corrections = _guarded
+
         if typed_corrections:
             before_series = dataframe[matched_col].copy()
             replaced = dataframe[matched_col].replace(typed_corrections)
             cells_changed = _count_series_changes(before_series, replaced)
             all_value_mappings[matched_col] = typed_corrections
+            # Build human-readable justification from per-value reasons returned by the LLM
+            _bio_justif_parts = []
+            for _bk, _bv in typed_corrections.items():
+                try:
+                    _bk_f = float(str(_bk))
+                    _bk_str = str(int(_bk_f)) if _bk_f == int(_bk_f) else str(_bk)
+                except (ValueError, TypeError):
+                    _bk_str = str(_bk)
+                _reason = bio_reasons.get(str(_bk)) or bio_reasons.get(_bk_str) or ''
+                if _reason:
+                    _bio_justif_parts.append(_reason)
+            _bio_justification = ' | '.join(dict.fromkeys(_bio_justif_parts)) or 'Correction biologique (valeur hors plage physiologique)'
             all_applied.append({
                 'action': 'bio_value_correction',
                 'count': len(typed_corrections),
@@ -5316,6 +5596,7 @@ def _run_bio_value_correction_pass(dataframe, progress_callback=None):
                         'loinc_code': loinc_code,
                         'loinc_source': loinc_source,
                         'reference_range': {'low': normal_low, 'high': normal_high, 'unit': unit},
+                        'justification': _bio_justification,
                     }]
                 },
             })
@@ -5676,8 +5957,85 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
     if not isinstance(correction_plan, dict):
         return dataframe.copy(), []
 
+    correction_justifications = llm_analysis.get('correction_justifications') or {}
+    if not isinstance(correction_justifications, dict):
+        correction_justifications = {}
+
     corrected = dataframe.copy()
     applied_actions = []
+
+    def _get_justification(col_name):
+        return correction_justifications.get(str(col_name), '')
+
+    # ── Pre-pass: replace Excel serial-0 date artifacts with null (deterministic) ──
+    # pandas converts Excel date serial 0 → Timestamp('1899-12-30') → ISO "1899-12-30".
+    # These are guaranteed data entry errors — remove unconditionally before LLM passes.
+    _excel_artifact_strings = set(_ANOMALY_EXCEL_DATE_ARTIFACTS) | {
+        '1899-12-30', '1899-12-31', '1899-12-29',
+        '1900-01-00 00:00:00', '1899-12-30 00:00:00',
+    }
+    _artifact_cells_changed = 0
+    _artifact_cols = []
+    for _col in corrected.columns:
+        _before = corrected[_col].copy()
+        corrected[_col] = corrected[_col].apply(
+            lambda v: None if (isinstance(v, str) and v.strip() in _excel_artifact_strings) else v
+        )
+        _changed = _count_series_changes(_before, corrected[_col])
+        if _changed > 0:
+            _artifact_cells_changed += _changed
+            _artifact_cols.append({'column': str(_col), 'cells_changed': _changed,
+                                    'justification': 'Artefact Excel détecté (serial date 0 = 1899-12-30) — valeur invalide remplacée par null'})
+    if _artifact_cols:
+        applied_actions.append({
+            'action': 'excel_artifact_cleanup',
+            'count': len(_artifact_cols),
+            'cells_changed': _artifact_cells_changed,
+            'details': {'columns': _artifact_cols},
+        })
+    # ── End pre-pass ──
+
+    # ── Pre-pass: global decimal comma normalization (French locale "1,5" → "1.5") ──
+    # Applied unconditionally on all object columns — the regex is narrow enough to only
+    # match values that look exactly like numbers written with a comma decimal separator.
+    # This is a deterministic fix: "2,3" and "2.3" in the same column both become 2.3.
+    import re as _re_dc_fix
+    _dc_fix_pat = _re_dc_fix.compile(r'^(-?\d[\d\s]*),(\d+)$')
+
+    def _fix_dc(v):
+        if not isinstance(v, str):
+            return v
+        _m = _dc_fix_pat.match(v.strip())
+        if _m:
+            return _m.group(1).replace(' ', '') + '.' + _m.group(2)
+        return v
+
+    _dc_total_changed = 0
+    _dc_col_details = []
+    for _col in corrected.columns:
+        if not (corrected[_col].dtype == object or pd.api.types.is_string_dtype(corrected[_col])):
+            continue
+        _uniq = corrected[_col].dropna().unique()
+        if not any(_dc_fix_pat.match(str(v).strip()) for v in _uniq[:200]):
+            continue
+        _before_dc = corrected[_col].copy()
+        corrected[_col] = corrected[_col].apply(_fix_dc)
+        _dc_changed = _count_series_changes(_before_dc, corrected[_col])
+        if _dc_changed > 0:
+            _dc_total_changed += _dc_changed
+            _dc_col_details.append({
+                'column': str(_col),
+                'cells_changed': _dc_changed,
+                'justification': 'Séparateur décimal virgule (notation française) → point normalisé automatiquement',
+            })
+    if _dc_col_details:
+        applied_actions.append({
+            'action': 'decimal_comma_fix',
+            'count': len(_dc_col_details),
+            'cells_changed': _dc_total_changed,
+            'details': {'columns': _dc_col_details},
+        })
+    # ── End decimal comma pre-pass ──
 
     rename_columns = correction_plan.get('rename_columns') or {}
     rename_map = {}
@@ -5731,7 +6089,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             trimmed_count += 1
             total_cells_changed += cells_changed
-            trimmed_details.append({'column': resolved, 'cells_changed': cells_changed})
+            trimmed_details.append({'column': resolved, 'cells_changed': cells_changed, 'justification': _get_justification(resolved)})
         if trimmed_count:
             applied_actions.append({
                 'action': 'trim_whitespace',
@@ -5750,7 +6108,50 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             if not resolved or not isinstance(mapping, dict):
                 continue
             # Filter out nested dict/list values — Series.replace only accepts scalars
-            flat_mapping = {k: v for k, v in mapping.items() if not isinstance(v, (dict, list))}
+            # Convert None → np.nan so Series.replace actually nullifies the cell
+            flat_mapping = {
+                k: (np.nan if v is None else v)
+                for k, v in mapping.items()
+                if not isinstance(v, (dict, list))
+            }
+            # Guard 1: never let the LLM overwrite a valid categorical code defined in domain rules
+            _cat_domain = ((_MEDICAL_DOMAIN_RULES.get('categorical_codes') or {}).get(resolved)
+                           or (_MEDICAL_DOMAIN_RULES.get('categorical_codes') or {}).get(resolved.lower()))
+            if _cat_domain:
+                _valid_code_strs = set(str(k) for k in (_cat_domain.get('codes') or {}).keys())
+                flat_mapping = {
+                    k: v for k, v in flat_mapping.items()
+                    if str(k) not in _valid_code_strs
+                }
+            # Guard 2: protect valid in-range numeric values from being remapped.
+            # Blocks two bad LLM behaviors:
+            #   (a) null-ifying a valid value: seances_par_semaine=3 → null  (3 is valid, range 1-7)
+            #   (b) moving a valid value out of range: phosphore_basale=49 → 1564.92  (49 is valid, 1564 is not)
+            _num_domain_vm = ((_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(resolved)
+                              or (_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(resolved.lower()))
+            if _num_domain_vm:
+                _vm_min = _num_domain_vm.get('min')
+                _vm_max = _num_domain_vm.get('max')
+                if _vm_min is not None and _vm_max is not None:
+                    _filtered_vm = {}
+                    for _k, _v in flat_mapping.items():
+                        _is_null_target = _v is None or (isinstance(_v, float) and np.isnan(_v))
+                        try:
+                            _k_float = float(str(_k))
+                            if _vm_min <= _k_float <= _vm_max:
+                                # Source is already valid — only allow if target is also in range
+                                if _is_null_target:
+                                    continue  # (a) don't null-ify a valid value
+                                try:
+                                    _v_float = float(str(_v))
+                                    if not (_vm_min <= _v_float <= _vm_max):
+                                        continue  # (b) target is out of range — block
+                                except (ValueError, TypeError):
+                                    pass
+                        except (ValueError, TypeError):
+                            pass
+                        _filtered_vm[_k] = _v
+                    flat_mapping = _filtered_vm
             if not flat_mapping:
                 continue
             before_series = corrected[resolved].copy()
@@ -5762,6 +6163,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'column': resolved,
                 'cells_changed': cells_changed,
                 'mapping': mapping,
+                'justification': _get_justification(resolved),
             })
         if mapping_count:
             applied_actions.append({
@@ -5801,6 +6203,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'column': resolved,
                 'target_type': str(target_type),
                 'cells_changed': cells_changed,
+                'justification': _get_justification(resolved),
             })
         if cast_count:
             applied_actions.append({
@@ -5822,6 +6225,19 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             factor = spec.get('factor')
             if not factor:
                 continue
+            # Guard: if ≥50% of non-null values are already within the valid domain range,
+            # the column is not in the wrong unit — skip this conversion to avoid corrupting data.
+            _num_domain_uc = ((_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(resolved)
+                              or (_MEDICAL_DOMAIN_RULES.get('numeric_ranges') or {}).get(resolved.lower()))
+            if _num_domain_uc:
+                _uc_min = _num_domain_uc.get('min')
+                _uc_max = _num_domain_uc.get('max')
+                if _uc_min is not None and _uc_max is not None:
+                    _uc_numeric = pd.to_numeric(corrected[resolved], errors='coerce').dropna()
+                    if len(_uc_numeric) > 0:
+                        _in_range_count = int(((_uc_numeric >= _uc_min) & (_uc_numeric <= _uc_max)).sum())
+                        if _in_range_count / len(_uc_numeric) >= 0.5:
+                            continue  # Values already in valid range — reject unit conversion
             before_series = corrected[resolved].copy()
             numeric_col = pd.to_numeric(corrected[resolved], errors='coerce')
             corrected[resolved] = (numeric_col * factor).round(4)
@@ -5834,6 +6250,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'to_unit': spec.get('to_unit', '?'),
                 'factor': factor,
                 'cells_changed': cells_changed,
+                'justification': _get_justification(resolved),
             })
         if conv_count:
             applied_actions.append({
@@ -5865,8 +6282,8 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             parsed_series = pd.to_datetime(source_series, errors='coerce', dayfirst=True)
             non_null_source = int(source_series.notna().sum())
             non_null_parsed = int(parsed_series.notna().sum())
-            # Avoid destructive date coercion when the parse confidence is very low.
-            if non_null_source > 0 and non_null_parsed < max(1, int(non_null_source * 0.5)):
+            # Avoid destructive date coercion when the parse confidence is too low.
+            if non_null_source > 0 and non_null_parsed < max(1, int(non_null_source * 0.8)):
                 continue
             before_series = corrected[resolved].copy()
             corrected[resolved] = parsed_series.dt.date
@@ -5878,6 +6295,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'cells_changed': cells_changed,
                 'parsed_values': non_null_parsed,
                 'source_values': non_null_source,
+                'justification': _get_justification(resolved),
             })
         if parsed_count:
             applied_actions.append({
@@ -5886,6 +6304,13 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'cells_changed': total_cells_changed,
                 'details': {'columns': parsed_details},
             })
+
+    # Columns where auto-fill is medically prohibited (values encode clinical outcomes
+    # that cannot be inferred/invented — would produce false clinical data).
+    _NEVER_AUTOFILL_MEDICAL = frozenset({
+        'delai_jusquau_deces_jours', 'cause_deces', 'date_deces', 'delai_deces',
+        'date_naissance', 'date_debut_dialyse', 'annee_inclusion',
+    })
 
     fill_missing = correction_plan.get('fill_missing') or {}
     if isinstance(fill_missing, dict):
@@ -5896,6 +6321,8 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
+            if resolved in _NEVER_AUTOFILL_MEDICAL or resolved.lower() in _NEVER_AUTOFILL_MEDICAL:
+                continue  # Medical safety: cannot auto-invent clinical outcome values
             # Guard: reject non-numeric constant fill on numeric columns (e.g. LLM proposes "x")
             if isinstance(strategy_spec, dict) and strategy_spec.get('strategy') == 'constant':
                 fill_val = strategy_spec.get('value')
@@ -5923,6 +6350,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'column': resolved,
                 'strategy': strategy_spec,
                 'cells_changed': cells_changed,
+                'justification': _get_justification(resolved),
             })
         if filled_count:
             applied_actions.append({
@@ -5941,6 +6369,8 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             resolved = _resolve_llm_column_name(str(column_name), rename_map, available_columns)
             if not resolved:
                 continue
+            if resolved in _NEVER_AUTOFILL_MEDICAL or resolved.lower() in _NEVER_AUTOFILL_MEDICAL:
+                continue  # Medical safety: cannot auto-invent clinical outcome values
             before_series = corrected[resolved].copy()
             corrected[resolved] = corrected[resolved].fillna(default_value)
             cells_changed = _count_series_changes(before_series, corrected[resolved])
@@ -5950,6 +6380,7 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                 'column': resolved,
                 'default_value': default_value,
                 'cells_changed': cells_changed,
+                'justification': _get_justification(resolved),
             })
         if default_count:
             applied_actions.append({
@@ -6065,6 +6496,49 @@ def _compute_llm_confidence_contract(llm_analysis, visible_issues, internal_issu
     }
 
 
+def _validate_svm_features_post_correction(corrected_df):
+    """
+    After all corrections are applied, verify that SVM prediction features
+    are within valid bounds. Catches cases where the LLM introduced new errors.
+    Returns a dict: {feature: issue_description} for any problematic feature.
+    """
+    problems = {}
+    missing = []
+    col_lower_map = {str(c).lower(): str(c) for c in corrected_df.columns}
+
+    for feature, rule in _SVM_MORTALITE_FEATURES.items():
+        actual_col = col_lower_map.get(feature.lower())
+        if actual_col is None:
+            missing.append(feature)
+            continue
+
+        series = corrected_df[actual_col]
+        num_series = pd.to_numeric(series, errors='coerce').dropna()
+        if num_series.empty:
+            continue
+
+        if rule == 'binary':
+            invalid = num_series[~num_series.isin([0, 1, 0.0, 1.0])]
+            if not invalid.empty:
+                problems[feature] = (
+                    f'colonne binaire contient valeurs invalides après correction: '
+                    f'{invalid.head(3).tolist()} ({len(invalid)} ligne(s))'
+                )
+        else:
+            rmin, rmax = rule
+            below = num_series[num_series < rmin]
+            above = num_series[num_series > rmax]
+            msgs = []
+            if not below.empty:
+                msgs.append(f'{len(below)} valeur(s) < {rmin}: {below.head(2).tolist()}')
+            if not above.empty:
+                msgs.append(f'{len(above)} valeur(s) > {rmax}: {above.head(2).tolist()}')
+            if msgs:
+                problems[feature] = ' | '.join(msgs)
+
+    return {'problems': problems, 'missing_features': missing}
+
+
 def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, corrected_df=None, applied_actions=None):
     llm_analysis = llm_analysis or {}
     corrected_df = corrected_df if isinstance(corrected_df, pd.DataFrame) else dataframe
@@ -6122,6 +6596,22 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
 
     corrected_preview_rows = _dataframe_to_rows(corrected_df.head(20))
 
+    # Post-correction validation: SVM features must be clean
+    svm_validation = _validate_svm_features_post_correction(corrected_df)
+    svm_problems = svm_validation.get('problems') or {}
+    svm_missing = svm_validation.get('missing_features') or []
+    # Add SVM problems as critical issues in the report
+    for feat, desc in svm_problems.items():
+        visible_issues.append({
+            'column': feat,
+            'category': 'feature_prediction_invalide',
+            'severity': 'critical',
+            'explanation': (
+                f'[ALERTE PRÉDICTION] La feature SVM "{feat}" est encore invalide après correction: '
+                f'{desc}. Ce problème va fausser la prédiction de mortalité — correction manuelle requise.'
+            ),
+        })
+
     return {
         'summary': {
             'rows': int(len(dataframe.index)),
@@ -6142,6 +6632,11 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
         'normalization_notes': (llm_analysis.get('normalization_notes') if isinstance(llm_analysis, dict) else []) or [],
         'normalization_severity_score': int((llm_analysis.get('normalization_severity_score') if isinstance(llm_analysis, dict) else 0) or 0),
         'applied_corrections': applied_actions,
+        'svm_feature_validation': {
+            'problems': svm_problems,
+            'missing_features': svm_missing,
+            'ok': not svm_problems and not svm_missing,
+        },
         'llm_analysis': llm_analysis,
         'corrected_preview_rows': corrected_preview_rows,
         'llm_preview_rows': llm_analysis.get('corrected_preview_rows') if isinstance(llm_analysis, dict) else [],
@@ -7040,6 +7535,17 @@ class PatientPreprocessCellCorrectionsView(APIView):
             if col and col not in issue_by_col:
                 issue_by_col[col] = issue
 
+        # Build justification lookup from applied_corrections action details
+        justification_by_col = {}
+        for action in (report.get('applied_corrections') or []):
+            for col_detail in (action.get('details', {}).get('columns') or []):
+                if not isinstance(col_detail, dict):
+                    continue
+                col_name = col_detail.get('column') or col_detail.get('from') or col_detail.get('name') or ''
+                justif = col_detail.get('justification', '')
+                if col_name and justif and col_name not in justification_by_col:
+                    justification_by_col[col_name] = justif
+
         id_col = next(
             (k for k in (original_rows[0].keys() if original_rows else [])
              if any(kw in str(k).lower() for kw in ('id', 'identifiant', 'patient'))),
@@ -7063,7 +7569,7 @@ class PatientPreprocessCellCorrectionsView(APIView):
                         'new_value': new_val,
                         'type': issue.get('category') or issue.get('type') or 'correction',
                         'severity': issue.get('severity') or 'warning',
-                        'justification': issue.get('explanation') or 'Correction automatique',
+                        'justification': issue.get('explanation') or justification_by_col.get(col) or 'Correction automatique',
                     })
 
         # Also include flagged issues (no correction applied) that aren't in cell_corrections
@@ -7080,7 +7586,7 @@ class PatientPreprocessCellCorrectionsView(APIView):
                     'new_value': None,
                     'type': issue.get('category') or 'anomalie',
                     'severity': issue.get('severity') or 'warning',
-                    'justification': issue.get('explanation') or '—',
+                    'justification': issue.get('explanation') or justification_by_col.get(col) or '—',
                     'flagged_only': True,
                 })
 
