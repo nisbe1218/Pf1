@@ -415,9 +415,6 @@ function Profile() {
       {/* Main profile container with background image */}
       <Box
         sx={{
-                                  maxHeight: 320,
-                                  overflowY: 'auto',
-                                  scrollbarGutter: 'stable',
           minHeight: '100vh',
           ml: { xs: 0, md: `${APP_SIDEBAR_WIDTH}px` },
           width: { xs: '100%', md: `calc(100% - ${APP_SIDEBAR_WIDTH}px)` },

@@ -4092,7 +4092,9 @@ def _build_deterministic_correction_plan(technical_profile):
     drop_columns = []
 
     import re as _re
-    _year_re = _re.compile(r'\b([3-9]\d{3})\b')
+    # Captures years clearly wrong in 2026 context:
+    # 2100-2999 (2[1-9]\d{2}) and 3000-9999 ([3-9]\d{3})
+    _year_re = _re.compile(r'\b((?:2[1-9]\d{2}|[3-9]\d{3}))\b')
 
     for column_meta in technical_profile.get('columns_profile', []):
         column_name = str(column_meta.get('name') or column_meta.get('column') or '')
@@ -4156,11 +4158,11 @@ def _build_deterministic_correction_plan(technical_profile):
             # Disguised missing → null
             elif val_str.lower() in _ANOMALY_DISGUISED_MISSING and val_str:
                 col_mappings[val_str] = None
-            # Year typos: 3023→2023, 2124→2024
+            # Year typos: 3023→2023, 4056→2056, 2124→2024, 2213→2013
             m = _year_re.search(val_str)
             if m:
                 wrong_year = m.group(1)
-                if wrong_year.startswith('3') or wrong_year.startswith('21') or wrong_year.startswith('22'):
+                if int(wrong_year) > 2026:
                     corrected = val_str.replace(wrong_year, '20' + wrong_year[-2:])
                     if corrected != val_str:
                         col_mappings[val_str] = corrected
@@ -4180,6 +4182,20 @@ def _build_deterministic_correction_plan(technical_profile):
         if _has_numeric_text and dtype_name in ('object', 'string', ''):
             type_casts[column_name] = 'numeric'
             trim_columns.append(column_name)
+
+        # Boolean incoherent: normalize oui/non + 0/1 mix → 0/1 integer
+        if _has_bool_incoherent:
+            col_mappings.update({
+                'oui': 1, 'non': 0,
+                'yes': 1, 'no': 0,
+                'true': 1, 'false': 0,
+                'o': 1, 'n': 0,
+                'OUI': 1, 'NON': 0,
+                'YES': 1, 'NO': 0,
+                'TRUE': 1, 'FALSE': 0,
+                '1': 1, '0': 0,
+            })
+            type_casts[column_name] = 'integer'
 
         if col_mappings:
             value_mappings[column_name] = col_mappings
@@ -6728,6 +6744,7 @@ def _integrate_dataframe_into_patients(dataframe, request_user=None, source_file
                         order=10000 + len(new_fields),
                         choices=[],
                         source_hint='dynamic_column',
+                        import_file=source_file_name or '',
                         is_required=False,
                     )
                 )
@@ -6921,7 +6938,252 @@ class PatientBulkPurgeView(APIView):
 
     def delete(self, request):
         deleted_count, _ = Patient.objects.all().delete()
-        return Response({'deleted_count': deleted_count}, status=status.HTTP_200_OK)
+
+        # After all patients are gone, remove dynamic columns that no longer
+        # have any data behind them (all extra_data keys are now absent).
+        removed_keys = []
+        try:
+            template = get_active_template()
+            if template:
+                dynamic_fields = template.fields.filter(
+                    source_hint__in=['dynamic_column', 'auto_detected_from_data_import']
+                )
+                removed_keys = list(dynamic_fields.values_list('key', flat=True))
+                if removed_keys:
+                    dynamic_fields.delete()
+                    try:
+                        refresh_postgres_flat_view(template)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        return Response({
+            'deleted_count': deleted_count,
+            'dynamic_columns_removed': len(removed_keys),
+            'removed_keys': removed_keys,
+        }, status=status.HTTP_200_OK)
+
+
+class DynamicColumnRequestView(APIView):
+    """
+    POST   /patients/dynamic-columns/requests/          → soumettre une demande (tous rôles)
+    GET    /patients/dynamic-columns/requests/          → lister les demandes (chef/admin)
+    POST   /patients/dynamic-columns/requests/<id>/     → approuver ou rejeter (chef/admin)
+    GET    /patients/dynamic-columns/requests/pending-count/ → badge compteur
+    """
+    permission_classes = [CanViewPatients]
+
+    def get(self, request, request_id=None):
+        from .models import DynamicColumnRequest
+        from django.utils import timezone as tz
+
+        role_name = str(getattr(getattr(request.user, 'role', None), 'nom', '') or '')
+
+        # Badge compteur — accessible à tous les chefs/admins
+        if request.query_params.get('count') == '1':
+            if role_name not in ('super_admin', 'chef_service'):
+                return Response({'pending': 0})
+            return Response({'pending': DynamicColumnRequest.objects.filter(status='pending').count()})
+
+        if role_name not in ('super_admin', 'chef_service'):
+            return Response({'error': 'Accès réservé.'}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = DynamicColumnRequest.objects.select_related('submitted_by', 'reviewed_by')
+        filter_status = request.query_params.get('status', 'pending')
+        if filter_status != 'all':
+            qs = qs.filter(status=filter_status)
+
+        data = []
+        for r in qs[:100]:
+            data.append({
+                'id': r.id,
+                'action': r.action,
+                'column_key': r.column_key,
+                'column_label': r.column_label,
+                'field_type': r.field_type,
+                'submitted_by': str(getattr(r.submitted_by, 'username', '') or ''),
+                'submitted_at': r.submitted_at.isoformat() if r.submitted_at else None,
+                'status': r.status,
+                'reviewed_by': str(getattr(r.reviewed_by, 'username', '') or ''),
+                'reviewed_at': r.reviewed_at.isoformat() if r.reviewed_at else None,
+                'comment': r.comment,
+            })
+        return Response({'results': data, 'count': len(data)})
+
+    def post(self, request, request_id=None):
+        from .models import DynamicColumnRequest
+        from django.utils import timezone as tz
+
+        role_name = str(getattr(getattr(request.user, 'role', None), 'nom', '') or '')
+
+        # Approuver / Rejeter
+        if request_id is not None:
+            if role_name not in ('super_admin', 'chef_service'):
+                return Response({'error': 'Accès réservé.'}, status=status.HTTP_403_FORBIDDEN)
+            try:
+                col_req = DynamicColumnRequest.objects.get(pk=request_id)
+            except DynamicColumnRequest.DoesNotExist:
+                return Response({'error': 'Demande introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+            if col_req.status != 'pending':
+                return Response({'error': 'Demande déjà traitée.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            action = str(request.data.get('action', ''))
+            comment = str(request.data.get('comment', ''))
+
+            if action == 'approve':
+                # Appliquer l'action réelle
+                template = get_active_template()
+                if col_req.action == 'add':
+                    if template and not template.fields.filter(key=col_req.column_key).exists():
+                        PatientFormField.objects.create(
+                            template=template,
+                            key=col_req.column_key,
+                            label=col_req.column_label or col_req.column_key,
+                            field_type=col_req.field_type,
+                            order=10000,
+                            choices=[],
+                            source_hint='dynamic_column',
+                            import_file='manuel',
+                            is_required=False,
+                        )
+                        try:
+                            refresh_postgres_flat_view(template)
+                        except Exception:
+                            pass
+                elif col_req.action == 'delete':
+                    if template:
+                        field = template.fields.filter(key=col_req.column_key).first()
+                        if field:
+                            for patient in Patient.objects.filter(extra_data__has_key=col_req.column_key):
+                                patient.extra_data.pop(col_req.column_key, None)
+                                patient.save(update_fields=['extra_data'])
+                            field.delete()
+                            try:
+                                refresh_postgres_flat_view(template)
+                            except Exception:
+                                pass
+                col_req.status = 'approved'
+            elif action == 'reject':
+                col_req.status = 'rejected'
+            else:
+                return Response({'error': 'action doit être "approve" ou "reject".'}, status=status.HTTP_400_BAD_REQUEST)
+
+            col_req.reviewed_by = request.user
+            col_req.reviewed_at = tz.now()
+            col_req.comment = comment
+            col_req.save()
+            return Response({'id': col_req.id, 'status': col_req.status})
+
+        # Soumettre une nouvelle demande
+        action = str(request.data.get('action', ''))
+        column_key = normalize_header(str(request.data.get('column_key', '')).strip())
+        column_label = str(request.data.get('column_label', '')).strip()
+        field_type = str(request.data.get('field_type', 'text_short'))
+
+        if action not in ('add', 'delete'):
+            return Response({'error': 'action doit être "add" ou "delete".'}, status=status.HTTP_400_BAD_REQUEST)
+        if not column_key:
+            return Response({'error': 'column_key est requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Empêcher les doublons de demandes en attente
+        if DynamicColumnRequest.objects.filter(
+            action=action, column_key=column_key, status='pending'
+        ).exists():
+            return Response({'error': 'Une demande identique est déjà en attente.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        col_req = DynamicColumnRequest.objects.create(
+            action=action,
+            column_key=column_key,
+            column_label=column_label,
+            field_type=field_type,
+            submitted_by=request.user,
+        )
+        return Response({
+            'id': col_req.id,
+            'status': col_req.status,
+            'message': f'Demande soumise. En attente de validation par le chef de service.',
+        }, status=status.HTTP_201_CREATED)
+
+
+class PatientDynamicColumnManageView(APIView):
+    """
+    POST   /patients/dynamic-columns/        → créer une colonne dynamique manuelle
+    DELETE /patients/dynamic-columns/<key>/  → supprimer une colonne + effacer ses données
+    """
+    permission_classes = [IsAdminOrChefService]
+
+    def post(self, request):
+        raw_key = str(request.data.get('key', '')).strip()
+        label    = str(request.data.get('label', '')).strip()
+        field_type = str(request.data.get('field_type', 'text_short'))
+
+        key = normalize_header(raw_key)
+        if not key:
+            return Response({'error': 'Le nom de la colonne est requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        template = get_active_template()
+        if not template:
+            return Response({'error': 'Aucun template actif.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if template.fields.filter(key=key).exists():
+            return Response({'error': f'La colonne "{key}" existe déjà.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        allowed_types = {'text_short', 'text_long', 'integer', 'decimal', 'boolean', 'date', 'single_choice'}
+        if field_type not in allowed_types:
+            field_type = 'text_short'
+
+        field = PatientFormField.objects.create(
+            template=template,
+            key=key,
+            label=label or raw_key,
+            field_type=field_type,
+            order=10000,
+            choices=[],
+            source_hint='dynamic_column',
+            import_file='manuel',
+            is_required=False,
+        )
+        try:
+            refresh_postgres_flat_view(template)
+        except Exception:
+            pass
+
+        return Response({
+            'id': field.id,
+            'key': field.key,
+            'label': field.label,
+            'field_type': field.field_type,
+            'source_hint': field.source_hint,
+            'import_file': field.import_file,
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, key):
+        template = get_active_template()
+        if not template:
+            return Response({'error': 'Aucun template actif.'}, status=status.HTTP_404_NOT_FOUND)
+
+        field = template.fields.filter(
+            key=key,
+            source_hint__in=['dynamic_column', 'auto_detected_from_data_import'],
+        ).first()
+        if not field:
+            return Response({'error': f'Colonne dynamique "{key}" introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Effacer la valeur de cette colonne dans tous les extra_data patients
+        patients_updated = 0
+        for patient in Patient.objects.filter(extra_data__has_key=key):
+            patient.extra_data.pop(key, None)
+            patient.save(update_fields=['extra_data'])
+            patients_updated += 1
+
+        field.delete()
+        try:
+            refresh_postgres_flat_view(template)
+        except Exception:
+            pass
+
+        return Response({'deleted': key, 'patients_updated': patients_updated})
 
 
 class PatientDynamicColumnsCleanupView(APIView):

@@ -192,7 +192,7 @@ class PatientFormFieldSerializer(serializers.ModelSerializer):
         model = PatientFormField
         fields = [
             'id', 'key', 'label', 'field_type', 'order',
-            'choices', 'source_hint', 'is_required',
+            'choices', 'source_hint', 'import_file', 'is_required',
         ]
 
 

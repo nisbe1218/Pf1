@@ -1169,8 +1169,8 @@ export default function ModelAI() {
     const missing = predictionResult.features_missing || 0;
     const dqColor = missing > 16 ? '#E74C3C' : missing > 8 ? '#E67E22' : '#27AE60';
     const dqLabel = missing > 16 ? 'Insuffisante' : missing > 8 ? 'Partielle' : 'Complète';
-    const _ty = (predictionResult.seuil_youden || 0.194) * 100;
-    const _ts = (predictionResult.seuil_spec90 || 0.357) * 100;
+    const _ty = (predictionResult.seuil_faible_modere ?? predictionResult.seuil_youden ?? 0.10) * 100;
+    const _ts = (predictionResult.seuil_modere_eleve ?? predictionResult.seuil_spec90 ?? 0.40) * 100;
     const spectrumGradient = `linear-gradient(90deg,#27AE60 0%,#27AE60 ${_ty}%,#f39c12 ${_ty + 2}%,#E67E22 ${_ts}%,#e74c3c ${_ts + 2}%,#c0392b 100%)`;
 
     const formatValue = (fv) => {
@@ -1181,12 +1181,14 @@ export default function ModelAI() {
       return meta.unit ? `${num} ${meta.unit}` : String(num);
     };
 
+    // Mortalités lues depuis l'API si disponibles, sinon valeurs documentées
+    const apiMortRates = predictionResult?.mort_rates || {};
     const ZONE_DETAILS = {
       Faible: {
         symbol: '○',
         action: 'Suivi standard recommandé',
         detail: 'Le modèle ne signale pas ce patient comme prioritaire. Continuez le suivi habituel.',
-        observed: '5,1 %',
+        observed: `${(apiMortRates.Faible ?? 3.8).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #1a8a4a 0%, #27AE60 50%, #52c27a 100%)',
         glow: 'rgba(39,174,96,.35)',
       },
@@ -1194,7 +1196,7 @@ export default function ModelAI() {
         symbol: '◐',
         action: 'Surveillance renforcée',
         detail: 'Le modèle signale ce patient. Renforcer la surveillance et réévaluer les facteurs de risque.',
-        observed: '29,1 %',
+        observed: `${(apiMortRates.Modéré ?? 22.9).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #b8560a 0%, #E67E22 50%, #f0a050 100%)',
         glow: 'rgba(230,126,34,.35)',
       },
@@ -1202,7 +1204,7 @@ export default function ModelAI() {
         symbol: '●',
         action: 'Prise en charge prioritaire',
         detail: 'Ce patient est dans le groupe à haut risque. Une prise en charge active et urgente est recommandée.',
-        observed: '55,6 %',
+        observed: `${(apiMortRates.Élevé ?? 49.0).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #a01f1f 0%, #E74C3C 50%, #f07070 100%)',
         glow: 'rgba(231,76,60,.35)',
       },
@@ -1245,16 +1247,20 @@ export default function ModelAI() {
                   <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,0,0,.08)" strokeWidth="11" />
                   <circle cx="60" cy="60" r="50" fill="none"
                     stroke={risk.color} strokeWidth="11" strokeLinecap="round"
-                    strokeDasharray={`${Math.min(predictionResult.probabilite_deces, .999) * 2 * Math.PI * 50} ${2 * Math.PI * 50}`}
+                    strokeDasharray={`${Math.min(predictionResult.probabilite_calibree ?? predictionResult.probabilite_deces, .999) * 2 * Math.PI * 50} ${2 * Math.PI * 50}`}
                     transform="rotate(-90 60 60)"
                     style={{ filter: `drop-shadow(0 0 6px ${risk.color}80)` }}
                   />
                   <circle cx="60" cy="60" r="36" fill="rgba(0,0,0,.02)" />
                 </svg>
                 <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <Typography sx={{ fontWeight: 900, fontSize: '1.75rem', color: '#1e2d5a', lineHeight: 1 }}>{predictionResult.score_risque}</Typography>
+                  <Typography sx={{ fontWeight: 900, fontSize: '1.75rem', color: '#1e2d5a', lineHeight: 1 }}>
+                    {predictionResult?.probabilite_calibree != null
+                      ? Math.round(predictionResult.probabilite_calibree * 1000) / 10
+                      : (predictionResult?.score_risque ?? '—')}
+                  </Typography>
                   <Typography sx={{ fontSize: '0.9rem', color: risk.color, fontWeight: 800, lineHeight: 1 }}>%</Typography>
-                  <Typography sx={{ fontSize: '0.55rem', color: 'rgba(0,0,0,.35)', mt: 0.3, textTransform: 'uppercase', letterSpacing: '.05em' }}>probabilité</Typography>
+                  <Typography sx={{ fontSize: '0.55rem', color: 'rgba(0,0,0,.35)', mt: 0.3, textTransform: 'uppercase', letterSpacing: '.05em' }}>risque de décès à 1 an</Typography>
                 </Box>
               </Box>
 
@@ -1266,9 +1272,7 @@ export default function ModelAI() {
                   </Typography>
                   <Box sx={{ width: 9, height: 9, borderRadius: '50%', background: risk.color, boxShadow: `0 0 10px ${risk.color}, 0 0 20px ${risk.color}60`, mt: 0.5 }} />
                 </Box>
-                <Typography sx={{ color: 'rgba(0,0,0,.45)', fontSize: '0.75rem', mb: 1.8, letterSpacing: '.01em' }}>
-                  Mortalité observée {zd.observed} · Zone de risque à 1 an
-                </Typography>
+                <Box sx={{ mb: 1.8 }} />
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                   {[
                     { label: 'Risque rel.', value: `${predictionResult.risque_relatif || '—'}×`, color: risk.color },
@@ -1288,11 +1292,13 @@ export default function ModelAI() {
                 Position sur le spectre de risque — cohorte HD-478
               </Typography>
               <Box sx={{ position: 'relative', height: 10, borderRadius: '10px', background: spectrumGradient, boxShadow: 'inset 0 1px 4px rgba(0,0,0,.15)' }}>
-                {/* Marqueur seuil Youden */}
-                {predictionResult.seuil_youden != null && (
-                  <Box sx={{ position: 'absolute', left: `${predictionResult.seuil_youden * 100}%`, top: '50%', transform: 'translate(-50%,-50%)', zIndex: 2 }}>
-                    <Box sx={{ width: 2, height: 18, background: 'rgba(255,255,255,.70)', borderRadius: 1 }} />
-                  </Box>
+                {/* Marqueurs T1 / T2 */}
+                {[predictionResult.seuil_faible_modere, predictionResult.seuil_modere_eleve].map((s, i) =>
+                  s != null ? (
+                    <Box key={i} sx={{ position: 'absolute', left: `${s * 100}%`, top: '50%', transform: 'translate(-50%,-50%)', zIndex: 2 }}>
+                      <Box sx={{ width: 2, height: 18, background: 'rgba(255,255,255,.70)', borderRadius: 1 }} />
+                    </Box>
+                  ) : null
                 )}
                 {/* Marqueur patient */}
                 <Box sx={{ position: 'absolute', left: `${Math.min(predictionResult.probabilite_deces * 100, 97)}%`, top: '50%', transform: 'translate(-50%,-50%)', zIndex: 3,

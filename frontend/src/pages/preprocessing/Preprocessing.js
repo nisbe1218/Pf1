@@ -137,7 +137,7 @@ const SeverityBadge = ({ severity }) => {
   );
 };
 
-export default function Preprocessing() {
+export default function Preprocessing({ onIntegrated }) {
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
   const [loading, setLoading] = useState(() => !!localStorage.getItem('preprocess_session_id'));
@@ -323,6 +323,7 @@ export default function Preprocessing() {
     try {
       await api.post(`patients/preprocess/${session}/integrate/`, { source: integrateSource });
       setIntegrateSuccess('inserted');
+      // onIntegrated appelé au clic "Fermer" — pas ici
     } catch { alert('Erreur lors de l\'intégration.'); }
     finally { setIntegrateLoading(false); }
   };
@@ -633,9 +634,13 @@ export default function Preprocessing() {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
             {integrateSuccess ? (
-              <Button variant="contained" onClick={() => { setIntegrateDialogOpen(false); setIntegrateSuccess(null); }}
-                sx={{ bgcolor: PALETTE.navy, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3 }}>
-                Fermer
+              <Button variant="contained" onClick={() => {
+                setIntegrateDialogOpen(false);
+                setIntegrateSuccess(null);
+                if (onIntegrated) onIntegrated();
+              }}
+                sx={{ bgcolor: PALETTE.teal, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3 }}>
+                Voir les patients →
               </Button>
             ) : (
               <>

@@ -13,6 +13,7 @@ import {
   DialogTitle,
   FormControl,
   Grid,
+  IconButton,
   InputAdornment,
   InputLabel,
   LinearProgress,
@@ -21,6 +22,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  Tooltip as MuiTooltip,
   Tab,
   Tabs,
   Table,
@@ -34,6 +36,7 @@ import {
 } from '@mui/material';
 import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
@@ -983,6 +986,7 @@ function PatientsManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [importDynamicColumns, setImportDynamicColumns] = useState(null); // { columns: [], newCount: int }
+  const [dynColDialog, setDynColDialog] = useState({ open: false, key: '', label: '', field_type: 'text_short', error: '' });
   const [insertValidationStatus, setInsertValidationStatus] = useState(() => {
     try {
       const saved = localStorage.getItem('patients_insert_validation_status');
@@ -1021,8 +1025,9 @@ function PatientsManagement() {
 
   const isValidationPending = insertValidationStatus.status === 'pending';
   const isValidationValidated = insertValidationStatus.status === 'validated';
-  const canValidateInsertion = ['chef_service', 'super_admin'].includes(user?.role);
-  const canPurgeImportedData = ['chef_service', 'super_admin'].includes(user?.role);
+  const canValidateInsertion  = ['chef_service', 'super_admin'].includes(user?.role);
+  const canPurgeImportedData  = ['chef_service', 'super_admin'].includes(user?.role);
+  const canManageDynColumns   = ['chef_service', 'super_admin'].includes(user?.role);
   const formattedValidationTimestamp = insertValidationStatus.timestamp
     ? new Date(insertValidationStatus.timestamp).toLocaleString('fr-FR')
     : null;
@@ -2472,6 +2477,68 @@ function PatientsManagement() {
     await loadPatients(emptyFilters);
   };
 
+  const handleDeleteDynamicColumn = async (key) => {
+    if (canManageDynColumns) {
+      if (!window.confirm(`Supprimer la colonne "${key}" et toutes ses données patients ?`)) return;
+      try {
+        await api.delete(`patients/dynamic-columns/${key}/`);
+        setSchemaTemplate((prev) => ({
+          ...prev,
+          fields: (prev?.fields || []).filter((f) => f.key !== key),
+        }));
+        setSuccess(`Colonne "${key}" supprimée.`);
+      } catch (e) {
+        setError(extractApiMessage(e, `Impossible de supprimer la colonne "${key}".`));
+      }
+    } else {
+      // Utilisateur non autorisé → soumettre une demande
+      try {
+        await api.post('patients/dynamic-columns/requests/', { action: 'delete', column_key: key });
+        setSuccess(`Demande de suppression de "${key}" soumise. En attente de validation du chef de service.`);
+      } catch (e) {
+        setError(extractApiMessage(e, 'Impossible de soumettre la demande.'));
+      }
+    }
+  };
+
+  const handleAddDynamicColumn = async () => {
+    if (!dynColDialog.key.trim()) {
+      setDynColDialog((d) => ({ ...d, error: 'Le nom est requis.' }));
+      return;
+    }
+    if (canManageDynColumns) {
+      try {
+        const res = await api.post('patients/dynamic-columns/', {
+          key: dynColDialog.key.trim(),
+          label: dynColDialog.label.trim() || dynColDialog.key.trim(),
+          field_type: dynColDialog.field_type,
+        });
+        setSchemaTemplate((prev) => ({
+          ...prev,
+          fields: [...(prev?.fields || []), { ...res.data, order: 10000, choices: [], is_required: false }],
+        }));
+        setDynColDialog({ open: false, key: '', label: '', field_type: 'text_short', error: '' });
+        setSuccess(`Colonne "${res.data.key}" ajoutée.`);
+      } catch (e) {
+        setDynColDialog((d) => ({ ...d, error: extractApiMessage(e, 'Erreur lors de la création.') }));
+      }
+    } else {
+      // Utilisateur non autorisé → soumettre une demande
+      try {
+        await api.post('patients/dynamic-columns/requests/', {
+          action: 'add',
+          column_key: dynColDialog.key.trim(),
+          column_label: dynColDialog.label.trim() || dynColDialog.key.trim(),
+          field_type: dynColDialog.field_type,
+        });
+        setDynColDialog({ open: false, key: '', label: '', field_type: 'text_short', error: '' });
+        setSuccess(`Demande d'ajout de "${dynColDialog.key}" soumise. En attente de validation du chef de service.`);
+      } catch (e) {
+        setDynColDialog((d) => ({ ...d, error: extractApiMessage(e, 'Impossible de soumettre la demande.') }));
+      }
+    }
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -2615,17 +2682,17 @@ function PatientsManagement() {
     setError('');
     setSuccess('');
     try {
-      await api.delete('patients/purge/');
+      const purgeRes = await api.delete('patients/purge/');
+      const removedCols = purgeRes?.data?.dynamic_columns_removed || 0;
       setPatients([]);
       setSelectedPatientIds([]);
       resetForm();
-      // Réinitialiser le schéma : supprimer les colonnes dynamiques, garder uniquement la structure fixe
       setSchemaTemplate(DEFAULT_SCHEMA_TEMPLATE);
-      // Réinitialiser le statut de validation
       const resetStatus = { status: 'idle', approvedBy: null, requestedBy: null, timestamp: null, pendingIds: [] };
       setInsertValidationStatus(resetStatus);
       window.dispatchEvent(new Event('patientsInsertValidationUpdated'));
-      setSuccess('Toutes les données importées ont été supprimées. Les colonnes dynamiques ont été retirées de la plateforme.');
+      const colMsg = removedCols > 0 ? ` ${removedCols} colonne(s) dynamique(s) supprimée(s).` : '';
+      setSuccess(`Toutes les données importées ont été supprimées.${colMsg}`);
     } catch (requestError) {
       setError(extractApiMessage(requestError, 'Suppression globale impossible.'));
     } finally {
@@ -2924,6 +2991,9 @@ function PatientsManagement() {
 
   // Rendu générique d'un bloc de champs dans le formulaire patient
   const renderSchemaFieldInput = (field) => {
+    const isDynamic = field.source_hint === 'dynamic_column' && field.import_file;
+    const tooltipTitle = isDynamic ? `Importé depuis : ${field.import_file}` : '';
+
     const identityKeys = ['id_patient', 'id_enregistrement_source', 'nom', 'prenom'];
     const value = identityKeys.includes(field.key)
       ? (form[field.key] ?? schemaAnswers[field.key] ?? '')
@@ -2940,8 +3010,15 @@ function PatientsManagement() {
       handleSchemaAnswerChange(field, nextValue);
     };
 
+    const wrapTooltip = (node) =>
+      isDynamic ? (
+        <MuiTooltip key={field.id} title={tooltipTitle} placement="top" arrow>
+          <span style={{ display: 'block' }}>{node}</span>
+        </MuiTooltip>
+      ) : node;
+
     if (field.field_type === 'auto') {
-      return (
+      return wrapTooltip(
         <TextField
           key={field.id}
           label={field.label}
@@ -2953,7 +3030,7 @@ function PatientsManagement() {
       );
     }
     if (field.field_type === 'single_choice' || field.field_type === 'boolean') {
-      return (
+      return wrapTooltip(
         <TextField
           key={field.id}
           select
@@ -2971,7 +3048,7 @@ function PatientsManagement() {
       );
     }
     if (field.field_type === 'multiple_choice') {
-      return (
+      return wrapTooltip(
         <TextField
           key={field.id}
           select
@@ -2992,7 +3069,7 @@ function PatientsManagement() {
       );
     }
     if (field.field_type === 'date') {
-      return (
+      return wrapTooltip(
         <TextField
           key={field.id}
           label={field.label}
@@ -3006,7 +3083,7 @@ function PatientsManagement() {
       );
     }
     if (field.field_type === 'integer' || field.field_type === 'decimal') {
-      return (
+      return wrapTooltip(
         <TextField
           key={field.id}
           label={field.label}
@@ -3019,7 +3096,7 @@ function PatientsManagement() {
         />
       );
     }
-    return (
+    return wrapTooltip(
       <TextField
         key={field.id}
         label={field.label}
@@ -3374,7 +3451,7 @@ function PatientsManagement() {
         )}
 
         {activeTab === 'pretraitement' ? (
-          <Preprocessing />
+          <Preprocessing onIntegrated={() => { loadPatients(); loadSchema(); setActiveTab('gestion'); }} />
         ) : activeTab === 'gestion' ? (
         <Grid container spacing={3}>
           <Grid item xs={12} lg={8} sx={{ order: { xs: 1, lg: 1 } }}>
@@ -3780,34 +3857,44 @@ function PatientsManagement() {
                     </Stack>
                   )}
 
-                  {/* ── Bloc 2 : Colonnes dynamiques (importées automatiquement) ── */}
-                  {dynamicSchemaFieldsForForm.length > 0 && (
-                    <Box sx={{ display: 'grid', gap: 0 }}>
-                      {/* En-tête section dynamique */}
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={1}
-                        sx={{
-                          px: 1.5,
-                          py: 0.75,
-                          borderRadius: '8px 8px 0 0',
-                          background: `linear-gradient(90deg, ${PM.rose}18 0%, ${PM.rose}08 100%)`,
-                          border: `2px solid rgba(158,61,106,0.30)`,
-                          borderBottom: 'none',
-                        }}
-                      >
-                        <Typography variant="subtitle2" fontWeight={800} sx={{ color: PM.rose }}>
-                          Colonnes dynamiques
-                        </Typography>
-                        <Chip
-                          label={`${dynamicSchemaFieldsForForm.length} champs`}
+                  {/* ── Bloc 2 : Colonnes dynamiques — toujours visible pour accéder aux boutons ── */}
+                  <Box sx={{ display: 'grid', gap: 0 }}>
+                    {/* En-tête section dynamique */}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{
+                        px: 1.5,
+                        py: 0.75,
+                        borderRadius: dynamicSchemaFieldsForForm.length > 0 ? '8px 8px 0 0' : '8px',
+                        background: `linear-gradient(90deg, ${PM.rose}18 0%, ${PM.rose}08 100%)`,
+                        border: `2px solid rgba(158,61,106,0.30)`,
+                        borderBottom: dynamicSchemaFieldsForForm.length > 0 ? 'none' : undefined,
+                      }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={800} sx={{ color: PM.rose }}>
+                        Colonnes dynamiques
+                      </Typography>
+                      <Chip
+                        label={`${dynamicSchemaFieldsForForm.length} champs`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.68rem', height: 18, borderColor: 'rgba(158,61,106,.30)', color: PM.rose, '& .MuiChip-icon': { display: 'none' }, '& .MuiAvatar-root': { display: 'none' } }}
+                      />
+                      <Box sx={{ flex: 1 }} />
+                      <MuiTooltip title="Ajouter une colonne dynamique" placement="top">
+                        <IconButton
                           size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.68rem', height: 18, borderColor: 'rgba(158,61,106,.30)', color: PM.rose, '& .MuiChip-icon': { display: 'none' }, '& .MuiAvatar-root': { display: 'none' } }}
-                        />
-                      </Stack>
-                      {/* Corps section dynamique */}
+                          onClick={() => setDynColDialog({ open: true, key: '', label: '', field_type: 'text_short', error: '' })}
+                          sx={{ color: PM.rose, '&:hover': { background: `${PM.rose}18` } }}
+                        >
+                          <AddCircleOutlineOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </MuiTooltip>
+                    </Stack>
+                    {/* Corps section dynamique — uniquement si des colonnes existent */}
+                    {dynamicSchemaFieldsForForm.length > 0 && (
                       <Box
                         sx={{
                           p: 1.5,
@@ -3823,10 +3910,23 @@ function PatientsManagement() {
                         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.25 }}>
                           Ces champs proviennent d'un fichier importé et ne font pas partie du schéma standard de la plateforme.
                         </Typography>
-                        {dynamicSchemaFieldsForForm.map((field) => renderSchemaFieldInput(field))}
+                        {dynamicSchemaFieldsForForm.map((field) => (
+                          <Box key={field.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Box sx={{ flex: 1 }}>{renderSchemaFieldInput(field)}</Box>
+                            <MuiTooltip title={`Supprimer la colonne "${field.key}"`} placement="top">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteDynamicColumn(field.key)}
+                                sx={{ color: 'error.main', flexShrink: 0, '&:hover': { background: 'rgba(211,47,47,0.08)' } }}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </MuiTooltip>
+                          </Box>
+                        ))}
                       </Box>
-                    </Box>
-                  )}
+                    )}
+                  </Box>
 
                   {/* Colonnes extra_data non encore dans le schéma (seulement en mode édition) */}
                   {form.id && formDynamicExtraColumns.length > 0 && (
@@ -4200,6 +4300,53 @@ function PatientsManagement() {
             <Button type="submit" variant="contained" disabled={saving} sx={{ borderRadius: '14px', background: 'linear-gradient(135deg,#3d5a8a,#1e2d5a)', fontFamily: 'inherit', textTransform: 'none', fontWeight: 800, boxShadow: '0 10px 22px rgba(30,45,90,.22)' }}>Enregistrer</Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      {/* ── Dialog : Ajouter une colonne dynamique ── */}
+      <Dialog open={dynColDialog.open} onClose={() => setDynColDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: PM.rose }}>
+          {canManageDynColumns ? 'Ajouter une colonne dynamique' : 'Demander l\'ajout d\'une colonne'}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
+          <TextField
+            label="Nom de la colonne (clé)"
+            value={dynColDialog.key}
+            onChange={(e) => setDynColDialog((d) => ({ ...d, key: e.target.value, error: '' }))}
+            size="small"
+            fullWidth
+            placeholder="ex: score_nutritionnel"
+            helperText="Sera normalisé automatiquement (minuscules, underscores)"
+          />
+          <TextField
+            label="Libellé affiché (optionnel)"
+            value={dynColDialog.label}
+            onChange={(e) => setDynColDialog((d) => ({ ...d, label: e.target.value }))}
+            size="small"
+            fullWidth
+            placeholder="ex: Score nutritionnel"
+          />
+          <TextField
+            select
+            label="Type"
+            value={dynColDialog.field_type}
+            onChange={(e) => setDynColDialog((d) => ({ ...d, field_type: e.target.value }))}
+            size="small"
+            fullWidth
+          >
+            <MenuItem value="text_short">Texte court</MenuItem>
+            <MenuItem value="integer">Nombre entier</MenuItem>
+            <MenuItem value="decimal">Nombre décimal</MenuItem>
+            <MenuItem value="boolean">Oui / Non</MenuItem>
+            <MenuItem value="date">Date</MenuItem>
+          </TextField>
+          {dynColDialog.error && <Typography variant="caption" color="error">{dynColDialog.error}</Typography>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDynColDialog({ open: false, key: '', label: '', field_type: 'text_short', error: '' })} sx={{ textTransform: 'none' }}>Annuler</Button>
+          <Button variant="contained" onClick={handleAddDynamicColumn} sx={{ textTransform: 'none', background: PM.rose }}>
+            {canManageDynColumns ? 'Ajouter' : 'Soumettre la demande'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

@@ -399,6 +399,7 @@ class PatientFormField(models.Model):
 	order = models.PositiveIntegerField()
 	choices = models.JSONField(default=list, blank=True)
 	source_hint = models.CharField(max_length=255, blank=True)
+	import_file = models.CharField(max_length=255, blank=True, default='')
 	is_required = models.BooleanField(default=False)
 
 	class Meta:
@@ -438,3 +439,38 @@ class PreprocessValidationRequest(models.Model):
 
 	def __str__(self):
 		return f"Validation {self.session_id[:8]} — {self.status}"
+
+
+class DynamicColumnRequest(models.Model):
+	ACTION_CHOICES = [
+		('add',    'Ajout de colonne'),
+		('delete', 'Suppression de colonne'),
+	]
+	STATUS_CHOICES = [
+		('pending',  'En attente'),
+		('approved', 'Approuvé'),
+		('rejected', 'Rejeté'),
+	]
+
+	action       = models.CharField(max_length=10, choices=ACTION_CHOICES)
+	column_key   = models.CharField(max_length=150)
+	column_label = models.CharField(max_length=255, blank=True)
+	field_type   = models.CharField(max_length=30, default='text_short')
+	submitted_by = models.ForeignKey(
+		'users.Utilisateur', on_delete=models.SET_NULL, null=True,
+		related_name='dynamic_column_requests'
+	)
+	submitted_at = models.DateTimeField(auto_now_add=True)
+	status       = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+	reviewed_by  = models.ForeignKey(
+		'users.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True,
+		related_name='reviewed_column_requests'
+	)
+	reviewed_at  = models.DateTimeField(null=True, blank=True)
+	comment      = models.TextField(blank=True)
+
+	class Meta:
+		ordering = ['-submitted_at']
+
+	def __str__(self):
+		return f"{self.get_action_display()} — {self.column_key} ({self.status})"
