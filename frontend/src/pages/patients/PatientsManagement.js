@@ -44,9 +44,10 @@ import AppSidebar from '../../components/common/AppSidebar';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import Preprocessing from '../preprocessing/Preprocessing';
-import { Bar, Bubble, Line } from 'react-chartjs-2';
+import { Bar, Bubble, Doughnut, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
+  ArcElement,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -59,7 +60,7 @@ import api from '../../services/api/axios';
 import { AuthContext } from '../../context/AuthContext';
 import defaultSchemaTemplate from '../../Data_platform_schema.json';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend);
+ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend);
 
 // Ici seulement, place la fonction utilitaire :
 function normalizeIdEnregistrement(id) {
@@ -1000,7 +1001,6 @@ function PatientsManagement() {
   const [rejectingInsertion, setRejectingInsertion] = useState(false);
   const [mainSection, setMainSection] = useState('data_patient');
   const [activeTab, setActiveTab] = useState(_initialTab);
-  const [analysisView, setAnalysisView] = useState('synthese');
   const [profile3dAngle, setProfile3dAngle] = useState(35);
 
   useEffect(() => {
@@ -1517,6 +1517,7 @@ function PatientsManagement() {
         profile3dPoints: [],
         weakestColumns: [],
         strongestSections: [],
+        complicationTypeDistribution: [],
       };
     }
     const totalPatients = patients.length;
@@ -1598,15 +1599,16 @@ function PatientsManagement() {
     const etiologyInclusionMap = {};
 
     patients.forEach((patient) => {
-      // Prefer an explicit evaluation/admission date, but fall back to
-      // the record creation timestamp so we still show monthly trends
-      // when `statut_inclusion` is not filled by imports.
+      // Priorité : date de début dialyse (plus étalée dans le temps),
+      // puis dates d'évaluation/admission, puis fallback sur created_at.
       const monthKey = [
+        patient?.dialyse_data?.dialyse_date_debut,
+        patient?.extra_data?.dialyse_date_debut,
+        patient?.dialyse_date_debut,
         patient?.date_evaluation_initiale,
         patient?.date_admission,
         patient?.created_at,
         patient?.derniere_mise_a_jour,
-        patient?.date_naissance,
       ]
         .map((candidateDate) => toMonthKey(candidateDate))
         .find(Boolean);
@@ -1941,6 +1943,34 @@ function PatientsManagement() {
       profile3dPoints: profile3dPoints.slice(0, 1200),
       weakestColumns: fillRates.slice(0, 10),
       strongestSections: completenessSections.slice(0, 6),
+      complicationTypeDistribution: (() => {
+        const typeMap = {};
+        const COMPLICATION_LABELS = {
+          infection: 'Infection', evenement_cardiovasculaire: 'Évén. cardiovasculaire',
+          hemorragie: 'Hémorragie', hypotension: 'Hypotension',
+          dysfonction_acces: "Dysfonction d'accès", thrombose: 'Thrombose',
+          peritonite: 'Péritonite', trouble_hydroelectrolytique: 'Trouble hydro-électrolytique',
+          crise_convulsive: 'Crise convulsive', autre: 'Autre',
+        };
+        patients.forEach((patient) => {
+          const raw = patient?.complication_data?.complication_liste
+            ?? patient?.complication_liste
+            ?? patient?.extra_data?.complication_liste
+            ?? '';
+          const items = Array.isArray(raw)
+            ? raw
+            : String(raw).split(/[,;|+]/).map((s) => s.trim()).filter(Boolean);
+          items.forEach((item) => {
+            const key = item.trim().toLowerCase();
+            const label = COMPLICATION_LABELS[key] || item;
+            typeMap[label] = (typeMap[label] || 0) + 1;
+          });
+        });
+        return Object.entries(typeMap)
+          .map(([label, count]) => ({ label, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+      })(),
     };
   }, [fixedBaseColumns, patients, tableDisplaySchemaFields, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1950,9 +1980,13 @@ function PatientsManagement() {
       {
         label: 'Patients inclus',
         data: analysisSummary.monthlyInclusions.map((item) => item.count),
-        borderColor: 'rgba(31, 122, 140, 1)',
-        backgroundColor: 'rgba(31, 122, 140, 0.25)',
-        tension: 0.25,
+        borderColor: '#3d5a8a',
+        backgroundColor: 'rgba(61,90,138,0.12)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#3d5a8a',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4,
         fill: true,
       },
     ],
@@ -1964,12 +1998,16 @@ function PatientsManagement() {
       {
         label: 'Dossiers documentés',
         data: analysisSummary.monthlyComplications.map((item) => item.documented),
-        backgroundColor: 'rgba(231, 76, 60, 0.75)',
+        backgroundColor: 'rgba(158,61,106,0.78)',
+        borderRadius: 6,
+        borderSkipped: false,
       },
       {
         label: 'Hospitalisations',
         data: analysisSummary.monthlyComplications.map((item) => item.hospitalizations),
-        backgroundColor: 'rgba(241, 196, 15, 0.75)',
+        backgroundColor: 'rgba(193,127,36,0.78)',
+        borderRadius: 6,
+        borderSkipped: false,
       },
     ],
   }), [analysisSummary.monthlyComplications]);
@@ -1995,20 +2033,61 @@ function PatientsManagement() {
       {
         label: 'Homme',
         data: analysisSummary.ageSexDistribution.map((item) => item.homme),
-        backgroundColor: 'rgba(52, 152, 219, 0.72)',
+        backgroundColor: 'rgba(61,90,138,0.82)',
+        borderRadius: 6,
+        borderSkipped: false,
       },
       {
         label: 'Femme',
         data: analysisSummary.ageSexDistribution.map((item) => item.femme),
-        backgroundColor: 'rgba(231, 76, 60, 0.72)',
+        backgroundColor: 'rgba(158,61,106,0.82)',
+        borderRadius: 6,
+        borderSkipped: false,
       },
       {
         label: 'Inconnu',
         data: analysisSummary.ageSexDistribution.map((item) => item.inconnu),
-        backgroundColor: 'rgba(127, 140, 141, 0.72)',
+        backgroundColor: 'rgba(160,170,185,0.6)',
+        borderRadius: 6,
+        borderSkipped: false,
       },
     ],
   }), [analysisSummary.ageSexDistribution]);
+
+  const sexDonutChartData = useMemo(() => {
+    const counts = { Homme: 0, Femme: 0, Inconnu: 0 };
+    (analysisSummary.sexCounts || []).forEach((item) => {
+      if (item.label in counts) counts[item.label] = item.count;
+    });
+    return {
+      labels: ['Homme', 'Femme', 'Inconnu'],
+      datasets: [{
+        data: [counts.Homme, counts.Femme, counts.Inconnu],
+        backgroundColor: ['rgba(61,90,138,0.85)', 'rgba(158,61,106,0.85)', 'rgba(160,170,185,0.6)'],
+        borderColor: ['#fff', '#fff', '#fff'],
+        borderWidth: 3,
+        hoverOffset: 8,
+      }],
+    };
+  }, [analysisSummary.sexCounts]);
+
+  const complicationTypeChartData = useMemo(() => {
+    const palette = [
+      'rgba(158,61,106,0.82)', 'rgba(61,90,138,0.82)', 'rgba(193,127,36,0.82)',
+      'rgba(31,122,140,0.82)', 'rgba(108,61,158,0.82)', 'rgba(46,125,86,0.82)',
+      'rgba(200,80,60,0.82)', 'rgba(80,140,180,0.82)', 'rgba(160,100,40,0.82)', 'rgba(100,100,120,0.72)',
+    ];
+    return {
+      labels: analysisSummary.complicationTypeDistribution.map((item) => item.label),
+      datasets: [{
+        label: 'Nombre de patients',
+        data: analysisSummary.complicationTypeDistribution.map((item) => item.count),
+        backgroundColor: analysisSummary.complicationTypeDistribution.map((_, i) => palette[i % palette.length]),
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    };
+  }, [analysisSummary.complicationTypeDistribution]);
 
   const comorbidityCombinationChartData = useMemo(() => ({
     labels: analysisSummary.topComorbidityCombinations.map((item) => item.label),
@@ -2016,7 +2095,15 @@ function PatientsManagement() {
       {
         label: 'Patients',
         data: analysisSummary.topComorbidityCombinations.map((item) => item.count),
-        backgroundColor: 'rgba(142, 68, 173, 0.72)',
+        backgroundColor: analysisSummary.topComorbidityCombinations.map((_, i) => {
+          const palette = [
+            'rgba(108,61,158,0.80)', 'rgba(61,90,138,0.80)', 'rgba(31,122,140,0.80)',
+            'rgba(46,125,86,0.80)', 'rgba(158,61,106,0.80)', 'rgba(193,127,36,0.80)',
+          ];
+          return palette[i % palette.length];
+        }),
+        borderRadius: 6,
+        borderSkipped: false,
       },
     ],
   }), [analysisSummary.topComorbidityCombinations]);
@@ -2024,17 +2111,38 @@ function PatientsManagement() {
   const defaultChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          font: { family: 'inherit', size: 12, weight: '600' },
+          color: '#4a5568',
+          boxWidth: 12,
+          padding: 16,
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15,25,55,0.92)',
+        titleFont: { family: 'inherit', size: 13, weight: '700' },
+        bodyFont: { family: 'inherit', size: 12 },
+        padding: 12,
+        cornerRadius: 10,
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
       },
     },
     scales: {
+      x: {
+        grid: { color: 'rgba(61,90,138,0.06)', drawBorder: false },
+        ticks: { font: { family: 'inherit', size: 11 }, color: '#7a90b0' },
+      },
       y: {
         beginAtZero: true,
-        ticks: {
-          precision: 0,
-        },
+        grid: { color: 'rgba(61,90,138,0.08)', drawBorder: false },
+        ticks: { precision: 0, font: { family: 'inherit', size: 11 }, color: '#7a90b0' },
       },
     },
   }), []);
@@ -3200,7 +3308,7 @@ function PatientsManagement() {
                   >
                     <Tab value="pretraitement" label={language === 'en' ? 'Preprocessing' : 'Prétraitement'} />
                     <Tab value="gestion" label={language === 'en' ? 'Management' : 'Gestion'} />
-                    <Tab value="analyse" label={t('aiAnalysis')} />
+                    <Tab value="analyse" label="Analyse" />
                   </Tabs>
                 </Box>
               </Box>
@@ -3789,254 +3897,209 @@ function PatientsManagement() {
         </Grid>
         ) : (
           <Stack spacing={3}>
-            <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
-              <CardContent>
-                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+            {/* ── En-tête section analyse ── */}
+            <Card elevation={0} sx={{ borderRadius: '20px', background: 'linear-gradient(135deg,rgba(61,90,138,.08) 0%,rgba(158,61,106,.06) 100%)', border: '1px solid rgba(61,90,138,.14)', boxShadow: '0 2px 16px rgba(30,45,90,.06)' }}>
+              <CardContent sx={{ py: 2.5 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1.5}>
                   <Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Tableau d'analyse clinique</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Vue professionnelle orientee activite et risques cliniques.
+                    <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Tableau d'analyse clinique</Typography>
+                    <Typography variant="body2" sx={{ color: '#7a90b0', mt: 0.3, fontFamily: 'inherit' }}>
+                      Vue professionnelle orientée activité et risques cliniques.
                     </Typography>
                   </Box>
-                  <Tabs
-                    value={analysisView}
-                    onChange={(_, value) => setAnalysisView(value)}
-                    variant="scrollable"
-                    allowScrollButtonsMobile
-                    sx={{ minHeight: 38, '& .MuiTab-root': { fontFamily: 'inherit', fontWeight: 600, textTransform: 'none' }, '& .Mui-selected': { color: '#3d5a8a !important' }, '& .MuiTabs-indicator': { background: 'linear-gradient(90deg,#3d5a8a,#9e3d6a)', height: 3, borderRadius: 2 } }}
-                  >
-                    <Tab value="synthese" label="Synthese" />
-                    <Tab value="profils" label="Profils" />
-                    <Tab value="comorbidites" label="Comorbidites" />
-                  </Tabs>
+                  <Chip
+                    label={`6 graphes · ${analysisSummary.totalPatients} patients`}
+                    size="small"
+                    sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '0.78rem', background: 'rgba(61,90,138,.10)', color: '#3d5a8a', border: '1px solid rgba(61,90,138,.18)', borderRadius: '20px' }}
+                  />
                 </Stack>
               </CardContent>
             </Card>
 
+            {/* ── KPI Cards ── */}
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card elevation={0} sx={{ borderRadius: '16px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 12px rgba(30,45,90,.04)' }}>
-                  <CardContent>
-                    <Typography variant="body2" sx={{ color: '#7a90b0', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '.08em', mb: 0.5 }}>Total patients</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e2d5a', letterSpacing: '-.03em', lineHeight: 1, fontFamily: 'inherit' }}>{analysisSummary.totalPatients}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card elevation={0} sx={{ borderRadius: '16px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 12px rgba(30,45,90,.04)' }}>
-                  <CardContent>
-                    <Typography variant="body2" sx={{ color: '#7a90b0', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '.08em', mb: 0.5 }}>Age moyen</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e2d5a', letterSpacing: '-.03em', lineHeight: 1, fontFamily: 'inherit' }}>{analysisSummary.averageAge}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card elevation={0} sx={{ borderRadius: '16px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 12px rgba(30,45,90,.04)' }}>
-                  <CardContent>
-                    <Typography variant="body2" sx={{ color: '#7a90b0', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '.08em', mb: 0.5 }}>Completude moyenne</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e2d5a', letterSpacing: '-.03em', lineHeight: 1, fontFamily: 'inherit' }}>{analysisSummary.averageCompleteness}%</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
+              {[
+                { label: 'Total patients', value: analysisSummary.totalPatients, accent: '#3d5a8a', sub: 'dossiers actifs' },
+                { label: 'Âge moyen', value: `${analysisSummary.averageAge} ans`, accent: '#1f7a8c', sub: `médiane ${analysisSummary.medianAge} ans` },
+                { label: 'Complétude', value: `${analysisSummary.averageCompleteness}%`, accent: '#2e7d56', sub: 'des champs remplis' },
+                { label: 'Colonnes totales', value: patientColumnKeys.length, accent: '#c17f24', sub: 'schéma plateforme' },
+                { label: 'Cols. dynamiques', value: dynamicColumnKeys.size + extraColumns.length, accent: '#6c3d9e', sub: 'importées' },
+              ].map((kpi) => (
+                <Grid item xs={6} sm={4} md={12 / 5} key={kpi.label}>
+                  <Card elevation={0} sx={{ borderRadius: '16px', border: `1px solid rgba(61,90,138,.10)`, boxShadow: '0 2px 12px rgba(30,45,90,.05)', overflow: 'hidden', height: '100%' }}>
+                    <Box sx={{ height: 4, background: kpi.accent, borderRadius: '16px 16px 0 0' }} />
+                    <CardContent sx={{ pt: 1.5, pb: '12px !important' }}>
+                      <Typography variant="caption" sx={{ color: '#7a90b0', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '.07em' }}>{kpi.label}</Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e2d5a', letterSpacing: '-.03em', lineHeight: 1.1, fontFamily: 'inherit', mt: 0.4 }}>{kpi.value}</Typography>
+                      <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', fontSize: '0.72rem' }}>{kpi.sub}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
 
-            {analysisView === 'synthese' && (
-              <Stack spacing={3}>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} lg={7}>
-                    <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
-                      <CardContent>
-                        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Evolution mensuelle des inclusions</Typography>
-                        {analysisSummary.monthlyInclusions.length ? (
-                          <Box sx={{ height: 300 }}>
-                            <Line data={monthlyInclusionChartData} options={defaultChartOptions} />
-                          </Box>
-                        ) : <Typography variant="body2" color="text.secondary">Aucune date exploitable pour les inclusions.</Typography>}
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  <Grid item xs={12} lg={5}>
-                    <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
-                      <CardContent>
-                        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Points cles</Typography>
-                        <Stack spacing={1.5}>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Volume total complications</Typography>
-                            <Typography variant="h5" sx={{ fontWeight: 900, color: '#1e2d5a', letterSpacing: '-.02em', fontFamily: 'inherit' }}>{analysisKpis.complicationsTotal}</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Profil dominant</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{analysisKpis.topEtiology}</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Complétude moyenne</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{analysisSummary.averageCompleteness}%</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Dossiers récents</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{analysisSummary.recentActivityCount} ({analysisKpis.recentActivityRate}%)</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Dossiers à charge</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{analysisSummary.highBurdenPatients} ({analysisKpis.highBurdenRate}%)</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">Répartition sexe</Typography>
-                            <Stack spacing={1} sx={{ mt: 0.5 }}>
-                              {analysisSummary.sexCounts.map((item) => {
-                                const percent = analysisSummary.totalPatients ? Math.round((item.count / analysisSummary.totalPatients) * 100) : 0;
-                                return (
-                                  <Box key={`sex-summary-${item.label}`}>
-                                    <Stack direction="row" justifyContent="space-between">
-                                      <Typography variant="body2">{item.label}</Typography>
-                                      <Typography variant="body2" fontWeight={700}>{percent}%</Typography>
-                                    </Stack>
-                                    <LinearProgress variant="determinate" value={percent} sx={{ mt: 0.5, height: 8, borderRadius: 999, '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg,#3d5a8a,#9e3d6a)' } }} />
-                                  </Box>
-                                );
-                              })}
-                            </Stack>
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                </Grid>
-
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
+            {/* ── Graphes ── */}
+            <Grid container spacing={3}>
+              {/* Graphe 1 — Evolution mensuelle des inclusions */}
+              <Grid item xs={12} lg={8}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
                   <CardContent>
-                    <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Complications dans le temps (barres empilees)</Typography>
-                    {analysisSummary.monthlyComplications.length ? (
-                      <Box sx={{ height: 320 }}>
-                        <Bar
-                          data={monthlyComplicationsChartData}
-                          options={{
-                            ...defaultChartOptions,
-                            scales: {
-                              x: { stacked: true },
-                              y: {
-                                ...(defaultChartOptions.scales?.y || {}),
-                                stacked: true,
-                              },
-                            },
-                          }}
-                        />
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#3d5a8a' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Évolution mensuelle — début de dialyse</Typography>
+                    </Stack>
+                    {analysisSummary.monthlyInclusions.length ? (
+                      <Box sx={{ height: 280 }}>
+                        <Line data={monthlyInclusionChartData} options={defaultChartOptions} />
                       </Box>
-                    ) : <Typography variant="body2" color="text.secondary">Aucune date exploitable pour les complications.</Typography>}
+                    ) : <Typography variant="body2" color="text.secondary">Aucune date exploitable pour les inclusions.</Typography>}
                   </CardContent>
                 </Card>
-              </Stack>
-            )}
+              </Grid>
 
-            {analysisView === 'profils' && (
-              <Stack spacing={3}>
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
+              {/* Graphe 2 — Répartition sexe + KPIs */}
+              <Grid item xs={12} lg={4}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
                   <CardContent>
-                    <Typography variant="h6" sx={{ mb: 0.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Graphe 3D profil patient</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                      Projection 3D interactive: age, comorbidites et complications.
-                    </Typography>
-                    {analysisSummary.profile3dPoints.length ? (
-                      <>
-                        <Box sx={{ px: 1, mb: 1.5 }}>
-                          <Typography variant="caption" color="text.secondary">Angle 3D: {profile3dAngle}°</Typography>
-                          <Slider
-                            value={profile3dAngle}
-                            onChange={(_, value) => setProfile3dAngle(Number(value))}
-                            min={0}
-                            max={85}
-                            step={1}
-                            valueLabelDisplay="auto"
-                            size="small"
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#9e3d6a' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Répartition et indicateurs</Typography>
+                    </Stack>
+                    <Stack spacing={1.2}>
+                      <Stack direction="row" spacing={2}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Complications totales</Typography>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#9e3d6a', letterSpacing: '-.02em', fontFamily: 'inherit' }}>{analysisKpis.complicationsTotal}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Charge élevée</Typography>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#c17f24', letterSpacing: '-.02em', fontFamily: 'inherit' }}>{analysisSummary.highBurdenPatients}</Typography>
+                        </Box>
+                      </Stack>
+                      <Box sx={{ p: 1.2, borderRadius: '10px', background: 'rgba(61,90,138,.05)', border: '1px solid rgba(61,90,138,.08)' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Profil dominant</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#3d5a8a', fontFamily: 'inherit', mt: 0.2 }}>{analysisKpis.topEtiology}</Typography>
+                      </Box>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontFamily: 'inherit' }}>Répartition par sexe</Typography>
+                        <Box sx={{ height: 160, position: 'relative' }}>
+                          <Doughnut
+                            data={sexDonutChartData}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              cutout: '68%',
+                              plugins: {
+                                legend: {
+                                  position: 'bottom',
+                                  labels: {
+                                    font: { family: 'inherit', size: 11, weight: '600' },
+                                    color: '#4a5568',
+                                    boxWidth: 10,
+                                    padding: 10,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    generateLabels: (chart) => {
+                                      const data = chart.data;
+                                      return data.labels.map((label, i) => ({
+                                        text: `${label} (${data.datasets[0].data[i]})`,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        strokeStyle: '#fff',
+                                        lineWidth: 2,
+                                        pointStyle: 'circle',
+                                        hidden: false,
+                                        index: i,
+                                      }));
+                                    },
+                                  },
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: (ctx) => {
+                                      const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                      const pct = total ? Math.round((ctx.raw / total) * 100) : 0;
+                                      return ` ${ctx.label} : ${ctx.raw} patients (${pct}%)`;
+                                    },
+                                  },
+                                },
+                              },
+                            }}
                           />
                         </Box>
-                        <Box sx={{ height: 360 }}>
-                          <Bubble data={profileProjectedBubbleData} options={profileBubbleOptions} />
-                        </Box>
-                      </>
-                    ) : <Typography variant="body2" color="text.secondary">Aucune donnee suffisante pour le graphe 3D.</Typography>}
+                      </Box>
+                    </Stack>
                   </CardContent>
                 </Card>
+              </Grid>
 
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
+              {/* Graphe 3 — Distribution âge par sexe (histogramme groupé) */}
+              <Grid item xs={12} lg={6}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
                   <CardContent>
-                    <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Distribution age par sexe</Typography>
-                    <Box sx={{ height: 320 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#1f7a8c' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Distribution d'âge par sexe</Typography>
+                    </Stack>
+                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>Histogramme — nombre de patients par tranche d'âge</Typography>
+                    <Box sx={{ height: 280 }}>
                       <Bar data={ageSexHistogramData} options={defaultChartOptions} />
                     </Box>
                   </CardContent>
                 </Card>
+              </Grid>
 
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
+              {/* Graphe 4 — Répartition des types de complications */}
+              <Grid item xs={12} lg={6}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
                   <CardContent>
-                    <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Etiologie IRC vers statut inclusion (barres groupees)</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#c17f24' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Répartition des types de complications</Typography>
+                    </Stack>
+                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>Nombre de patients par type de complication enregistrée</Typography>
+                    {analysisSummary.complicationTypeDistribution.length ? (
+                      <Box sx={{ height: 280 }}>
+                        <Bar data={complicationTypeChartData} options={{ ...defaultChartOptions, indexAxis: 'y', plugins: { ...defaultChartOptions.plugins, legend: { display: false } } }} />
+                      </Box>
+                    ) : <Typography variant="body2" color="text.secondary">Aucune complication renseignée.</Typography>}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Graphe 5 — Etiologie IRC vers statut inclusion */}
+              <Grid item xs={12} lg={6}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
+                  <CardContent>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#2e7d56' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Étiologie IRC par statut d'inclusion</Typography>
+                    </Stack>
                     {analysisSummary.etiologyInclusionGrouped.labels.length ? (
-                      <Box sx={{ height: 330 }}>
+                      <Box sx={{ height: 280 }}>
                         <Bar data={etiologyInclusionChartData} options={defaultChartOptions} />
                       </Box>
-                    ) : <Typography variant="body2" color="text.secondary">Aucune donnee suffisante pour le graphe etiologie/inclusion.</Typography>}
+                    ) : <Typography variant="body2" color="text.secondary">Données insuffisantes.</Typography>}
                   </CardContent>
                 </Card>
-              </Stack>
-            )}
+              </Grid>
 
-            {analysisView === 'comorbidites' && (
-              <Stack spacing={3}>
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
+              {/* Graphe 6 — Top combinaisons de comorbidités */}
+              <Grid item xs={12} lg={6}>
+                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)', height: '100%' }}>
                   <CardContent>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Barres des comorbidites les plus frequentes</Typography>
-                    <Stack spacing={1.5}>
-                      {analysisSummary.topComorbidities.length ? analysisSummary.topComorbidities.map((item) => {
-                        const percent = analysisSummary.totalPatients
-                          ? Math.round((item.count / analysisSummary.totalPatients) * 100)
-                          : 0;
-                        return (
-                          <Box key={`comorb-${item.label}`}>
-                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                              <Typography variant="body2">{item.label}</Typography>
-                              <Typography variant="body2" fontWeight={700}>{item.count} ({percent}%)</Typography>
-                            </Stack>
-                            <LinearProgress
-                              variant="determinate"
-                              value={percent}
-                              sx={{
-                                mt: 0.75,
-                                height: 8,
-                                borderRadius: 999,
-                                '& .MuiLinearProgress-bar': {
-                                  background: 'linear-gradient(90deg,#3d5a8a,#9e3d6a)',
-                                },
-                              }}
-                            />
-                          </Box>
-                        );
-                      }) : (
-                        <Typography variant="body2" color="text.secondary">Aucune donnee comorbidite exploitable.</Typography>
-                      )}
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#6c3d9e' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Top combinaisons de comorbidités</Typography>
                     </Stack>
-                  </CardContent>
-                </Card>
-
-                <Card elevation={0} sx={{ borderRadius: '20px', border: '1px solid rgba(61,90,138,.10)', boxShadow: '0 2px 16px rgba(30,45,90,.05)' }}>
-                  <CardContent>
-                    <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Top combinaisons de comorbidites</Typography>
                     {analysisSummary.topComorbidityCombinations.length ? (
-                      <Box sx={{ height: 340 }}>
-                        <Bar
-                          data={comorbidityCombinationChartData}
-                          options={{
-                            ...defaultChartOptions,
-                            indexAxis: 'y',
-                          }}
-                        />
+                      <Box sx={{ height: 280 }}>
+                        <Bar data={comorbidityCombinationChartData} options={{ ...defaultChartOptions, indexAxis: 'y', plugins: { ...defaultChartOptions.plugins, legend: { display: false } } }} />
                       </Box>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">Aucune combinaison de comorbidites disponible.</Typography>
-                    )}
+                    ) : <Typography variant="body2" color="text.secondary">Aucune combinaison disponible.</Typography>}
                   </CardContent>
                 </Card>
-              </Stack>
-            )}
+              </Grid>
+            </Grid>
 
           </Stack>
         )}

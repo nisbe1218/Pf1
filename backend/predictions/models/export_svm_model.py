@@ -114,26 +114,52 @@ proba = best_pipe.predict_proba(X)[:, 1]
 auc_full = roc_auc_score(y, proba)
 print(f"  AUC sur données complètes: {auc_full:.4f}")
 
+# ── Calcul des seuils depuis la courbe ROC ───────────────────────────────
+print("\n📐 Calcul des seuils ROC...")
+fpr, tpr, roc_thresholds = roc_curve(y, proba)
+
+# Seuil de Youden : maximise sensibilité + spécificité - 1
+j_scores = tpr - fpr
+youden_idx = int(np.argmax(j_scores))
+threshold_youden = float(roc_thresholds[youden_idx])
+
+# Seuil Spec90 : spécificité >= 90% (FPR <= 10%), sensibilité maximale parmi ces points
+spec90_mask = fpr <= 0.10
+if spec90_mask.any():
+    best_spec90_idx = int(np.where(spec90_mask)[0][np.argmax(tpr[spec90_mask])])
+    threshold_spec90 = float(roc_thresholds[best_spec90_idx])
+else:
+    threshold_spec90 = threshold_youden
+
+print(f"  Seuil Youden  : {threshold_youden:.3f}  (sensibilité={tpr[youden_idx]:.3f}, spécificité={1-fpr[youden_idx]:.3f})")
+print(f"  Seuil Spec90  : {threshold_spec90:.3f}")
+
 # ── Sauvegarde du modèle ────────────────────────────────────────────────
 print("\n💾 Sauvegarde du modèle...")
 
 output_path = Path(__file__).parent / 'svm_linear_hd478.pkl'
 joblib.dump(best_pipe, output_path)
-
 print(f"  ✅ Modèle sauvegardé: {output_path}")
 
 # ── Metadata ────────────────────────────────────────────────────────────
 metadata = {
     'model_name': 'SVM Linéaire',
     'prediction_type': 'mortalite_1an',
+    'feature_keys': list(X.columns),
     'n_features': X.shape[1],
     'n_patients_train': len(X),
-    'features': list(X.columns),
     'random_state': RANDOM_STATE,
     'auc_full_data': float(auc_full),
+    'threshold_youden': threshold_youden,
+    'threshold_spec90': threshold_spec90,
     'algorithm': 'SVC(C=0.01, kernel=linear, class_weight=balanced)',
     'pipeline': ['KNNImputer(k=3)', 'PowerTransformer(yeo-johnson)', 'SVC'],
 }
+
+# Sauvegarde de la metadata pour predict_mortalite.py
+metadata_path = Path(__file__).parent / 'mortalite_svm_features.joblib'
+joblib.dump(metadata, metadata_path)
+print(f"  ✅ Metadata sauvegardée: {metadata_path}")
 
 print("\n📋 Metadata:")
 for key, val in metadata.items():

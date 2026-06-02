@@ -428,10 +428,10 @@ export default function ModelAI() {
 
     // ── Graphe 2 : Que se passe-t-il dans chaque zone ? ───────────────────
     const mortData = {
-      labels: ['Zone Faible\n(< 19 %)', 'Zone Modérée\n(19–36 %)', 'Zone Élevée\n(> 36 %)'],
+      labels: ['Zone Faible\n(< 14 %)', 'Zone Modérée\n(14–42 %)', 'Zone Élevée\n(> 42 %)'],
       datasets: [{
         label: 'Décès à 1 an (%)',
-        data: [2.8, 30, 60.6],
+        data: [5.1, 29.1, 55.6],
         backgroundColor: ['rgba(39,174,96,.80)', 'rgba(230,126,34,.80)', 'rgba(231,76,60,.80)'],
         borderColor: ['#27AE60', '#E67E22', '#E74C3C'],
         borderWidth: 2, borderRadius: 10, borderSkipped: false,
@@ -589,37 +589,15 @@ export default function ModelAI() {
           </Grid>
         </Box>
 
-        {/* ── Graphes row 1 ─────────────────────────────────────────────── */}
+        {/* ── Graphes ───────────────────────────────────────────────────── */}
         <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} sm={6}>
-            <ChartCard
-              title="Combien de patients dans chaque zone ?"
-              subtitle="Répartition des 478 patients hémodialysés sur les 3 zones de risque"
-              note="59 % des patients sont en Zone Faible. Seulement 20 % sont en Zone Élevée — le modèle est sélectif."
-            >
-              <Bar data={distData} options={distOpts} height={140} />
-            </ChartCard>
-          </Grid>
           <Grid item xs={12} sm={6}>
             <ChartCard
               title="Que se passe-t-il dans chaque zone ?"
-              subtitle="Taux de décès réels à 1 an observés dans la cohorte de validation (n = 478)"
-              note="Parmi les patients classés Zone Élevée : 60,6 % sont décédés dans l'année. En Zone Faible : seulement 2,8 %."
+              subtitle="Taux de décès réels à 1 an — zones définies par GMM (cohorte HD-478, n = 478)"
+              note="Zones définies par GMM : Zone Élevée → 55,6 % de décès | Zone Modérée → 29,1 % | Zone Faible → 5,1 %. Risque relatif Élevée/Faible = 11×."
             >
               <Bar data={mortData} options={mortOpts} height={140} />
-            </ChartCard>
-          </Grid>
-        </Grid>
-
-        {/* ── Graphes row 2 ─────────────────────────────────────────────── */}
-        <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} sm={6}>
-            <ChartCard
-              title="Le modèle est-il fiable ?"
-              subtitle="Résultats mesurés sur la cohorte de validation — ce que le modèle détecte vraiment"
-              note="Sur 10 patients qui mourront dans l'année, le modèle en identifie 7. Sur 10 patients qui survivront, 8 sont correctement classés hors risque."
-            >
-              <Bar data={perfData} options={perfOpts} height={140} />
             </ChartCard>
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -850,26 +828,35 @@ export default function ModelAI() {
         })()}
 
         {/* ── Guide ─────────────────────────────────────────────────────── */}
-        <Card>
-          <CardContent sx={{ p: 2.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: PM.navy, mb: 1.5 }}>
-              Comment utiliser ce module ?
-            </Typography>
+        <Card elevation={0} sx={{ borderRadius: '20px', background: 'linear-gradient(135deg,rgba(61,90,138,.07) 0%,rgba(158,61,106,.05) 100%)', border: '1px solid rgba(61,90,138,.12)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ mb: 2.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 900, color: PM.navy, fontSize: '1rem', letterSpacing: '-.01em' }}>
+                Comment utiliser ce module ?
+              </Typography>
+              <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.75rem' }}>
+                4 étapes pour obtenir et explorer un score de risque de mortalité à 1 an
+              </Typography>
+            </Box>
             <Grid container spacing={2}>
               {[
-                { n: '1', t: 'Sélectionner un patient', d: 'Onglet "Patients" → recherchez par nom, prénom ou ID.' },
-                { n: '2', t: 'Lancer la prédiction',    d: 'Cliquez "Lancer la prédiction" — le modèle analyse 32 variables automatiquement.' },
-                { n: '3', t: 'Lire le résultat',         d: 'Onglet "Score" → zone de risque + recommandation clinique + détail des variables.' },
-              ].map(g => (
-                <Grid item xs={12} sm={4} key={g.n}>
-                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-                    <Box sx={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,${PM.steel},${PM.navy})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(30,45,90,.20)' }}>
-                      <Typography sx={{ color: PM.white, fontWeight: 900, fontSize: '0.8rem' }}>{g.n}</Typography>
+                { n: '1', t: 'Sélectionner un patient', d: 'Onglet "Patients" → recherchez par nom, prénom ou ID.', color: PM.steel },
+                { n: '2', t: 'Lancer la prédiction',    d: 'Cliquez "Lancer la prédiction" — le modèle analyse 32 variables automatiquement.', color: PM.rose },
+                { n: '3', t: 'Lire le résultat',         d: 'Onglet "Score" → zone de risque + recommandation clinique + détail des variables.', color: '#27AE60' },
+                { n: '4', t: 'Simuler une modification', d: 'Modifiez une valeur clinique puis cliquez "Simuler" pour voir l\'impact sur le risque sans sauvegarder.', color: '#E67E22' },
+              ].map((g, i) => (
+                <Grid item xs={12} sm={3} key={g.n}>
+                  <Box sx={{ p: 2, borderRadius: '16px', background: 'rgba(255,255,255,0.80)', border: `1px solid ${g.color}22`, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.2, boxShadow: `0 4px 16px ${g.color}0e` }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                      <Box sx={{ width: 36, height: 36, borderRadius: '12px', flexShrink: 0, background: `linear-gradient(135deg,${g.color}dd,${g.color}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${g.color}30` }}>
+                        <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: '0.9rem' }}>{g.n}</Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: PM.navy, fontSize: '0.88rem', lineHeight: 1.3 }}>{g.t}</Typography>
                     </Box>
-                    <Box sx={{ pt: 0.2 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: PM.navy, fontSize: '0.83rem' }}>{g.t}</Typography>
-                      <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.74rem', lineHeight: 1.4 }}>{g.d}</Typography>
-                    </Box>
+                    <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.76rem', lineHeight: 1.6, pl: 0.5 }}>{g.d}</Typography>
+                    {i < 2 && (
+                      <Box sx={{ display: { xs: 'none', sm: 'none' } }} />
+                    )}
                   </Box>
                 </Grid>
               ))}
@@ -1199,7 +1186,7 @@ export default function ModelAI() {
         symbol: '○',
         action: 'Suivi standard recommandé',
         detail: 'Le modèle ne signale pas ce patient comme prioritaire. Continuez le suivi habituel.',
-        observed: '2,8 %',
+        observed: '5,1 %',
         gradient: 'linear-gradient(135deg, #1a8a4a 0%, #27AE60 50%, #52c27a 100%)',
         glow: 'rgba(39,174,96,.35)',
       },
@@ -1207,7 +1194,7 @@ export default function ModelAI() {
         symbol: '◐',
         action: 'Surveillance renforcée',
         detail: 'Le modèle signale ce patient. Renforcer la surveillance et réévaluer les facteurs de risque.',
-        observed: '30 %',
+        observed: '29,1 %',
         gradient: 'linear-gradient(135deg, #b8560a 0%, #E67E22 50%, #f0a050 100%)',
         glow: 'rgba(230,126,34,.35)',
       },
@@ -1215,7 +1202,7 @@ export default function ModelAI() {
         symbol: '●',
         action: 'Prise en charge prioritaire',
         detail: 'Ce patient est dans le groupe à haut risque. Une prise en charge active et urgente est recommandée.',
-        observed: '60,6 %',
+        observed: '55,6 %',
         gradient: 'linear-gradient(135deg, #a01f1f 0%, #E74C3C 50%, #f07070 100%)',
         glow: 'rgba(231,76,60,.35)',
       },

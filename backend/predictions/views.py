@@ -1224,9 +1224,21 @@ def train_models(target_type, feature_keys=None):
                 svm_prec = float(precision_score(y_svm_test, y_pred_svm, zero_division=0))
                 svm_rec = float(recall_score(y_svm_test, y_pred_svm, zero_division=0))
                 svm_acc = float(accuracy_score(y_svm_test, y_pred_svm))
+                # Calcul des seuils ROC depuis les données de test
+                svm_t_youden, svm_t_spec90 = svm_threshold, svm_threshold
+                if svm_has_both:
+                    from sklearn.metrics import roc_curve as _roc_curve
+                    _fpr, _tpr, _thr = _roc_curve(y_svm_test, y_prob_svm)
+                    _j = _tpr - _fpr
+                    svm_t_youden = float(_thr[int(np.argmax(_j))])
+                    _mask90 = _fpr <= 0.10
+                    if _mask90.any():
+                        svm_t_spec90 = float(_thr[int(np.where(_mask90)[0][np.argmax(_tpr[_mask90])])])
                 svm_meta = {
                     'feature_keys': svm_feature_keys,
                     'threshold': svm_threshold,
+                    'threshold_youden': svm_t_youden,
+                    'threshold_spec90': svm_t_spec90,
                     'class_distribution': svm_class_dist,
                     'metrics': {
                         'auc': svm_auc, 'pr_auc': svm_pr_auc, 'f1': svm_f1,

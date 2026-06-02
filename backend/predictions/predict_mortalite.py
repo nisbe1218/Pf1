@@ -148,14 +148,23 @@ class PredictMortalitePatientView(APIView):
             return Response({"error": f"Erreur de prédiction: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         score = round(proba * 100, 1)
-        t_youden = metadata.get('threshold_youden', 0.194)
-        t_spec90  = metadata.get('threshold_spec90', 0.357)
         base_rate = 0.199
         risque_relatif = round(proba / base_rate, 1) if base_rate > 0 else None
 
-        if proba < t_youden:
+        # ── Calibration isotonique ──────────────────────────────────────────
+        iso_path = MODEL_DIRECTORY / 'iso_calibrator.joblib'
+        proba_calibrated = proba
+        if iso_path.exists():
+            try:
+                iso = joblib.load(iso_path)
+                proba_calibrated = float(iso.predict([proba])[0])
+            except Exception:
+                proba_calibrated = proba
+
+        # Zones cliniques sur probabilité calibrée (seuils 10% / 40%)
+        if proba_calibrated < 0.10:
             niveau = 'Faible'
-        elif proba < t_spec90:
+        elif proba_calibrated < 0.40:
             niveau = 'Modéré'
         else:
             niveau = 'Élevé'
@@ -246,23 +255,30 @@ class PredictMortalitePatientView(APIView):
             )
 
         score = round(proba * 100, 1)
-
-        # Seuils issus de la courbe ROC — portables avec le modèle
-        t_youden = metadata.get('threshold_youden', 0.194)
-        t_spec90 = metadata.get('threshold_spec90', 0.357)
-        base_rate = 0.199  # taux de base cohorte HD-478
+        base_rate = 0.199
         risque_relatif = round(proba / base_rate, 1) if base_rate > 0 else None
 
-        # Zones : Youden = ligne rouge clinique, spec90 = top 20% de la cohorte
-        if proba < t_youden:
+        # ── Calibration isotonique ──────────────────────────────────────────
+        iso_path = MODEL_DIRECTORY / 'iso_calibrator.joblib'
+        proba_calibrated = proba
+        if iso_path.exists():
+            try:
+                iso = joblib.load(iso_path)
+                proba_calibrated = float(iso.predict([proba])[0])
+            except Exception:
+                proba_calibrated = proba
+
+        # Zones cliniques sur probabilité calibrée (seuils 10% / 40%)
+        mort_rates = metadata.get('iso_mortality_rates', {'Faible': 5.1, 'Modéré': 29.1, 'Élevé': 55.6})
+        if proba_calibrated < 0.10:
             niveau = 'Faible'
-            recommendation = 'En dessous du seuil de Youden — le modèle ne signale pas ce patient. Mortalité observée : 2,8 %. Suivi standard.'
-        elif proba < t_spec90:
+            recommendation = f"Zone Faible — mortalité observée : {mort_rates.get('Faible', 5.1)} % (cohorte HD-478). Le modèle ne détecte pas de signal de risque élevé. Suivi standard recommandé."
+        elif proba_calibrated < 0.40:
             niveau = 'Modéré'
-            recommendation = 'Au-dessus du seuil de Youden — le modèle signale ce patient. Zone intermédiaire (60e–80e percentile). Mortalité observée : 30 %. Surveillance renforcée.'
+            recommendation = f"Zone Modérée — mortalité observée : {mort_rates.get('Modéré', 29.1)} % (cohorte HD-478). Signal de risque intermédiaire détecté. Surveillance renforcée et réévaluation clinique recommandées."
         else:
             niveau = 'Élevé'
-            recommendation = 'Top 20 % des patients les plus à risque de la cohorte (spécificité 90 %). Mortalité observée : 60,6 %. Prise en charge prioritaire.'
+            recommendation = f"Zone Élevée — mortalité observée : {mort_rates.get('Élevé', 55.6)} % (cohorte HD-478). Risque majeur détecté. Prise en charge prioritaire et discussion multidisciplinaire urgente."
 
         factors = _build_svm_factors(pipeline, feature_keys)
 
@@ -283,11 +299,12 @@ class PredictMortalitePatientView(APIView):
             "patient_id_plateforme": patient.id_patient or f"PAT-{patient.pk:06d}",
             "patient_name": f"{patient.prenom or ''} {patient.nom or ''}".strip(),
             "probabilite_deces": round(proba, 4),
+            "probabilite_calibree": round(proba_calibrated, 4),
             "score_risque": score,
             "niveau_risque": niveau,
             "risque_relatif": risque_relatif,
-            "seuil_youden": round(t_youden, 3),
-            "seuil_spec90": round(t_spec90, 3),
+            "seuil_faible_modere": 0.10,
+            "seuil_modere_eleve": 0.40,
             "recommendation": recommendation,
             "features_missing": missing_count,
             "feature_values": feature_values,
