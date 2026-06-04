@@ -1,0 +1,33 @@
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {1.1}{\ignorespaces CKD staging by KDIGO 2012}}{22}{table.caption.13}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {2.1}{\ignorespaces Selected ML studies on hemodialysis mortality prediction}}{29}{table.caption.17}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Layer responsibilities and inter-layer communication}}{37}{table.caption.21}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Complete technology stack}}{37}{table.caption.22}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces HD-478 dataset: original vs. corrected dataset}}{42}{table.caption.23}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Date conversion examples}}{43}{table.caption.24}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Biological outliers corrected in the corrected dataset}}{43}{table.caption.25}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Sample DFGe MDRD corrections (109 total)}}{44}{table.caption.26}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces X/x marker cleanup by column (265 total)}}{45}{table.caption.30}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces NaN $\rightarrow $ 0 imputation for transplant variables}}{46}{table.caption.31}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Variable type distribution in the corrected dataset (ML-ready)}}{47}{table.caption.32}%
+\contentsline {table}{\numberline {4.8}{\ignorespaces All tables in the \texttt {plateforme\_medicale} database — core vs. auxiliary}}{49}{table.caption.34}%
+\contentsline {table}{\numberline {4.9}{\ignorespaces Schema of \texttt {users\_role} and \texttt {users\_utilisateur}}}{50}{table.caption.36}%
+\contentsline {table}{\numberline {4.10}{\ignorespaces Key columns of \texttt {patients\_patient} (representative subset)}}{51}{table.caption.38}%
+\contentsline {table}{\numberline {4.11}{\ignorespaces Schema of \texttt {patients\_preprocessvalidationrequest}}}{52}{table.caption.40}%
+\contentsline {table}{\numberline {4.12}{\ignorespaces Schema of \texttt {audit\_auditlog}}}{52}{table.caption.42}%
+\contentsline {table}{\numberline {4.13}{\ignorespaces Clinical sections of the Patient data model (Django ORM)}}{53}{table.caption.43}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces Comparison of all nine ML models on HD-478 (10-fold stratified CV)}}{67}{table.caption.45}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Risk zones — clinical thresholds (TRIPOD/DOPPS/KDIGO), HD-478 cohort}}{74}{table.caption.54}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Django application structure}}{78}{table.caption.56}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces Principal REST API endpoints}}{79}{table.6.2}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{94}{table.caption.91}%

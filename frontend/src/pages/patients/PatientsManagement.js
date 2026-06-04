@@ -3485,13 +3485,16 @@ function PatientsManagement() {
                           startIcon={<FilterListOutlinedIcon />}
                           sx={{
                             textTransform: 'none',
-                            borderRadius: 2,
-                            fontWeight: 800,
-                            background: 'linear-gradient(135deg, #1A8FA8 0%, #D47A8E 100%)',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            background: '#0D4D63',
                             color: '#fff',
                             border: 'none',
-                            boxShadow: '0 6px 20px rgba(26,143,168,0.28)',
-                            '&:hover': { filter: 'brightness(1.06)', boxShadow: '0 8px 24px rgba(26,143,168,0.36)' },
+                            px: 2.5,
+                            boxShadow: '0 4px 14px rgba(13,77,99,0.30)',
+                            '&:hover': { background: '#1A6B85', boxShadow: '0 6px 18px rgba(13,77,99,0.40)', transform: 'translateY(-1px)' },
+                            transition: 'all 0.2s ease',
                             whiteSpace: 'nowrap'
                           }}
                         >
@@ -3640,7 +3643,7 @@ function PatientsManagement() {
                           size="small"
                           variant="contained"
                           onClick={handleSearch}
-                          sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, minWidth: 120, background: 'linear-gradient(135deg, #1A8FA8 0%, #D47A8E 100%)', boxShadow: '0 6px 20px rgba(26,143,168,0.28)', '&:hover': { filter: 'brightness(1.06)', boxShadow: '0 8px 24px rgba(26,143,168,0.36)' } }}
+                          sx={{ textTransform: 'none', borderRadius: '12px', fontWeight: 700, fontSize: '0.875rem', minWidth: 120, background: 'linear-gradient(135deg, #1A8FA8 0%, #D47A8E 100%)', boxShadow: '0 4px 16px rgba(26,143,168,0.32)', border: 'none', '&:hover': { boxShadow: '0 6px 22px rgba(26,143,168,0.45)', transform: 'translateY(-1px)', filter: 'brightness(1.05)' }, transition: 'all 0.2s ease' }}
                         >
                           {t('patientsApply')}
                         </Button>

@@ -169,7 +169,8 @@ function Dashboard() {
       inactiveUsers: managedUsers.filter((managedUser) => !managedUser.is_active).length,
       professorsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'professeur').length,
       residentsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'resident').length,
-      adminsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'super_admin' || managedUser.role?.nom === 'chef_service').length,
+      adminsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'super_admin').length,
+      chefsCount: managedUsers.filter((managedUser) => managedUser.role?.nom === 'chef_service').length,
       rolesCount: roles.length,
     };
   }, [roles.length, user?.role, users]);
@@ -381,11 +382,18 @@ function Dashboard() {
             {/* Cercles décoratifs */}
             <Box sx={{ position: 'absolute', inset: 'auto -80px -80px auto', width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
             <Box sx={{ position: 'absolute', top: -40, left: '38%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+            {/* Schéma rein — arrière-plan décoratif */}
+            <Box component="img" src="/kidney-landing.png" alt="" sx={{ position: 'absolute', bottom: -50, right: -10, height: 320, opacity: 0.22, pointerEvents: 'none', userSelect: 'none', filter: 'brightness(2) saturate(0)', transform: 'rotate(-8deg)' }} />
 
             <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }} spacing={3} sx={{ position: 'relative' }}>
               {/* Gauche — texte */}
               <Box>
-                <Chip label={roleLabels[user?.role] || 'Utilisateur'} sx={{ mb: 1.5, bgcolor: 'rgba(255,255,255,0.16)', color: 'white', fontWeight: 700 }} />
+                <Typography variant="body1" sx={{ mb: 1.5, color: 'rgba(255,255,255,0.90)', fontWeight: 400, fontSize: '1rem' }}>
+                  Bienvenue,{' '}
+                  <Box component="span" sx={{ fontWeight: 800, color: '#fff' }}>
+                    {roleLabels[user?.role] || 'Utilisateur'}
+                  </Box>
+                </Typography>
                 <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-.04em', lineHeight: 1.02, color: '#FFFFFF', textShadow: '0 2px 10px rgba(10,43,62,0.30)' }}>
                   {t('dashboardTitle')}
                 </Typography>
@@ -402,7 +410,8 @@ function Dashboard() {
                 {[
                   { label: 'Actifs',         value: stats.activeUsers     },
                   { label: 'Inactifs',       value: stats.inactiveUsers   },
-                  { label: 'Admins & Chefs', value: stats.adminsCount     },
+                  { label: 'Super Admins',   value: stats.adminsCount     },
+                  { label: 'Chefs Service',  value: stats.chefsCount      },
                   { label: 'Professeurs',    value: stats.professorsCount },
                   { label: 'Résidents',      value: stats.residentsCount  },
                   { label: 'Rôles',          value: stats.rolesCount      },
@@ -456,9 +465,6 @@ function Dashboard() {
                         <Typography variant="caption" color="text.secondary">{t('dashboardFullName')}</Typography>
                         <Typography variant="h6" fontWeight={900} sx={{ lineHeight: 1.15 }}>
                           {user?.prenom || '-'} {user?.nom || ''}
-                        </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {roleDescriptions[user?.role] || t('dashboardAccessLimit')}
                         </Typography>
                       </Box>
                     </Stack>

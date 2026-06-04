@@ -1,0 +1,49 @@
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Logo of the Faculty of Medicine, Pharmacy and Dentistry of Fès (FMPDF)}}{21}{figure.caption.9}%
+\contentsline {figure}{\numberline {1.2}{\ignorespaces Logo of the Health Artificial Intelligence \& Modeling Center (HAIM)}}{21}{figure.caption.10}%
+\contentsline {figure}{\numberline {1.3}{\ignorespaces Trello board used for task management and project tracking}}{26}{figure.caption.16}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Use Case Diagram — AI NéphroCare (4 actors, 11 use cases). Professeur and Résident have identical access. Validate \& Integrate Import is restricted to Super Admin and Chef de Service.}}{34}{figure.caption.19}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Five-layer architecture of AI NéphroCare with technologies per layer}}{36}{figure.caption.20}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Entity-Relationship diagram — AI NéphroCare complete database schema (PostgreSQL 16). 9 custom tables. Underlined = primary key; italicised = foreign key.}}{48}{figure.caption.33}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and Chef de service approval, the cleaned data enters the ML pipeline.}}{55}{figure.caption.44}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces AUC-ROC and PR-AUC comparison across all evaluated models (HD-478 cohort, 10-fold stratified CV). SVM achieves the highest scores on both metrics.}}{68}{figure.caption.46}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces ROC curves for all nine ML models evaluated on the HD-478 cohort (stratified 10-fold CV). The SVM linear model achieves the highest AUC-ROC = 0.826.}}{68}{figure.caption.47}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Train-test AUC gap for each evaluated model. A gap $< 0.1$ (dashed red line) indicates no significant overfitting. The SVM linear model achieves the lowest gap (0.047), confirming strong generalization on the 478-patient cohort.}}{69}{figure.caption.48}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Multi-metric radar chart comparing AUC-ROC, PR-AUC, F1, Brier Score, and Recall across all evaluated models.}}{69}{figure.caption.49}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Calibration curves (reliability diagrams) before and after isotonic calibration for the SVM model. After calibration, predicted probabilities closely track the observed mortality fraction.}}{70}{figure.caption.50}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Confusion matrices for the top three models (SVM, XGBoost, Gradient Boosting) on the test set. True positives (correctly identified deaths) are shown in the lower-right cell.}}{70}{figure.caption.51}%
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Precision-Recall curves for all evaluated models. PR-AUC is the primary metric used for model selection given the class imbalance (80.1\% vs 19.9\%).}}{71}{figure.caption.52}%
+\contentsline {figure}{\numberline {5.8}{\ignorespaces Boxplot of AUC-ROC scores across 10 stratified cross-validation folds for each model, illustrating variance and stability of model performance.}}{71}{figure.caption.53}%
+\contentsline {figure}{\numberline {5.9}{\ignorespaces Complete prediction workflow for a single patient}}{75}{figure.caption.55}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces UML Class Diagram — main Django models}}{79}{figure.caption.57}%
+\contentsline {figure}{\numberline {6.2}{\ignorespaces AI NéphroCare navigation sidebar --- main interface entry points}}{81}{figure.caption.58}%
+\contentsline {figure}{\numberline {6.3}{\ignorespaces Administrator dashboard --- 7 KPI cards and user management table}}{82}{figure.caption.59}%
+\contentsline {figure}{\numberline {6.4}{\ignorespaces Preprocessing interface --- file upload, LLM analysis with Qwen 14B, and correction review workflow}}{82}{figure.caption.61}%
+\contentsline {figure}{\numberline {6.5}{\ignorespaces LLM correction review interface --- Qwen2.5:14B suggestions with medical justifications}}{83}{figure.caption.62}%
+\contentsline {figure}{\numberline {6.6}{\ignorespaces Data management interface --- searchable patient table with dynamic column support}}{83}{figure.caption.64}%
+\contentsline {figure}{\numberline {6.7}{\ignorespaces Patient analysis interface --- epidemiological and clinical statistics charts}}{84}{figure.caption.66}%
+\contentsline {figure}{\numberline {6.8}{\ignorespaces AI Model analysis dashboard --- SVM performance metrics and risk zone overview}}{84}{figure.caption.68}%
+\contentsline {figure}{\numberline {6.9}{\ignorespaces AI Model patient list --- each row shows patient summary and a Predict action button}}{85}{figure.caption.70}%
+\contentsline {figure}{\numberline {6.10}{\ignorespaces AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}}{85}{figure.caption.72}%
+\contentsline {figure}{\numberline {6.11}{\ignorespaces Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}}{86}{figure.caption.74}%
+\contentsline {figure}{\numberline {6.12}{\ignorespaces Sex distribution of the hemodialysis cohort with associated KPI indicators}}{87}{figure.caption.76}%
+\contentsline {figure}{\numberline {6.13}{\ignorespaces Age distribution of hemodialysis patients grouped by sex in 5-year age bands}}{87}{figure.caption.78}%
+\contentsline {figure}{\numberline {6.14}{\ignorespaces Frequency of documented complication types across the patient cohort}}{87}{figure.caption.80}%
+\contentsline {figure}{\numberline {6.15}{\ignorespaces Distribution of CKD etiologies stratified by inclusion status in the cohort}}{87}{figure.caption.82}%
+\contentsline {figure}{\numberline {6.16}{\ignorespaces Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}}{87}{figure.caption.84}%
+\contentsline {figure}{\numberline {6.17}{\ignorespaces Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}}{88}{figure.caption.85}%
+\contentsline {figure}{\numberline {6.18}{\ignorespaces AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}}{88}{figure.caption.86}%
+\contentsline {figure}{\numberline {6.19}{\ignorespaces Sequence Diagram 1 — JWT Authentication flow}}{89}{figure.caption.87}%
+\contentsline {figure}{\numberline {6.20}{\ignorespaces Sequence Diagram 2 — Patient Import and LLM Preprocessing}}{90}{figure.caption.88}%
+\contentsline {figure}{\numberline {6.21}{\ignorespaces Sequence Diagram 3 — Mortality Risk Prediction workflow}}{90}{figure.caption.89}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {7.1}{\ignorespaces Functional test coverage overview --- key user flows verified across all four user roles}}{93}{figure.caption.90}%

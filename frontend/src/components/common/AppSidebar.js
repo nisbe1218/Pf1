@@ -8,15 +8,15 @@ import { useLanguage } from '../../context/LanguageContext';
 
 export const SIDEBAR_W = 248;
 
-/* ── Palette Light Card Premium ────────────────────────────────────────────── */
+/* ── Palette matching Hero gradient ─────────────────────────────────────────── */
 const C = {
-  /* Fond sidebar */
-  bg: 'linear-gradient(180deg, #EEF4FB 0%, #FFFFFF 100%)',
-  shadow: '4px 0 28px rgba(0,0,0,0.07)',
-  border: '1px solid #EEF2F7',
+  /* Fond sidebar — même dégradé que le header */
+  bg: 'linear-gradient(180deg, #C2DFF0 0%, #BCD8EE 60%, #CEC0E0 82%, #ECC5D2 100%)',
+  shadow: '4px 0 28px rgba(0,0,0,0.08)',
+  border: '1px solid rgba(255,255,255,0.50)',
 
   /* Carte nav */
-  cardBg: '#F5F7FA',
+  cardBg: 'rgba(255,255,255,0.45)',
   cardRadius: 16,
 
   /* Bouton actif */
@@ -25,28 +25,28 @@ const C = {
   activeIcon: '#C46B82',
 
   /* Hover */
-  hoverBg:  '#FBF5F7',
+  hoverBg:  'rgba(255,255,255,0.55)',
   hoverTxt: '#1E293B',
-  hoverIcon:'#C46B82',
+  hoverIcon:'#1A6B8A',
 
   /* Texte et icônes repos */
-  txt:  '#64748B',
-  icon: '#94A3B8',
+  txt:  '#2D4A5A',
+  icon: '#4A7A8A',
 
   /* Header titre */
-  headTxt: '#1A1A2E',
+  headTxt: '#0D3A4A',
 
   /* Pill profil */
-  pillBg:  '#F1F4F9',
+  pillBg:  'rgba(255,255,255,0.50)',
   pillTxt: '#1E293B',
-  pillIcon:'#64748B',
+  pillIcon:'#4A7A8A',
 
   /* Badge compteur */
   badgeBg:  '#FAE8ED',
   badgeTxt: '#C46B82',
 
   /* Séparateur */
-  sep: '#EEF2F7',
+  sep: 'rgba(255,255,255,0.40)',
 
   /* Popover notif */
   deepNavy:'#0A2B3E', softRose:'#D47A8E', dustyRose:'#C46B82',
@@ -270,30 +270,24 @@ function AppSidebar() {
 
       {/* Carte utilisateur */}
       <div style={{ padding: '12px 12px 0', flexShrink: 0, position: 'relative', zIndex: 1 }}>
-        <div style={{ background: '#FFFFFF', borderRadius: C.cardRadius, padding: '14px 16px', border: `1px solid ${C.sep}`, boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg, #3B9FD4, #D47A8E)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0 }}>
+        <div style={{ background: 'rgba(255,255,255,0.92)', borderRadius: C.cardRadius, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.60)', boxShadow: '0 4px 16px rgba(13,77,99,0.10)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #1A8FA8, #D47A8E)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 800, flexShrink: 0, boxShadow: '0 4px 12px rgba(13,77,99,0.20)' }}>
               {initials}
             </div>
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user?.username || user?.email || 'Utilisateur')}
+            <div style={{ overflow: 'hidden', flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.email || user?.username || 'Utilisateur'}
               </div>
-              <div style={{ fontSize: 11, color: C.txt, marginTop: 2 }}>{roleBadge}</div>
+              <div style={{ fontSize: 11, color: '#7a90a0', marginTop: 1, fontWeight: 500 }}>{roleBadge}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Boutons bas — fond blanc opaque, au-dessus de l'image */}
+      {/* Boutons bas */}
       <div style={{ padding: '8px 12px 16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-        <div style={{
-          background: '#FFFFFF',
-          borderRadius: C.cardRadius,
-          padding: '6px 0',
-          border: `1px solid ${C.sep}`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        }}>
+        <div style={{ background: 'rgba(255,255,255,0.75)', borderRadius: C.cardRadius, padding: '4px 0', border: '1px solid rgba(255,255,255,0.55)', boxShadow: '0 2px 10px rgba(13,77,99,0.07)' }}>
           {isChefOrAdmin && (
             <NavItem icon={IconBell(18)} label={t('notifications')} active={false} count={pendingValidations.length}
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setNotifAnchor(r); }} />
@@ -308,7 +302,7 @@ function AppSidebar() {
   );
 
   const sidebarStyle = {
-    background: 'linear-gradient(180deg, #C8E8F2 0%, #EEF6FA 60%, #FFFFFF 100%)',
+    background: C.bg,
     borderRadius: '0 28px 28px 0',
     boxShadow: C.shadow,
     borderRight: C.border,
