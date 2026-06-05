@@ -24,7 +24,6 @@ from sklearn.preprocessing import PowerTransformer
 from sklearn.svm import SVC
 from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import StratifiedKFold
-from sklearn.mixture import GaussianMixture
 from sklearn.metrics import roc_auc_score, brier_score_loss
 
 # =============================================================================
@@ -116,36 +115,13 @@ print(f"  SVM+ISO   : AUC={auc_cal:.4f}  Brier={brier_cal:.4f}")
 print(f"  Proba cal. moyenne : {proba_cal.mean()*100:.1f}%  (mortalite reelle : {y.mean()*100:.1f}%)")
 
 # =============================================================================
-# ETAPE 3 - GMM sur probas calibrees -> T1, T2
+# ETAPE 3 - Seuils cliniques fixes (TRIPOD/DOPPS/KDIGO)
 # =============================================================================
-print("\nEtape 3/3 - GMM sur probabilites calibrees...")
-gmm = GaussianMixture(n_components=3, random_state=RANDOM_STATE, n_init=20)
-gmm.fit(proba_cal.reshape(-1, 1))
-
-order     = np.argsort(gmm.means_.flatten())
-labels    = gmm.predict(proba_cal.reshape(-1, 1))
-remap     = {order[0]: 0, order[1]: 1, order[2]: 2}
-means_s   = gmm.means_.flatten()[order]
-stds_s    = np.sqrt(gmm.covariances_.flatten())[order]
-weights_s = gmm.weights_[order]
-
-# Croisements des densites -> seuils GMM
-proba_grid = np.linspace(0, 1, 100000).reshape(-1, 1)
-resp_s     = gmm.predict_proba(proba_grid)[:, order]
-
-cross1     = np.where(np.diff(np.sign(resp_s[:, 0] - resp_s[:, 1])))[0]
-T1_gmm     = float(proba_grid.flatten()[cross1[0]]) if len(cross1) > 0 else (means_s[0]+means_s[1])/2
-
-cross2     = [c for c in np.where(np.diff(np.sign(resp_s[:, 1] - resp_s[:, 2])))[0]
-              if proba_grid.flatten()[c] > T1_gmm]
-T2_gmm     = float(proba_grid.flatten()[cross2[0]]) if cross2 else (means_s[1]+means_s[2])/2
-
-print(f"  T1 GMM (F/M) : {T1_gmm:.4f}  ({T1_gmm*100:.1f}%)")
-print(f"  T2 GMM (M/E) : {T2_gmm:.4f}  ({T2_gmm*100:.1f}%)")
-
-# Seuils retenus : fixes cliniques (TRIPOD/DOPPS/KDIGO)
+print("\nEtape 3/3 - Application des seuils cliniques fixes...")
 T1 = T1_FIXE
 T2 = T2_FIXE
+print(f"  T1 (Faible/Modere) : {T1:.2f}  ({T1*100:.0f}%)")
+print(f"  T2 (Modere/Eleve)  : {T2:.2f}  ({T2*100:.0f}%)")
 
 # =============================================================================
 # RESULTATS PAR ZONE
@@ -198,8 +174,6 @@ joblib.dump(iso_prod, f'{DOSSIER}/iso_calibrator.joblib')
 joblib.dump({
     'T1':       T1,
     'T2':       T2,
-    'T1_gmm':   T1_gmm,
-    'T2_gmm':   T2_gmm,
     'source':   'TRIPOD/DOPPS/KDIGO - seuils cliniques fixes',
     'auc_brut': round(auc_brut, 4),
     'auc_cal':  round(auc_cal, 4),

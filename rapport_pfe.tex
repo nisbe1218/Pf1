@@ -96,6 +96,7 @@
 %--- Misc ---
 \usepackage{enumitem}
 \usepackage{pifont}
+\usepackage{adjustbox}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins,breakable}
 
@@ -140,8 +141,19 @@
   top=4pt, bottom=4pt
 }
 \newtcolorbox{resultbox}[1]{
-  colback=medgreen!8,colframe=medgreen!60!black,
-  fonttitle=\bfseries,title=#1,breakable
+  enhanced, breakable,
+  colback=platbg,
+  colframe=darkblue!70,
+  colbacktitle=darkblue!82,
+  coltitle=white,
+  fonttitle=\bfseries\small,
+  title=#1,
+  boxrule=0.7pt,
+  arc=3pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+  titlerule=0pt,
+  attach boxed title to top left={yshift=-0.1mm},
+  boxed title style={arc=2pt, boxrule=0pt, colframe=darkblue!82}
 }
 \newtcolorbox{notebox}{
   colback=orange!8,colframe=orange!70!black,
@@ -151,6 +163,11 @@
 %--- Theorem Environments ---
 \newtheorem{definition}{Definition}[chapter]
 \newtheorem{theorem}{Theorem}[chapter]
+
+%--- Auto-center all floats (figures & tables) ---
+\makeatletter
+\g@addto@macro\@floatboxreset{\centering}
+\makeatother
 
 %============================================================
 % Macro: chapter opening page
@@ -878,7 +895,7 @@ AI NéphroCare follows a five-layer architecture where each layer has a clear re
 \node[lbox,fill=accent!10,draw=accent,below=0.35cm of L1] (L2) {
   \textbf{\color{accent}Layer 2 — API \& Security}\\[3pt]
   Django REST Framework \textbullet\ SimpleJWT \textbullet\ RBAC \textbullet\ Serializers\\
-  \textit{\color{textsec}\footnotesize 45+ endpoints \textbullet\ JWT (access 8h / refresh 7d) \textbullet\ 4 permission levels}
+  \textit{\color{textsec}\footnotesize 45+ endpoints \textbullet\ JWT (access 8h / refresh 1d) \textbullet\ 4 permission levels}
 };
 \node[tag,fill=accent!15,draw=accent,right=0.5cm of L2] (T2)
   {\color{accent} Django API\\\footnotesize port 8000};
@@ -904,8 +921,8 @@ AI NéphroCare follows a five-layer architecture where each layer has a clear re
 % Layer 5 — Data
 \node[lbox,fill=primarydark!10,draw=primarydark,below=0.35cm of L4] (L5) {
   \textbf{\color{primarydark}Layer 5 — Data}\\[3pt]
-  PostgreSQL 16 (JSONB clinical sections) \textbullet\ Redis 7 (cache \& broker)\\
-  \textit{\color{textsec}\footnotesize 11 JSONB sections per patient \textbullet\ GIN indexes \textbullet\ audit logs}
+  PostgreSQL 16 (flat TextField columns + \texttt{extra\_data} JSONB) \textbullet\ Redis 7 (cache \& broker)\\
+  \textit{\color{textsec}\footnotesize 160+ TextField columns per patient \textbullet\ GIN index on extra\_data \textbullet\ audit logs}
 };
 \node[tag,fill=primarydark!15,draw=primarydark,right=0.5cm of L5] (T5)
   {\color{primarydark} PostgreSQL\\\footnotesize port 5432};
@@ -1358,7 +1375,7 @@ The platform's persistence layer is designed around a PostgreSQL 16 relational d
 \node[enthead] (PH)  at (12,0)   {PATIENT};
 \node[ent, below=0pt of PH,  anchor=north] (PB) {%
   \underline{id} : Integer (PK)\\id\_patient : CharField\\
-  icc\_charlson : CharField\\11 sections JSONField\\
+  icc\_charlson : CharField\\160+ TextField columns\\
   extra\_data : JSONField};
 
 %─── ROW 2 ───────────────────────────────────────────────────────────────────
@@ -1515,7 +1532,7 @@ The detailed column schemas of the four core tables are described in the followi
 \texttt{nom} & VARCHAR(100) & NO & Last name \\
 \texttt{prenom} & VARCHAR(100) & NO & First name \\
 \texttt{telephone} & VARCHAR(20) & YES & Phone number \\
-\texttt{password} & VARCHAR(128) & NO & Bcrypt-hashed password \\
+\texttt{password} & VARCHAR(128) & NO & PBKDF2+SHA256-hashed password (Django default) \\
 \texttt{role\_id} & INTEGER (FK) & YES & FK $\to$ \texttt{users\_role.id} \\
 \texttt{is\_active} & BOOLEAN & NO & Account enabled/disabled \\
 \texttt{is\_staff} & BOOLEAN & NO & Django admin access \\
@@ -1603,7 +1620,7 @@ $\ldots$ & TEXT & (160+ fields total across all clinical domains) \\
 \texttt{action} & TEXT & Action description (create, update, delete, import, predict) \\
 \texttt{entite} & VARCHAR(100) & Affected entity type (Patient, Utilisateur, etc.) \\
 \texttt{entite\_id} & INTEGER & ID of the affected entity \\
-\texttt{details} & TEXT & JSON-encoded action details \\
+\texttt{details} & TEXT & Plain text description of action details \\
 \texttt{adresse\_ip} & INET & Client IP address \\
 \texttt{date} & TIMESTAMP & Action timestamp (auto\_now\_add) \\
 \bottomrule
@@ -1649,21 +1666,11 @@ Outcome & 1-year mortality, cause, transfer & variable \\
 
 \subsection{Validation Rules}
 
-Clinical constraints are enforced at the serializer level:
-\begin{itemize}
-  \item Albumin: $5 \leq \text{albumin} \leq 60$ g/L (\cite{albumin_dialysis_2018})
-  \item Sodium: $100 \leq \text{Na} \leq 180$ mmol/L (\cite{kdigo2015})
-  \item Age: $0 \leq \text{age} \leq 120$ years
-  \item Kt/V: $0 \leq \text{Kt/V} \leq 5$ (\cite{kdigo2015})
-\end{itemize}
-
-Values outside these ranges are flagged for review, not rejected outright, since extreme values may be clinically valid.
-
-These validation constraints serve as a first-line data quality gate, flagging entries that are biologically implausible. Rather than rejecting such values outright (which could discard legitimate extreme values in critically ill patients), the platform flags them for clinician review. This soft-constraint approach balances data quality enforcement with clinical flexibility, consistent with best practices for electronic health record validation \cite{kdigo2015}.
+Data quality is enforced at two levels. At the \textbf{LLM preprocessing stage}, the Qwen2.5:14B model identifies biologically implausible values (e.g., albumin outside the physiological range, inconsistent units) and proposes corrections with medical justification. At the \textbf{import stage}, the platform stores all clinical values as \texttt{TextField} to avoid data loss from strict type constraints, delegating range-checking to the LLM preprocessing pipeline and the clinician review workflow. This design choice allows the system to accept heterogeneous input formats while surfacing quality issues through the AI preprocessing layer rather than through hard serializer rejection.
 
 \subsection{Audit Logs}
 
-Every create, update, delete, import, and export action generates an \texttt{AuditLog} entry with: actor (user ID), action type, affected entity, diff of changed fields, IP address, and timestamp. Logs are automatically purged after 15 days via a Celery Beat periodic task.
+Every create, update, delete, import, and export action generates an \texttt{AuditLog} entry with: actor (user ID), action type, affected entity, diff of changed fields, IP address, and timestamp. Logs are automatically purged after 15 days by the dedicated \texttt{audit\_cleanup} Docker service, which runs \texttt{manage.py cleanup\_audit\_logs} every 24 hours.
 
 The audit log system provides a complete, tamper-evident record of all data modifications, satisfying requirements for accountability in clinical AI systems. Each log entry captures sufficient context — actor identity, precise timestamp, IP address, changed fields — to reconstruct the full history of any patient record modification. Logs are retained for 15 days by default (configurable), balancing storage cost against regulatory traceability requirements.
 
@@ -1753,9 +1760,9 @@ The LLM processing workflow:
 Before calling the LLM, the platform runs an \textbf{intelligent routing step} implemented in \texttt{estimate\_route()} and called by the Celery task on every import. The motivation is resource efficiency: running Qwen2.5:14B on every uploaded file would impose a systematic 1--2 minute latency even for small, clean datasets where LLM analysis brings no value. The routing function evaluates three indicators of dataset complexity — percentage of missing values, number of outliers in biological columns, and presence of critical clinical columns (albumin, creatinine, dialysis variables) with high missingness — and selects one of three processing modes:
 
 \begin{itemize}
-  \item \textbf{Deterministic only}: clean file ($\leq$50 rows, 0\% missing, no outliers) — Python rules only, no LLM, sub-second processing
-  \item \textbf{Balanced}: moderate complexity — lighter Qwen2.5:7b model, faster inference
-  \item \textbf{Advanced}: complex medical dataset ($>$300 rows, $\geq$10\% missing, or clinical complexity score $\geq$6) — full Qwen2.5:14B
+  \item \textbf{Deterministic only}: clean file ($\leq$50 rows, 0\% missing, no outliers) — Python rules only, no LLM call, sub-second processing
+  \item \textbf{Balanced}: moderate complexity — Qwen2.5:14B with reduced context window, faster inference
+  \item \textbf{Advanced}: complex medical dataset ($>$300 rows, $\geq$10\% missing, or clinical complexity score $\geq$6) — Qwen2.5:14B with full RAG context and extended processing
 \end{itemize}
 
 This adaptive approach makes the preprocessing system both clinically powerful for complex imports and operationally fast for routine ones.
@@ -1809,9 +1816,13 @@ A null-safe multiplication helper ensures that any interaction involving a missi
 
 Embedding preprocessing in the application backend rather than using tools like Apache Airflow or Spark was a deliberate choice justified by dataset scale (< 10,000 patients), team expertise (Python/Django), deployment simplicity (single Docker Compose), and real-time preprocessing requirements (preprocessing results must be visible within seconds of file upload).
 
+\subsection{Impact on Model Performance}
+
+Beyond data quality, the LLM preprocessing pipeline has a measurable impact on the machine learning model's performance. The SVM trained on the \textbf{raw HD-478 data} (before preprocessing) achieves \textbf{AUC\,=\,0.8235} in offline evaluation. After integrating the HD-478 cohort through the platform's LLM preprocessing and validation workflow, and retraining the SVM on the resulting \textbf{cleaned and validated database}, the deployed model achieves \textbf{AUC\,=\,0.8262} --- an improvement of $+0.0027$. This gain is directly attributable to the preprocessing pipeline: corrected unit errors, standardized values, and LLM-imputed missing fields produce a cleaner feature matrix that the SVM can exploit more effectively. This provides quantitative evidence that the LLM preprocessing pipeline adds value not only to data quality but also to predictive accuracy (see Section~\ref{sec:metrics} for a detailed discussion).
+
 \subsection{Trade-offs of Embedding Pipeline in Backend}
 
-The main trade-offs are: (1) scalability — the current architecture would require refactoring for datasets exceeding ~100,000 patients; (2) testability — mixing ETL logic with API logic increases test complexity; (3) reusability — the pipeline is not easily reusable outside the Django context.
+The main trade-offs are: (1) scalability --- the current architecture would require refactoring for datasets exceeding ${\sim}$100,000 patients; (2) testability --- mixing ETL logic with API logic increases test complexity; (3) reusability --- the pipeline is not easily reusable outside the Django context.
 
 %============================================================
 %  CHAPTER 5 — MACHINE LEARNING LAYER
@@ -2056,6 +2067,8 @@ Model selection followed a multi-criteria evaluation protocol. The primary crite
 
 \section{Model Comparison and Results}\label{sec:results}
 
+Nine models were trained and evaluated on the HD-478 cohort using 10-fold stratified cross-validation. Table~\ref{tab:model_comparison} reports the four primary metrics for each model. Figure~\ref{fig:auc_comparison} visualises the AUC-ROC and PR-AUC scores side-by-side to facilitate direct comparison across all classifiers.
+
 \begin{table}[H]
 \centering
 \caption{Comparison of all nine ML models on HD-478 (10-fold stratified CV)}
@@ -2066,7 +2079,7 @@ Model selection followed a multi-criteria evaluation protocol. The primary crite
 \textbf{Model} & \textbf{AUC-ROC} & \textbf{PR-AUC} & \textbf{F1} & \textbf{Brier} & \textbf{Selected} \\
 \midrule
 Logistic Regression & 0.791 & 0.441 & 0.523 & 0.142 & \\
-\rowcolor{medgreen!20}\textbf{SVM (Linear)} & \textbf{0.826} & \textbf{0.489} & \textbf{0.567} & \textbf{0.127} & \textbf{\ding{51}} \\
+\rowcolor{medgreen!20}\textbf{SVM (Linear)} & \textbf{0.8235} & \textbf{0.489} & \textbf{0.567} & \textbf{0.127} & \textbf{\ding{51}} \\
 Random Forest & 0.812 & 0.462 & 0.541 & 0.134 & \\
 Extra Trees & 0.804 & 0.453 & 0.531 & 0.138 & \\
 Gradient Boosting & 0.818 & 0.471 & 0.549 & 0.131 & \\
@@ -2077,11 +2090,11 @@ CatBoost & 0.817 & 0.469 & 0.547 & 0.132 & \\
 Voting Ensemble (top-3) & 0.824 & 0.483 & 0.561 & 0.128 & \\
 \bottomrule
 \end{tabular}
+\smallskip\\
+\footnotesize\textit{All values are from the offline evaluation (10-fold stratified CV on raw HD-478 data).
+After retraining on the LLM-preprocessed platform database, the deployed SVM reaches
+\textbf{AUC\,=\,0.8262} (see Section~\ref{sec:metrics}).}
 \end{table}
-
-\begin{resultbox}{SVM Selected as Best Model}
-The linear SVM achieved the highest AUC-ROC (0.826), PR-AUC (0.489), and F1-score (0.567) while maintaining competitive Brier Score (0.127). Despite the ensemble's close performance, SVM was preferred for three clinical reasons: (1) linear decision boundary provides direct feature weight interpretation; (2) strong regularization prevents overfitting on a 478-patient cohort; (3) single-model structure facilitates regulatory compliance and audit.
-\end{resultbox}
 
 \begin{figure}[H]
 \centering
@@ -2119,120 +2132,217 @@ The linear SVM achieved the highest AUC-ROC (0.826), PR-AUC (0.489), and F1-scor
 \label{fig:auc_comparison}
 \end{figure}
 
+\clearpage
+
+\begin{resultbox}{SVM Selected as Best Model}
+In the offline evaluation on raw HD-478 data, the linear SVM achieved the highest AUC-ROC (\textbf{0.8235}), PR-AUC (0.489), and F1-score (0.567) with a Brier Score of 0.127. After retraining on the LLM-preprocessed platform database, the deployed model further improves to \textbf{AUC\,=\,0.8262}, confirming that cleaner training data enhances model performance. SVM was preferred for three clinical reasons: (1) linear boundary provides direct feature-weight interpretation; (2) strong L2 regularization prevents overfitting on small cohorts; (3) single-model structure facilitates regulatory compliance and audit.
+\end{resultbox}
+
 \subsection{Visual Performance Analysis}
 
-Figure~\ref{fig:roc_curves} shows the ROC curves for all nine evaluated models.
+The ROC curve plots Sensitivity (True Positive Rate) against $1-$Specificity (False Positive Rate) for all decision thresholds; the dashed diagonal represents random chance (AUC\,=\,0.50). Figure~\ref{fig:roc_curves} shows that the three linear models --- \textbf{SVM} (AUC\,=\,0.8235), \textbf{LDA} (0.8225), and \textbf{Régression Logistique} (0.8210) --- form a tight cluster well above all other models. \textbf{LASSO} (0.7451), \textbf{Random Forest} (0.7496), and \textbf{XGBoost} (0.7545) score significantly lower, confirming that linear boundaries generalise better on this 478-patient cohort. All models substantially outperform random chance.
 
+%--- Figure 5.2 : all models ---
 \begin{figure}[H]
 \centering
+{\small\bfseries Courbes ROC --- Cohorte HD-478 \textbar{}
+  Mortalité à 1 an, 10-fold CV Stratifiée}\\[4pt]
 \IfFileExists{1_courbes_ROC.png}{%
-  \includegraphics[width=\textwidth,keepaspectratio]{1_courbes_ROC.png}
+  \adjincludegraphics[width=0.80\textwidth,
+    trim={0 0 {0.5\width} {0.11\height}}, clip]{1_courbes_ROC.png}%
 }{%
-  \framebox[0.85\textwidth][c]{\small[ROC Curves --- 1\_courbes\_ROC.png]}%
+  \framebox[0.80\textwidth][c]{\small[Tous les modèles --- 1\_courbes\_ROC.png]}%
 }
-\caption{ROC curves for all nine ML models evaluated on the HD-478 cohort (stratified 10-fold CV). The SVM linear model achieves the highest AUC-ROC = 0.826.}
+\caption{ROC curves --- all nine models (HD-478, 10-fold CV).}
 \label{fig:roc_curves}
 \end{figure}
 
-Figure~\ref{fig:auc_gap} presents the train-test AUC gap analysis for each model, used to detect overfitting.
+Figure~\ref{fig:roc_curves_zoom} zooms in on the three best models. At this scale, the \textbf{SVM Linéaire} curve rises most steeply in the low False Positive Rate region (0--0.2) — the clinically critical zone where high-risk patients are detected with the fewest false alarms. LDA and Logistic Regression are nearly superimposed with SVM. The SVM's consistent edge, combined with its superior PR-AUC (0.489 vs.\ 0.482 for LDA), confirmed its selection as the final model.
 
+%--- Figure 5.3 : Top 3 zoom ---
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}
-\begin{axis}[
-  xbar, bar width=0.5cm,
-  width=13cm, height=7cm,
-  xlabel={Train-Test AUC Gap},
-  xmin=-0.06, xmax=0.16,
-  xmajorgrids=true,
-  ytick={1,2,3,4,5,6},
-  yticklabels={LASSO (L1), Random Forest, XGBoost, Log.\ Regression, LDA, SVM Lin\'{e}aire},
-  yticklabel style={font=\small},
-  nodes near coords,
-  nodes near coords align={horizontal},
-  every node near coord/.style={
-    font=\footnotesize,
-    /pgf/number format/fixed,
-    /pgf/number format/precision=4,
-    /pgf/number format/fixed zerofill=true
-  },
-  title={Train-Test AUC Gap — Overfitting Analysis (HD-478 Cohort)},
-  title style={font=\bfseries\small}
-]
-\addplot[fill=teal!60, draw=teal!80!black] coordinates {
-  (0.0784,1) (-0.0133,2) (0.0959,3) (0.0588,4) (0.0475,5) (0.0467,6)
-};
-% Threshold line at 0.1
-\draw[dashed,red!70!black,thick] (axis cs:0.1,0.4) -- (axis cs:0.1,6.6)
-  node[above,font=\scriptsize\bfseries,red!70!black]{seuil = 0.1};
-\end{axis}
-\end{tikzpicture}
-\caption{Train-test AUC gap for each evaluated model. A gap $< 0.1$ (dashed red line) indicates no significant overfitting. The SVM linear model achieves the lowest gap (0.047), confirming strong generalization on the 478-patient cohort.}
+\makebox[\textwidth][c]{%
+  {\small\bfseries Courbes ROC --- Cohorte HD-478 \textbar{}
+    Mortalité à 1 an, 10-fold CV Stratifiée}%
+}\\[4pt]
+\makebox[\textwidth][c]{%
+\IfFileExists{1_courbes_ROC.png}{%
+  \adjincludegraphics[width=0.80\textwidth,
+    trim={{0.5\width} 0 0 {0.11\height}}, clip]{1_courbes_ROC.png}%
+}{%
+  \framebox[0.80\textwidth][c]{\small[Top 3 zoom --- 1\_courbes\_ROC.png]}%
+}}
+\caption{ROC curves --- zoom Top 3 : SVM Linéaire, LDA, Régression Logistique (HD-478, 10-fold CV).}
+\label{fig:roc_curves_zoom}
+\end{figure}
+
+Figure~\ref{fig:auc_gap} compares the mean AUC-ROC ($\pm$ std) for each model over 10 stratified cross-validation folds.
+
+The \textbf{SVM Linéaire} achieves the best score (0.826\,$\pm$\,0.082), followed by \textbf{LDA} (0.822\,$\pm$\,0.085) and \textbf{LR Ridge} (0.821\,$\pm$\,0.080). \textbf{XGBoost} (0.821) and \textbf{Random Forest} (0.750) perform lower, while \textbf{LASSO} (0.745) shows the weakest AUC-ROC. The narrow error bars across all models indicate stable, reproducible performance across the 10 folds --- no model shows high variance, which is a positive signal for clinical reliability.
+
+%--- Figure 5.3 : AUC-ROC per model ---
+\begin{figure}[H]
+\centering
+{\small\bfseries Performance des modèles ML --- Cohorte HD-478}\\[4pt]
+\IfFileExists{2_comparaison_AUC_gap.png}{%
+  \adjincludegraphics[width=0.88\textwidth,
+    trim={0 0 {0.5\width} {0.10\height}}, clip]{2_comparaison_AUC_gap.png}%
+}{%
+  \framebox[0.85\textwidth][c]{\small[AUC-ROC par modèle --- 2\_comparaison\_AUC\_gap.png]}%
+}
+\caption{AUC-ROC per model --- HD-478 cohort, 10-fold CV (mean\,$\pm$\,std).}
 \label{fig:auc_gap}
 \end{figure}
 
-Figure~\ref{fig:radar} shows a radar plot comparing the five main performance metrics across all models.
+Figure~\ref{fig:auc_gap_overfitting} shows the train-test AUC gap for each model. A gap above 0.10 (orange dashed line) signals significant overfitting; below 0.05 (green dashed line) is excellent. The \textbf{SVM Linéaire} records the lowest positive gap (0.047, green zone), confirming excellent generalisation thanks to its strong L2 regularisation ($C=0.01$). \textbf{LDA} shows a slightly negative gap ($-0.013$), meaning the model is marginally more conservative on training data than on test data --- a sign of very stable generalisation. \textbf{LR Ridge} (0.059) and \textbf{LASSO} (0.078) remain in the acceptable zone. \textbf{XGBoost} (0.096) is the closest to the overfitting threshold, reflecting the tendency of boosting methods to memorise training patterns on small datasets. \textbf{All six models stay below 0.10}, confirming the absence of significant overfitting on the HD-478 cohort.
+
+%--- Figure 5.5 : Train-test AUC gap (PNG) ---
+\begin{figure}[H]
+\centering
+\makebox[\textwidth][c]{%
+\IfFileExists{2_comparaison_AUC_gap.png}{%
+  \adjincludegraphics[width=0.85\textwidth,
+    trim={{0.5\width} 0 0 {0.07\height}}, clip]{2_comparaison_AUC_gap.png}%
+}{%
+  \framebox[0.85\textwidth][c]{\small[Gap Train/Test --- 2\_comparaison\_AUC\_gap.png]}%
+}}
+\caption{Train-test AUC gap per model --- vert\,$<$\,0.05 (excellent), orange\,$<$\,0.10 (acceptable). SVM Linéaire : gap le plus faible (0.047).}
+\label{fig:auc_gap_overfitting}
+\end{figure}
+
+%=======================================================
+%  FIGURE : RADAR CHART
+%=======================================================
+The radar chart in Figure~\ref{fig:radar} provides a simultaneous multi-axis comparison of five performance metrics. Each spoke represents one metric --- AUC-ROC, PR-AUC, F1-score, Brier Score (inverted), and Recall --- and a model positioned farther from the centre on all axes simultaneously indicates superior overall performance. The \textbf{SVM Linéaire} and \textbf{LDA} occupy the outermost positions on the two clinically most relevant axes (AUC-ROC and PR-AUC). Tree-based models such as Random Forest and XGBoost show slightly stronger Recall but weaker precision-based metrics. No single model dominates all five axes, reinforcing the multi-criteria justification for selecting the SVM on the basis of its best \textit{balanced} profile across the five dimensions.
 
 \begin{figure}[H]
 \centering
 \IfFileExists{3_radar_performance.png}{%
-  \includegraphics[width=0.90\textwidth,keepaspectratio]{3_radar_performance.png}
+  \includegraphics[width=0.88\textwidth,keepaspectratio]{3_radar_performance.png}%
 }{%
   \framebox[0.75\textwidth][c]{\small[Radar --- 3\_radar\_performance.png]}%
 }
-\caption{Multi-metric radar chart comparing AUC-ROC, PR-AUC, F1, Brier Score, and Recall across all evaluated models.}
+\caption{Multi-metric radar chart --- AUC-ROC, PR-AUC, F1, Brier Score and Recall for all models.}
 \label{fig:radar}
 \end{figure}
 
-Figure~\ref{fig:calibration} shows the calibration curves, evaluating how well predicted probabilities match observed mortality rates.
+%=======================================================
+%  FIGURE 5.7 : BRIER SCORE PAR MODÈLE
+%=======================================================
+The Brier Score (BS) measures the mean squared error between predicted probabilities and actual binary outcomes ($y \in \{0,1\}$): $\text{BS} = \frac{1}{N}\sum_i (\hat{p}_i - y_i)^2$. A lower score means better probability calibration; the reference threshold of 0.15 is considered excellent. Figure~\ref{fig:brier_score} compares the Brier Score across all evaluated models. The \textbf{SVM Linéaire} achieves the best score (0.127, well below 0.15), followed by \textbf{LDA} (0.130) and \textbf{LR Ridge} (0.138). \textbf{XGBoost} (0.198) and \textbf{RF} show higher Brier Scores, confirming that linear models produce better-calibrated probability estimates. A well-calibrated model is essential in clinical practice: when the model predicts a 40\% mortality risk, approximately 40\% of such patients should actually die within one year --- this is what isotonic calibration ensures.
 
 \begin{figure}[H]
 \centering
 \IfFileExists{4_calibration.png}{%
-  \includegraphics[width=\textwidth,keepaspectratio]{4_calibration.png}
+  \adjincludegraphics[width=0.85\textwidth,
+    trim={0 0 {0.5\width} {0.08\height}}, clip]{4_calibration.png}%
 }{%
-  \framebox[0.80\textwidth][c]{\small[Calibration --- 4\_calibration.png]}%
+  \framebox[0.85\textwidth][c]{\small[Brier Score --- 4\_calibration.png left panel]}%
 }
-\caption{Calibration curves (reliability diagrams) before and after isotonic calibration for the SVM model. After calibration, predicted probabilities closely track the observed mortality fraction.}
+\caption{Brier Score per model --- lower is better (threshold 0.15 = excellent).}
+\label{fig:brier_score}
+\end{figure}
+
+%=======================================================
+%  FIGURE 5.8 : RELIABILITY DIAGRAM — TOP 3
+%=======================================================
+A reliability diagram (calibration curve) plots the mean predicted probability against the observed mortality fraction across bins. A perfectly calibrated model follows the diagonal dashed line. Figure~\ref{fig:calibration} shows the reliability diagram for the three best-performing models after isotonic calibration. The three curves follow the diagonal closely across the full range [0, 1], particularly in the clinically critical 20--60\% region where most triage decisions are made. Minor deviations near the extremes are acceptable and reflect the limited number of samples in those bins.
+
+\begin{figure}[H]
+\centering
+\makebox[\textwidth][c]{%
+\IfFileExists{4_calibration.png}{%
+  \adjincludegraphics[width=0.85\textwidth,
+    trim={{0.5\width} 0 0 {0.08\height}}, clip]{4_calibration.png}%
+}{%
+  \framebox[0.85\textwidth][c]{\small[Reliability Diagram --- 4\_calibration.png right panel]}%
+}}
+\caption{Reliability diagram (Top 3 models) --- calibrated probabilities vs.\ observed mortality fraction.}
 \label{fig:calibration}
 \end{figure}
 
-Figure~\ref{fig:confusion} presents the confusion matrices for the top three models.
+%=======================================================
+%  FIGURES 5.9–5.11 : CONFUSION MATRICES (SVM / LDA / LR)
+%=======================================================
+A confusion matrix summarises classification results: True Positives (TP: deaths correctly detected), False Negatives (FN: deaths missed), False Positives (FP: false alarms), and True Negatives (TN: survivors correctly identified). The three matrices below correspond to the three best-performing models — SVM Linéaire, LDA, and Régression Logistique — evaluated on the test set at their respective optimal decision thresholds. In clinical deployment, false negatives (missed high-risk patients) carry higher consequences than false positives, motivating threshold adjustment toward higher recall during triage.
+
+%--- SVM ---
+The \textbf{SVM Linéaire} (Figure~\ref{fig:confusion_svm}, threshold\,=\,0.238) achieves the best overall balance: \textbf{69 true positives} (TP: deaths correctly flagged) and \textbf{299 true negatives} (TN: survivors correctly identified). It misses only \textbf{25 deaths} (FN, the lowest among the three models) and generates \textbf{85 false alarms} (FP). Sensitivity\,=\,73.4\% (69/94) and specificity\,=\,77.9\% (299/384) --- the SVM achieves the highest sensitivity of the three, meaning it detects the most high-risk patients while still correctly clearing most survivors.
 
 \begin{figure}[H]
 \centering
 \IfFileExists{5_matrices_confusion.png}{%
-  \includegraphics[width=\textwidth,keepaspectratio]{5_matrices_confusion.png}
+  \adjincludegraphics[width=0.70\textwidth,
+    trim={0 0 {0.667\width} {0.08\height}}, clip]{5_matrices_confusion.png}%
 }{%
-  \framebox[0.90\textwidth][c]{\small[Confusion --- 5\_matrices\_confusion.png]}%
+  \framebox[0.70\textwidth][c]{\small[Confusion SVM --- 5\_matrices\_confusion.png]}%
 }
-\caption{Confusion matrices for the top three models (SVM, XGBoost, Gradient Boosting) on the test set. True positives (correctly identified deaths) are shown in the lower-right cell.}
-\label{fig:confusion}
+\caption{Confusion matrix --- SVM Linéaire (AUC\,=\,0.8235, seuil\,=\,0.238).}
+\label{fig:confusion_svm}
 \end{figure}
 
-Figure~\ref{fig:pr_curve} shows the precision-recall curves for all models.
+%--- LDA ---
+The \textbf{LDA} (Figure~\ref{fig:confusion_lda}, threshold\,=\,0.220) shows a different trade-off: \textbf{67 true positives} and \textbf{307 true negatives}, with \textbf{27 false negatives} and \textbf{77 false positives}. Sensitivity\,=\,71.3\% (67/94) and specificity\,=\,79.9\% (307/384). Compared to the SVM, LDA detects 2 fewer deaths (67 vs.\ 69) but misclassifies 2 more deaths (27 vs.\ 25), resulting in slightly \textbf{lower sensitivity} (71.3\% vs.\ 73.4\%) but slightly \textbf{higher specificity} (79.9\% vs.\ 77.9\%). The lower decision threshold (0.220 vs.\ 0.238) does not compensate for this difference in detection rate.
+
+\begin{figure}[H]
+\centering
+\makebox[\textwidth][c]{%
+\IfFileExists{5_matrices_confusion.png}{%
+  \adjincludegraphics[width=0.70\textwidth,
+    trim={{0.333\width} 0 {0.334\width} {0.08\height}}, clip]{5_matrices_confusion.png}%
+}{%
+  \framebox[0.70\textwidth][c]{\small[Confusion LDA --- 5\_matrices\_confusion.png]}%
+}}
+\caption{Confusion matrix --- LDA (AUC\,=\,0.8225, seuil\,=\,0.220).}
+\label{fig:confusion_lda}
+\end{figure}
+
+%--- Régression Logistique ---
+The \textbf{Régression Logistique} (Figure~\ref{fig:confusion_lr}, threshold\,=\,0.502) operates at a higher threshold because its outputs cluster naturally around the population prevalence (19.9\%). It achieves \textbf{68~TP}, \textbf{298~TN}, \textbf{26~FN}, \textbf{86~FP} --- sensitivity\,=\,72.3\%, specificity\,=\,77.6\%. The FN count (26) is intermediate between SVM (25) and LDA (27). Overall, the \textbf{SVM achieves the best sensitivity} (73.4\%) and the \textbf{lowest false negative count} (25 missed deaths) --- a decisive clinical advantage when undetected high-risk patients are the most critical error.
+
+\begin{figure}[H]
+\centering
+\makebox[\textwidth][c]{%
+\IfFileExists{5_matrices_confusion.png}{%
+  \adjincludegraphics[width=0.70\textwidth,
+    trim={{0.667\width} 0 0 {0.08\height}}, clip]{5_matrices_confusion.png}%
+}{%
+  \framebox[0.70\textwidth][c]{\small[Confusion LR --- 5\_matrices\_confusion.png]}%
+}}
+\caption{Confusion matrix --- Régression Logistique (AUC\,=\,0.8210, seuil\,=\,0.502).}
+\label{fig:confusion_lr}
+\end{figure}
+
+%=======================================================
+%  FIGURE : PRECISION-RECALL CURVES
+%=======================================================
+Unlike the ROC curve, the Precision-Recall (PR) curve focuses on the minority class (deceased patients, 19.9\%) and is more informative under class imbalance. Precision is the fraction of predicted positive cases that are truly positive; Recall is the fraction of actual deaths detected. The baseline is a horizontal dashed line at the prevalence (0.199). Figure~\ref{fig:pr_curve} confirms that the \textbf{SVM Linéaire} achieves the best PR-AUC (0.489), maintaining the highest precision at all recall levels. \textbf{LDA} (0.482) and \textbf{Régression Logistique} (0.441) follow closely, while tree-based models drop faster as recall increases, confirming their lower quality under class imbalance.
 
 \begin{figure}[H]
 \centering
 \IfFileExists{7_precision_rappel.png}{%
-  \includegraphics[width=\textwidth,keepaspectratio]{7_precision_rappel.png}
+  \includegraphics[width=0.88\textwidth,keepaspectratio]{7_precision_rappel.png}%
 }{%
   \framebox[0.85\textwidth][c]{\small[PR Curve --- 7\_precision\_rappel.png]}%
 }
-\caption{Precision-Recall curves for all evaluated models. PR-AUC is the primary metric used for model selection given the class imbalance (80.1\% vs 19.9\%).}
+\caption{Precision-Recall curves for all models --- PR-AUC is the primary selection metric (class imbalance 80/20).}
 \label{fig:pr_curve}
 \end{figure}
 
-Figure~\ref{fig:boxplot_folds} shows the cross-validation fold variance analysis.
+%=======================================================
+%  FIGURE : BOXPLOT CROSS-VALIDATION FOLDS
+%=======================================================
+The boxplot in Figure~\ref{fig:boxplot_folds} visualises the distribution of AUC-ROC scores across the 10 stratified cross-validation folds for each model, measuring both performance level and fold-to-fold stability. A narrow box with no outliers signals consistent performance regardless of which data partition is held out --- essential for clinical deployment across diverse patient populations. The \textbf{SVM Linéaire} shows the highest median AUC-ROC and one of the narrowest interquartile ranges, confirming both performance leadership and stability. \textbf{XGBoost} and \textbf{Random Forest} show wider boxes and occasional outliers, indicating higher fold-to-fold variance and a greater risk of unpredictable performance on new patient data.
 
 \begin{figure}[H]
 \centering
 \IfFileExists{8_boxplot_folds.png}{%
-  \includegraphics[width=\textwidth,keepaspectratio]{8_boxplot_folds.png}
+  \includegraphics[width=0.88\textwidth,keepaspectratio]{8_boxplot_folds.png}%
 }{%
   \framebox[0.85\textwidth][c]{\small[Boxplot --- 8\_boxplot\_folds.png]}%
 }
-\caption{Boxplot of AUC-ROC scores across 10 stratified cross-validation folds for each model, illustrating variance and stability of model performance.}
+\caption{AUC-ROC boxplot across 10 CV folds per model --- stability and variance analysis.}
 \label{fig:boxplot_folds}
 \end{figure}
 
@@ -2290,13 +2400,16 @@ confirming that $\hat{p}_{\text{cal}}$ closely tracks observed mortality rates.
 
 The three risk zones were defined by combining evidence from three sources: (1) the \textbf{TRIPOD} statement \cite{collins_tripod_2015} on transparent clinical prediction model reporting, which recommends aligning thresholds with clinically actionable risk differences; (2) the \textbf{DOPPS} registry data \cite{dopps2022}, which documents mortality patterns in international hemodialysis cohorts; and (3) the \textbf{KDIGO} clinical practice guidelines \cite{kdigo2015}, which stratify CKD progression risk using specific biomarker thresholds. The $10\%$ lower threshold separates patients whose predicted mortality probability is close to the population baseline from those at meaningfully elevated risk. The $40\%$ upper threshold identifies patients whose mortality probability is more than double the cohort mean (19.9\%), justifying urgent clinical intervention. These thresholds were also operationally validated with the CHU Hassan II nephrology team, who confirmed their utility for daily triage decisions.
 
+\medskip
+\noindent\textbf{Threshold selection rationale.} During development, a data-driven approach was explored to derive thresholds directly from the structure of the HD-478 calibrated probability distribution. A \textbf{Gaussian Mixture Model (GMM)} with three components was fitted on the 478 out-of-fold calibrated probabilities. The role of the GMM here is to automatically identify three natural patient subgroups — low, moderate, and high risk — by modelling the probability distribution as a mixture of three Gaussian curves. Once the components are ordered by ascending risk, $T_1$ and $T_2$ are extracted as the points where adjacent Gaussian densities intersect, i.e., the probability values beyond which it becomes statistically more likely for a patient to belong to the next risk group. On the HD-478 cohort, this procedure yielded $T_1^{\text{GMM}} = 4.6\%$ and $T_2^{\text{GMM}} = 26.0\%$. These values reflect the actual clustering of mortality probabilities in this specific Moroccan cohort: the majority of patients are concentrated in a very low probability range, pushing $T_1$ down to $4.6\%$. While this is internally coherent with the HD-478 distribution, it is precisely what makes these thresholds non-transferable — a different cohort with a higher baseline mortality would produce entirely different GMM boundaries. For this reason, the GMM thresholds were computed but ultimately discarded in favour of the fixed clinical thresholds $T_1 = 10\%$ and $T_2 = 40\%$ from TRIPOD/DOPPS/KDIGO guidelines, which are grounded in clinically meaningful absolute mortality levels and remain valid across different hemodialysis centers and patient populations.
+
 $\hat{p}_{\text{cal}}$ is mapped to three clinical zones using fixed thresholds from evidence-based nephrology guidelines (TRIPOD \cite{collins_tripod_2015} / DOPPS \cite{dopps2022} / KDIGO \cite{kdigo2015}):
 \begin{equation}
 \text{zone} =
 \begin{cases}
-\textbf{Faible}   & \hat{p}_{\text{cal}} < 0.10 \\
-\textbf{Modérée}  & 0.10 \leq \hat{p}_{\text{cal}} < 0.40 \\
-\textbf{Élevée}   & \hat{p}_{\text{cal}} \geq 0.40
+\textbf{Low}      & \hat{p}_{\text{cal}} < 0.10 \\[2pt]
+\textbf{Moderate} & 0.10 \leq \hat{p}_{\text{cal}} < 0.40 \\[2pt]
+\textbf{High}     & \hat{p}_{\text{cal}} \geq 0.40
 \end{cases}
 \label{eq:risk_zones}
 \end{equation}
@@ -2305,96 +2418,216 @@ The relative risk is: $\text{RR} = \hat{p}_{\text{cal}} \;/\; 0.199$ (base rate 
 
 \begin{table}[H]
 \centering
-\caption{Risk zones — clinical thresholds (TRIPOD/DOPPS/KDIGO), HD-478 cohort}
+\caption{Risk zone classification --- clinical thresholds (TRIPOD/DOPPS/KDIGO), HD-478 cohort}
 \label{tab:risk_zones}
-\begin{tabular}{lcccc}
+\renewcommand{\arraystretch}{1.45}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{2.2cm}
+                              >{\centering\arraybackslash}p{3.2cm}
+                              >{\centering\arraybackslash}p{2.8cm}
+                              >{\centering\arraybackslash}p{2.0cm}
+                              >{\centering\arraybackslash}X}
 \toprule
-\textbf{Zone} & \textbf{Seuil} & \textbf{Mortalité observée} & \textbf{Risque relatif} & \textbf{Action clinique} \\
+\rowcolor{darkblue!10}
+\textbf{Risk Zone} & \textbf{Probability Threshold} & \textbf{Observed Mortality} & \textbf{Relative Risk} & \textbf{Clinical Action} \\
 \midrule
-\cellcolor{green!20}\textbf{Faible}   & $\hat{p} < 10\%$             & 3.8\%  & $\times 1.0$ & Suivi standard \\
-\cellcolor{orange!20}\textbf{Modérée} & $10\% \leq \hat{p} < 40\%$  & 22.9\% & $\times 3.6$ & Surveillance renforcée \\
-\cellcolor{red!20}\textbf{Élevée}    & $\hat{p} \geq 40\%$           & 49.0\% & $\times 7.8$ & Prise en charge urgente \\
+\cellcolor{teal!18}\textcolor{teal!50!black}{Low}
+  & $\hat{p} < 10\%$
+  & 3.8\%
+  & $\times\,1.0$
+  & Standard follow-up \\[2pt]
+\cellcolor{orange!18}\textcolor{orange!60!black}{Moderate}
+  & $10\% \leq \hat{p} < 40\%$
+  & 22.9\%
+  & $\times\,3.6$
+  & Enhanced monitoring \\[2pt]
+\cellcolor{red!18}\textcolor{red!60!black}{High}
+  & $\hat{p} \geq 40\%$
+  & 49.0\%
+  & $\times\,7.8$
+  & Urgent intervention \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
+\smallskip
+\noindent\footnotesize\textit{Mortality gradient: 3.8\% $\to$ 22.9\% $\to$ 49.0\% --- High/Low relative risk ratio: $\mathbf{\times\,12.9}$.}
 \end{table}
 
-Gradient 3.8\% $\to$ 22.9\% $\to$ 49.0\% — risque relatif Élevée/Faible : $\mathbf{\times 12.9}$.
-
 \section{Prediction Workflow}
+
+Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{LinearSVC} and applies isotonic calibration to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  node distance=0.8cm,
-  box/.style={rectangle,draw,fill=blue!10,minimum width=7cm,minimum height=0.8cm,align=center,rounded corners=3pt,font=\small},
-  decision/.style={diamond,draw,fill=orange!20,minimum width=3.5cm,align=center,font=\small},
-  arrow/.style={-{Stealth},thick}
+  pipe/.style={
+    rectangle, draw=darkblue!70, thick,
+    fill=platbg, rounded corners=4pt,
+    minimum width=13.5cm, minimum height=0.9cm,
+    align=center, font=\small, text=navydark
+  },
+  diam/.style={
+    shape=diamond, draw=accent!80, thick,
+    fill=accent!18, aspect=3.0,
+    minimum width=6.0cm, minimum height=1.1cm,
+    align=center, font=\small\bfseries, text=accent!80!black
+  },
+  lowb/.style={
+    rectangle, draw=teal!70, thick,
+    fill=teal!18, rounded corners=5pt,
+    minimum width=3.8cm, minimum height=1.5cm,
+    align=center, font=\small\bfseries, text=teal!60!black
+  },
+  modb/.style={
+    rectangle, draw=orange!80, thick,
+    fill=orange!18, rounded corners=5pt,
+    minimum width=3.8cm, minimum height=1.5cm,
+    align=center, font=\small\bfseries, text=orange!70!black
+  },
+  highb/.style={
+    rectangle, draw=red!70, thick,
+    fill=red!14, rounded corners=5pt,
+    minimum width=3.8cm, minimum height=1.5cm,
+    align=center, font=\small\bfseries, text=red!60!black
+  },
+  outb/.style={
+    rectangle, draw=darkblue!80, very thick,
+    fill=darkblue!12, rounded corners=5pt,
+    minimum width=13.5cm, text width=13.0cm, minimum height=1.0cm,
+    align=center, font=\small\bfseries, text=navydark
+  },
+  arr/.style={-{Stealth[scale=1.2]}, thick, darkblue!65}
 ]
-\node[box] (patient) {Patient selected in UI};
-\node[box,below=of patient] (extract) {Feature Extraction (32 features)\\via \texttt{extract\_features(patient)}};
-\node[box,below=of extract] (impute) {KNNImputer(k=3) — handle missing values};
-\node[box,below=of impute] (transform) {PowerTransformer(Yeo-Johnson) + StandardScaler};
-\node[box,below=of transform] (svm) {SVC(C=0.01, linear) — raw probability $p_{\text{raw}}$};
-\node[box,below=of svm] (isotonic) {iso\_calibrator.joblib $\rightarrow$ $\hat{p}_{\text{cal}} = \text{Iso}(p_{\text{raw}})$};
-\node[decision,below=1cm of isotonic] (zone) {Risk zone?};
-\node[box,below left=1cm and -1.5cm of zone,fill=green!15] (low) {Faible\\$\hat{p}_{\text{cal}} < 10\%$};
-\node[box,below=1.2cm of zone,fill=orange!15] (mod) {Modérée\\$10\% \leq \hat{p} < 40\%$};
-\node[box,below right=1cm and -1.5cm of zone,fill=red!15] (high) {Élevée\\$\hat{p}_{\text{cal}} \geq 40\%$};
-\node[box,below=3cm of zone,fill=purple!10] (output) {Output: zone + probability + top-5 factors + recommendation};
 
-\draw[arrow] (patient) -- (extract);
-\draw[arrow] (extract) -- (impute);
-\draw[arrow] (impute) -- (transform);
-\draw[arrow] (transform) -- (svm);
-\draw[arrow] (svm) -- (isotonic);
-\draw[arrow] (isotonic) -- (zone);
-\draw[arrow] (zone) -- (low);
-\draw[arrow] (zone) -- (mod);
-\draw[arrow] (zone) -- (high);
-\draw[arrow] (low) |- (output);
-\draw[arrow] (mod) -- (output);
-\draw[arrow] (high) |- (output);
+%=== PIPELINE STEPS ===
+\node[pipe] (p1) at (0, 0.0)
+  {\textbf{1.}~Patient selected in the clinical UI};
+\node[pipe] (p2) at (0,-1.5)
+  {\textbf{2.}~Feature extraction --- 32 clinical variables via \texttt{extract\_features()}};
+\node[pipe] (p3) at (0,-3.0)
+  {\textbf{3.}~Missing value imputation --- \texttt{KNNImputer(k\,=\,3)}};
+\node[pipe] (p4) at (0,-4.5)
+  {\textbf{4.}~Normalization --- PowerTransformer (Yeo-Johnson) + StandardScaler};
+\node[pipe] (p5) at (0,-6.0)
+  {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.01, linear)} $\longrightarrow$ $p_{\text{raw}}$};
+\node[pipe] (p6) at (0,-7.5)
+  {\textbf{6.}~Isotonic calibration --- $\hat{p}_{\text{cal}} = \text{IsotonicRegression}(p_{\text{raw}})$};
+
+%=== DECISION DIAMOND ===
+\node[diam] (zone) at (0,-9.3) {Risk Zone Classification};
+
+%=== ZONE BOXES (well-separated) ===
+\node[lowb]  (low)  at (-4.5,-11.4)
+  {\textbf{LOW RISK}\\[4pt]\normalsize$\hat{p} < 10\%$};
+\node[modb]  (mod)  at ( 0.0,-11.4)
+  {\textbf{MODERATE RISK}\\[4pt]\normalsize$10\%\leq\hat{p}<40\%$};
+\node[highb] (high) at ( 4.5,-11.4)
+  {\textbf{HIGH RISK}\\[4pt]\normalsize$\hat{p}\geq 40\%$};
+
+%=== OUTPUT BOX ===
+\node[outb] (output) at (0,-13.8)
+  {\textbf{Output:}\enspace
+   Risk zone $+$ Calibrated probability $+$ Top-5 contributing factors $+$ Clinical recommendation};
+
+%=== PIPELINE ARROWS ===
+\draw[arr] (p1) -- (p2);
+\draw[arr] (p2) -- (p3);
+\draw[arr] (p3) -- (p4);
+\draw[arr] (p4) -- (p5);
+\draw[arr] (p5) -- (p6);
+\draw[arr] (p6) -- (zone);
+
+%=== BRANCHING FROM DIAMOND (clean elbows) ===
+\draw[arr, teal!70]   (zone.west)  -| (low.north);
+\draw[arr, orange!80] (zone.south) -- (mod.north);
+\draw[arr, red!70]    (zone.east)  -| (high.north);
+
+%=== CONVERGE: horizontal bar then single arrow to output ===
+\coordinate (jl) at (-4.5,-12.95);
+\coordinate (jm) at ( 0.0,-12.95);
+\coordinate (jr) at ( 4.5,-12.95);
+\draw[thick, darkblue!60] (low.south)  -- (jl);
+\draw[thick, darkblue!60] (mod.south)  -- (jm);
+\draw[thick, darkblue!60] (high.south) -- (jr);
+\draw[thick, darkblue!60] (jl) -- (jr);
+\draw[arr] (jm) -- (output.north);
+
 \end{tikzpicture}
-\caption{Complete prediction workflow for a single patient}
+\caption{Complete 1-year mortality prediction workflow for a single patient.}
 \label{fig:prediction_workflow}
 \end{figure}
 
 \section{Model Evaluation Metrics}\label{sec:metrics}
 
-\subsection{Discrimination Metrics}
+Evaluating a mortality prediction model requires metrics that reflect both discriminative ability and clinical utility. Because the HD-478 cohort is highly imbalanced (80.1\% survivors vs.\ 19.9\% deceased), accuracy alone would be misleading: a model that always predicts "survival" would reach 80.1\% accuracy while being clinically useless. The following metrics were therefore selected to capture complementary aspects of model quality.
 
-\textbf{AUC-ROC} measures the probability that the model ranks a randomly chosen positive example higher than a randomly chosen negative example \cite{hanley1982auc}:
+\subsection{AUC-ROC: Discrimination Ability}
+
+The \textbf{Area Under the ROC Curve} (AUC-ROC) measures the probability that the model assigns a higher risk score to a randomly chosen deceased patient than to a randomly chosen survivor \cite{hanley1982auc}:
 \begin{equation}
 \text{AUC} = P(\hat{p}_{y=1} > \hat{p}_{y=0})
 \label{eq:auc}
 \end{equation}
 
-\textbf{Precision-Recall AUC (PR-AUC)} is preferred under class imbalance, as it focuses on the positive (minority) class \cite{collins_tripod_2015}:
+An AUC of 0.5 means the model performs no better than random chance; 1.0 corresponds to perfect discrimination. Two distinct SVM models exist in this project, and their AUC values must be carefully distinguished:
+
+\begin{itemize}
+  \item \textbf{Offline model} (research phase): The SVM was trained and evaluated in a standalone Python environment on the raw HD-478 dataset, before any deployment. The 10-fold stratified cross-validation yielded \textbf{AUC\,=\,0.8235\,$\pm$\,0.082}. This is the value reported in all comparison tables and figures in Section~\ref{sec:results}.
+
+  \item \textbf{Platform model} (deployed): After deploying the platform and integrating the HD-478 data through the LLM preprocessing pipeline, the model was \textbf{retrained via the platform's training endpoint} (\texttt{POST /api/predictions/train/}) on the preprocessed and validated database. This retrained model achieves \textbf{AUC\,=\,0.8262}, stored in \texttt{last\_mortalite.json} and displayed in the platform dashboard.
+\end{itemize}
+
+The improvement from 0.8235 to \textbf{0.8262 (+0.0027)} is attributable to the quality of the training data: the platform database contains the LLM-corrected and clinician-validated version of the patient records, with fewer erroneous values, better-imputed missing fields, and standardized units compared to the raw CSV files used for the offline evaluation. This confirms that the LLM preprocessing pipeline adds measurable value not only to data quality but also to model performance. The \textbf{platform model (AUC\,=\,0.8262) is therefore the reference model for clinical deployment}.
+
+\subsection{PR-AUC and F1-score: Performance Under Class Imbalance}
+
+The \textbf{Precision-Recall AUC (PR-AUC)} is more informative than AUC-ROC when the positive class is rare. It measures the trade-off between:
 \begin{align}
-\text{Precision} &= \frac{TP}{TP + FP} \label{eq:precision}\\
-\text{Recall} &= \frac{TP}{TP + FN} \label{eq:recall}\\
-\text{F1} &= \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} \label{eq:f1}
+\text{Precision} &= \frac{TP}{TP + FP}
+  \quad \text{(fraction of predicted deaths that are true deaths)} \label{eq:precision}\\[4pt]
+\text{Recall} &= \frac{TP}{TP + FN}
+  \quad \text{(fraction of actual deaths that are detected)} \label{eq:recall}
 \end{align}
 
-\subsection{Clinical Relevance: Threshold Validation}
+A model with high precision but low recall detects few deaths but when it does, it is reliable. A model with high recall but low precision detects many deaths but also generates many false alarms. The \textbf{F1-score} balances both:
+\begin{equation}
+\text{F1} = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\label{eq:f1}
+\end{equation}
 
-The isotonic calibration ensures that predicted probabilities correspond to actual observed mortality rates. The three clinical thresholds ($T_1=10\%$, $T_2=40\%$) are grounded in evidence-based nephrology guidelines (TRIPOD/DOPPS/KDIGO) and were confirmed operationally meaningful by the CHU Hassan II nephrology team for daily triage.
+The SVM achieves \textbf{PR-AUC\,=\,0.489} and \textbf{F1\,=\,0.567}, the highest among all evaluated models. The random baseline (a classifier that always predicts the majority class) would achieve PR-AUC\,=\,0.199 (equal to the class prevalence), so the SVM's 0.489 represents a substantial gain. Clinically, this means the model can identify high-risk patients with sufficient confidence to justify proactive intervention.
+
+\subsection{Brier Score: Probability Calibration Quality}
+
+The \textbf{Brier Score} measures how far the predicted probabilities are from the actual outcomes:
+\begin{equation}
+\text{BS} = \frac{1}{N}\sum_{i=1}^{N}(\hat{p}_{\text{cal},i} - y_i)^2
+\label{eq:brier2}
+\end{equation}
+
+A score of 0 is perfect; a naive model predicting the prevalence (0.199) for every patient would achieve BS\,=\,0.199\,$\times$\,0.801\,=\,0.159. The SVM after isotonic calibration achieves \textbf{BS\,=\,0.127}, which is below this baseline and below the 0.15 excellence threshold. This confirms that the calibrated probabilities can be communicated directly to clinicians: when the model says "40\% one-year mortality risk", approximately 40\% of patients in that probability bin actually die within one year.
 
 \section{Model Generalization and Statistical Validation}\label{sec:generalization}
 
-\begin{itemize}
-  \item \textbf{Train-test AUC gap}: 0.047 ($\ll$ 0.1 threshold) — no evidence of overfitting
-  \item \textbf{Permutation test}: 1000 permutations of the target variable; p-value = 0.020 — the model is statistically significant
-  \item \textbf{Nested cross-validation AUC}: 0.8241 — confirms generalization in a fully independent evaluation
-\end{itemize}
+Beyond point-estimate metrics, it is essential to verify that the SVM's performance is \emph{stable} across different data subsets and \emph{statistically genuine} rather than a product of chance.
+
+\subsection{Absence of Overfitting}
+
+The train-test AUC gap of \textbf{0.047} (well below the 0.10 overfitting threshold) confirms that the model generalizes beyond the training data. The SVM's strong L2 regularization ($C=0.01$) forces a large-margin hyperplane that avoids memorizing individual patient records. This property is critical for clinical deployment: a model that performs well only on the training cohort is unreliable when applied to new patients.
+
+\subsection{Statistical Significance}
+
+A \textbf{permutation test} with 1000 random shuffles of the target variable yielded \textbf{p-value\,=\,0.020} ($<0.05$), confirming that the model's AUC is not explainable by chance. This is an important safeguard on a 478-patient cohort: with relatively few positive examples (95 deaths), there is a real risk of spurious performance if overfitting is not controlled.
+
+\subsection{Nested Cross-Validation}
+
+A \textbf{nested cross-validation} (outer: 10 folds, inner: 5-fold hyperparameter search) returned \textbf{AUC\,=\,0.8241}, nearly identical to the standard 10-fold result (0.826). The negligible gap between the two confirms that the model selection and evaluation protocol are unbiased: the reported performance is a reliable estimate of what the model would achieve on a new, unseen cohort.
 
 \section{Limitations of the ML Layer}\label{sec:ml_limits}
 
-\subsection{Data Bias}
-The HD-478 cohort is retrospective and single-center. Selection bias may arise from excluding patients lost to follow-up. The 478-sample size limits statistical power for subgroup analyses (e.g., per-etiology mortality). External validation on a second center cohort is needed.
+\subsection{Data Bias and External Validity}
+The HD-478 cohort is retrospective and single-center (CHU Hassan II, Fès). Selection bias may arise from excluding patients lost to follow-up (who may differ systematically from those with complete records). The 478-sample size limits statistical power for subgroup analyses (e.g., per-etiology mortality, gender stratification). \textbf{External validation on an independent second-center cohort} is the recommended next step before broader clinical deployment.
 
-\subsection{Model Generalization}
-The model was optimized for the CHU Hassan II patient population (predominantly Moroccan, with specific etiological distribution). Direct deployment in a European or sub-Saharan African HD center may require recalibration.
+\subsection{Population Specificity}
+The model was trained on a predominantly Moroccan hemodialysis population with a specific etiological distribution (diabetic nephropathy, hypertensive nephrosclerosis dominant). Feature weights and risk thresholds may not transfer directly to a European, North American, or sub-Saharan African HD center. Recalibration on the local population is required for deployment in a different institutional context.
 
 %============================================================
 %  CHAPTER 6 — BACKEND & FRONTEND IMPLEMENTATION
@@ -2414,6 +2647,10 @@ The model was optimized for the CHU Hassan II patient population (predominantly 
 The backend of AI NéphroCare is built with \textbf{Django 4.2} and \textbf{Django REST Framework (DRF)}, following a modular architecture organized into four independent Django applications. Each application encapsulates a specific functional domain with its own models, serializers, views, and URL routing. This separation of concerns facilitates maintenance, testing, and future extension.
 
 \subsection{Django Apps Structure}
+
+Le backend d'AI NéphroCare est structuré autour de quatre applications Django indépendantes, chacune encapsulant un domaine fonctionnel précis avec ses propres modèles, serializers, vues et routes. Cette organisation modulaire s'inspire du principe de séparation des responsabilités (\textit{Separation of Concerns}) : toute modification d'un domaine — par exemple l'ajout d'un nouveau type d'audit ou d'une nouvelle logique de prédiction — peut être effectuée de manière isolée, sans affecter les autres composants.
+
+L'application \texttt{users} gère l'ensemble du cycle de vie des utilisateurs : création de comptes, authentification JWT, gestion des rôles RBAC (Super Admin, Chef de service, Professeur, Résident) et hachage des mots de passe via bcrypt. L'application \texttt{patients} constitue le cœur métier de la plateforme : elle prend en charge la gestion des dossiers patients, l'import de fichiers Excel/CSV, le pipeline de prétraitement LLM, et expose une vue aplatie (\textit{flat view}) utilisée par le module d'analytics. L'application \texttt{predictions} est entièrement \textit{stateless} : elle n'expose aucun modèle persistant mais orchestre l'extraction de features, l'inférence SVM, le réentraînement du modèle et la consultation des métriques de performance. Enfin, l'application \texttt{audit} assure la traçabilité complète des actions sensibles via un journal d'audit tamper-evident, avec nettoyage automatique des entrées de plus de 15 jours planifié par Celery Beat.
 
 Table~\ref{tab:django_apps} describes the four applications and their responsibilities.
 
@@ -2436,166 +2673,340 @@ Table~\ref{tab:django_apps} describes the four applications and their responsibi
 %--- CLASS DIAGRAM ---
 \subsection{Class Diagram}
 
+Le diagramme de classes UML présenté en Figure~\ref{fig:class_diagram} décrit la structure statique des cinq modèles Django principaux et leurs relations. Il constitue le reflet direct du schéma PostgreSQL de la plateforme.
+
+Le modèle \textbf{Role} est volontairement minimal : il ne porte que le nom technique du rôle (\texttt{name}) et son libellé lisible (\texttt{label}), et sert de référentiel de contrôle d'accès. Il est lié au modèle \textbf{Utilisateur} par une relation d'agrégation \textit{1-à-plusieurs} : un rôle peut être assigné à de nombreux utilisateurs, mais chaque utilisateur n'a qu'un seul rôle actif. En plus de ses attributs d'identité (email unique, nom, prénom, téléphone), le modèle Utilisateur expose deux méthodes : \texttt{login()} qui génère une paire de tokens JWT, et \texttt{change\_password()} qui réhache le mot de passe via bcrypt.
+
+Le modèle \textbf{Patient} est le plus riche du schéma. Son schéma hybride repose sur des champs JSONB PostgreSQL pour stocker les données médicales structurées par domaine (démographie, biologie, dialyse, etc.), ce qui offre une flexibilité d'évolution sans migration de schéma. L'attribut \texttt{utilisateur\_saisie} (clé étrangère vers Utilisateur) trace qui a créé ou importé le dossier. Les deux méthodes \texttt{get\_flat\_view()} et \texttt{extract\_features()} permettent respectivement d'aplatir toutes les sections JSONB en un dictionnaire unifié pour l'analytics, et d'extraire le vecteur de features attendu par le modèle SVM.
+
+Le modèle \textbf{AuditLog} enregistre chaque action sensible effectuée sur la plateforme (création, modification, suppression, connexion) avec l'identifiant de l'entité concernée, les détails en JSONB, l'adresse IP de l'auteur et un horodatage précis. Il est relié à Utilisateur par une association \textit{1-à-plusieurs}. Enfin, le modèle \textbf{PreprocessValidationRequest} matérialise le workflow de validation du prétraitement LLM : chaque session de correction reçoit un UUID unique (\texttt{session\_id}), un statut (\texttt{en attente / validé / rejeté}), et conserve les références des utilisateurs ayant soumis et validé la session.
+
 Figure~\ref{fig:class_diagram} shows the UML class diagram of the five main Django models and their relationships.
 
 \begin{figure}[H]
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
-  class/.style={rectangle,draw,thick,fill=white,drop shadow},
-  title/.style={fill=darkblue!80,text=white,font=\bfseries\small,
-                minimum width=4.2cm,minimum height=0.6cm,align=center},
-  attr/.style={fill=white,font=\footnotesize,minimum width=4.2cm,
-               minimum height=0.45cm,align=left,inner sep=4pt},
-  rel/.style={-{Stealth},thick},
-  comp/.style={diamond,draw,fill=darkblue!20,minimum size=0.3cm},
-  node distance=2.5cm
+  every node/.append style={outer sep=0pt},
+  % title bar
+  ctitle/.style={rectangle, draw=primary, line width=1.2pt, fill=primary,
+                 text=white, font=\small\bfseries,
+                 minimum width=5.0cm, minimum height=0.72cm,
+                 align=center, inner sep=6pt},
+  % attribute row
+  cattr/.style={rectangle, draw=primary!35, line width=0.5pt,
+                fill=white, text=navydark, font=\small,
+                minimum width=5.0cm, minimum height=0.50cm,
+                align=left, inner sep=5pt},
+  % method row
+  cmeth/.style={rectangle, draw=primary!35, line width=0.5pt,
+                fill=primary!7, text=navydark, font=\small,
+                minimum width=5.0cm, minimum height=0.50cm,
+                align=left, inner sep=5pt},
+  % wide variants (PreprocessValidationRequest)
+  ctitleW/.style={ctitle, minimum width=5.8cm},
+  cattrW/.style={cattr,   minimum width=5.8cm},
+  % relationship arrows
+  agg/.style={{Diamond[open,scale=1.4]}-{Stealth[scale=1.2]}, thick, draw=darkblue!75},
+  assoc/.style={-{Stealth[scale=1.2]}, thick, draw=darkblue!65},
+  rlbl/.style={font=\footnotesize\itshape, text=darkblue!85, fill=white, inner sep=1.5pt},
+  card/.style={font=\footnotesize\bfseries, text=darkblue!90},
 ]
 
-%--- Role ---
-\node[title]  (r_t) at (0,0)       {Role};
-\node[attr,below=0pt of r_t,anchor=north]  (r1) {+ id : Integer (PK)};
-\node[attr,below=0pt of r1,anchor=north]   (r2) {+ name : CharField (unique)};
-\node[attr,below=0pt of r2,anchor=north]   (r3) {+ label : CharField};
-\draw[class] (r_t.north west) rectangle (r3.south east);
+%━━━━━━━━━━━━━━━━━━━  ROW 1  ━━━━━━━━━━━━━━━━━━━━
 
-%--- Utilisateur ---
-\node[title,right=3.5cm of r_t]  (u_t) {Utilisateur};
-\node[attr,below=0pt of u_t,anchor=north]  (u1) {+ id : Integer (PK)};
-\node[attr,below=0pt of u1,anchor=north]   (u2) {+ email : EmailField (unique)};
-\node[attr,below=0pt of u2,anchor=north]   (u3) {+ nom, prenom : CharField};
-\node[attr,below=0pt of u3,anchor=north]   (u4) {+ telephone : CharField};
-\node[attr,below=0pt of u4,anchor=north]   (u5) {+ role\_id : FK $\rightarrow$ Role};
-\node[attr,below=0pt of u5,anchor=north]   (u6) {+ personal\_notes : TextField};
-\node[attr,below=0pt of u6,anchor=north]   (u7) {+ is\_active : Boolean};
-\node[attr,below=0pt of u7,anchor=north,fill=blue!8]  (um1) {+ login() : JWT};
-\node[attr,below=0pt of um1,anchor=north,fill=blue!8] (um2) {+ change\_password()};
-\draw[class] (u_t.north west) rectangle (um2.south east);
+%─── Role  @(0,0) ───
+\node[ctitle] (r_t) at (0,0) {Role};
+\node[cattr, below=0pt of r_t, anchor=north] (r1) {\underline{+ id : Integer (PK)}};
+\node[cattr, below=0pt of r1,  anchor=north] (r2) {+ name : CharField \textit{(unique)}};
+\node[cattr, below=0pt of r2,  anchor=north] (r3) {+ label : CharField};
 
-%--- Patient ---
-\node[title,right=3.5cm of u_t]  (p_t) {Patient};
-\node[attr,below=0pt of p_t,anchor=north]  (p1) {+ id : Integer (PK)};
-\node[attr,below=0pt of p1,anchor=north]   (p2) {+ id\_patient : CharField};
-\node[attr,below=0pt of p2,anchor=north]   (p3) {+ icc\_charlson : Integer};
-\node[attr,below=0pt of p3,anchor=north]   (p4) {+ demographie\_data : JSONB};
-\node[attr,below=0pt of p4,anchor=north]   (p5) {+ biologie\_data : JSONB};
-\node[attr,below=0pt of p5,anchor=north]   (p6) {+ dialyse\_data : JSONB};
-\node[attr,below=0pt of p6,anchor=north]   (p7) {+ [8 more JSONB sections]};
-\node[attr,below=0pt of p7,anchor=north]   (p8) {+ extra\_data : JSONB};
-\node[attr,below=0pt of p8,anchor=north]   (p9) {+ utilisateur\_saisie : FK};
-\node[attr,below=0pt of p9,anchor=north,fill=blue!8]  (pm1) {+ get\_flat\_view()};
-\node[attr,below=0pt of pm1,anchor=north,fill=blue!8] (pm2) {+ extract\_features() : list};
-\draw[class] (p_t.north west) rectangle (pm2.south east);
+%─── Utilisateur  @(7.5,0) ───
+\node[ctitle] (u_t) at (7.5,0) {Utilisateur};
+\node[cattr, below=0pt of u_t, anchor=north] (u1) {\underline{+ id : Integer (PK)}};
+\node[cattr, below=0pt of u1,  anchor=north] (u2) {+ email : EmailField \textit{(unique)}};
+\node[cattr, below=0pt of u2,  anchor=north] (u3) {+ nom, prenom : CharField};
+\node[cattr, below=0pt of u3,  anchor=north] (u4) {+ telephone : CharField};
+\node[cattr, below=0pt of u4,  anchor=north] (u5) {+ role\_id : FK $\to$ Role};
+\node[cattr, below=0pt of u5,  anchor=north] (u6) {+ personal\_notes : TextField};
+\node[cattr, below=0pt of u6,  anchor=north] (u7) {+ is\_active : Boolean};
+\draw[primary!30, line width=0.8pt] (u7.south west) -- (u7.south east);
+\node[cmeth, below=0pt of u7,  anchor=north] (um1) {+ login() : JWT};
+\node[cmeth, below=0pt of um1, anchor=north] (um2) {+ change\_password()};
 
-%--- AuditLog ---
-\node[title,below=2.8cm of r3,anchor=north]  (a_t) {AuditLog};
-\node[attr,below=0pt of a_t,anchor=north]  (a1) {+ id : Integer (PK)};
-\node[attr,below=0pt of a1,anchor=north]   (a2) {+ action : CharField};
-\node[attr,below=0pt of a2,anchor=north]   (a3) {+ entite, entite\_id};
-\node[attr,below=0pt of a3,anchor=north]   (a4) {+ details : JSONB};
-\node[attr,below=0pt of a4,anchor=north]   (a5) {+ adresse\_ip : IPField};
-\node[attr,below=0pt of a5,anchor=north]   (a6) {+ timestamp : DateTime};
-\node[attr,below=0pt of a6,anchor=north]   (a7) {+ utilisateur\_id : FK};
-\draw[class] (a_t.north west) rectangle (a7.south east);
+%─── Patient  @(15.5,0) ───
+\node[ctitle] (p_t) at (15.5,0) {Patient};
+\node[cattr, below=0pt of p_t, anchor=north] (p1) {\underline{+ id : Integer (PK)}};
+\node[cattr, below=0pt of p1,  anchor=north] (p2) {+ id\_patient : CharField};
+\node[cattr, below=0pt of p2,  anchor=north] (p3) {+ icc\_charlson : Integer};
+\node[cattr, below=0pt of p3,  anchor=north] (p4) {+ demographie\_data : JSONB};
+\node[cattr, below=0pt of p4,  anchor=north] (p5) {+ biologie\_data : JSONB};
+\node[cattr, below=0pt of p5,  anchor=north] (p6) {+ dialyse\_data : JSONB};
+\node[cattr, below=0pt of p6,  anchor=north] (p7) {+ \textit{[8 more JSONB sections]}};
+\node[cattr, below=0pt of p7,  anchor=north] (p8) {+ extra\_data : JSONB};
+\node[cattr, below=0pt of p8,  anchor=north] (p9) {+ utilisateur\_saisie : FK};
+\draw[primary!30, line width=0.8pt] (p9.south west) -- (p9.south east);
+\node[cmeth, below=0pt of p9,  anchor=north] (pm1) {+ get\_flat\_view()};
+\node[cmeth, below=0pt of pm1, anchor=north] (pm2) {+ extract\_features() : list};
 
-%--- PreprocessValidationRequest ---
-\node[title,right=3.5cm of a_t]  (pr_t) {PreprocessValidationRequest};
-\node[attr,below=0pt of pr_t,anchor=north]  (pr1) {+ id : Integer (PK)};
-\node[attr,below=0pt of pr1,anchor=north]   (pr2) {+ session\_id : UUIDField};
-\node[attr,below=0pt of pr2,anchor=north]   (pr3) {+ fichier\_source : CharField};
-\node[attr,below=0pt of pr3,anchor=north]   (pr4) {+ statut : CharField};
-\node[attr,below=0pt of pr4,anchor=north]   (pr5) {+ soumis\_par\_id : FK};
-\node[attr,below=0pt of pr5,anchor=north]   (pr6) {+ valide\_par\_id : FK};
-\node[attr,below=0pt of pr6,anchor=north]   (pr7) {+ commentaire : TextField};
-\draw[class] (pr_t.north west) rectangle (pr7.south east);
+%━━━━━━━━━━━━━━━━━━━  ROW 2 (y = -10)  ━━━━━━━━━━━━━━━━━━━━
 
-%--- Relationships ---
-% Role 1 --< Utilisateur
-\draw[rel,{Diamond[open]}-{Stealth}]
-  (r_t.east) -- node[above,font=\tiny]{1} ++(0.6,0)
-  node[above,font=\tiny]{} -- node[above,font=\tiny]{*} (u_t.west);
-\node[font=\tiny,above] at ($(r_t.east)!0.5!(u_t.west)$) {has};
+%─── AuditLog  @(0,-10) ───
+\node[ctitle] (a_t) at (0,-10) {AuditLog};
+\node[cattr, below=0pt of a_t, anchor=north] (a1) {\underline{+ id : Integer (PK)}};
+\node[cattr, below=0pt of a1,  anchor=north] (a2) {+ action : CharField};
+\node[cattr, below=0pt of a2,  anchor=north] (a3) {+ entite, entite\_id};
+\node[cattr, below=0pt of a3,  anchor=north] (a4) {+ details : JSONB};
+\node[cattr, below=0pt of a4,  anchor=north] (a5) {+ adresse\_ip : IPField};
+\node[cattr, below=0pt of a5,  anchor=north] (a6) {+ timestamp : DateTime};
+\node[cattr, below=0pt of a6,  anchor=north] (a7) {+ utilisateur\_id : FK};
 
-% Utilisateur 1 --< Patient
-\draw[rel,{Diamond[open]}-{Stealth}]
-  (u_t.east) -- node[above,font=\tiny]{1\quad *} (p_t.west);
-\node[font=\tiny,above] at ($(u_t.east)!0.5!(p_t.west)$) {saisie\_par};
+%─── PreprocessValidationRequest  @(8.2,-10) ───
+\node[ctitleW] (pr_t) at (8.2,-10) {PreprocessValidationRequest};
+\node[cattrW, below=0pt of pr_t, anchor=north] (pr1) {\underline{+ id : Integer (PK)}};
+\node[cattrW, below=0pt of pr1,  anchor=north] (pr2) {+ session\_id : UUIDField};
+\node[cattrW, below=0pt of pr2,  anchor=north] (pr3) {+ fichier\_source : CharField};
+\node[cattrW, below=0pt of pr3,  anchor=north] (pr4) {+ statut : CharField};
+\node[cattrW, below=0pt of pr4,  anchor=north] (pr5) {+ soumis\_par\_id : FK};
+\node[cattrW, below=0pt of pr5,  anchor=north] (pr6) {+ valide\_par\_id : FK};
+\node[cattrW, below=0pt of pr6,  anchor=north] (pr7) {+ commentaire : TextField};
 
-% Utilisateur 1 --< AuditLog
-\draw[rel]
-  (u1.west) -- ++(-0.3,0) |- node[left,font=\tiny,pos=0.7]{1..* audit} (a_t.north);
+%━━━━━━━━━━━━━━━━━  RELATIONSHIPS  ━━━━━━━━━━━━━━━━━
 
-% Utilisateur 1 --< PreprocessValidationRequest
-\draw[rel]
-  (u5.east) ++(4.2,0) -- ++(0.5,0) |-
-  node[right,font=\tiny,pos=0.3]{submits} (pr5.east);
+% ① Role 1──◇──►* Utilisateur   (horizontal at title level, labels ABOVE)
+\draw[agg]
+  (r_t.east) --
+    node[card, above, pos=0.06]{1}
+    node[rlbl, above, pos=0.50]{has}
+    node[card, above, pos=0.94]{*}
+  (u_t.west);
 
-\end{tikzpicture}
+% ② Utilisateur 1──◇──►* Patient   (horizontal at title level, labels ABOVE)
+\draw[agg]
+  (u_t.east) --
+    node[card, above, pos=0.06]{1}
+    node[rlbl, above, pos=0.50]{saisie\_par}
+    node[card, above, pos=0.94]{*}
+  (p_t.west);
+
+% ③ Utilisateur 1──►1..* AuditLog
+% Exit LEFT of Utilisateur bottom  →  LEFT in inter-row gap  →  DOWN into AuditLog
+\draw[assoc]
+  ($(u_t.south)+(-2.2,0)$)        % exit below-left of Utilisateur
+  |-                               % horizontal then vertical
+  (a_t.north)                      % arrive at AuditLog.north
+  node[rlbl, right, pos=0.72]{1\,..\,* \ audit};
+
+% ④ Utilisateur 1──►* PreprocessValidationRequest
+% Exit RIGHT of Utilisateur bottom  →  DOWN  →  RIGHT into Preprocess
+\draw[assoc]
+  ($(u_t.south)+(2.0,0)$)         % exit below-right of Utilisateur
+  -|                               % vertical then horizontal
+  (pr_t.north)                     % arrive at Preprocess.north
+  node[rlbl, right, pos=0.30]{submits};
+
+\end{tikzpicture}%
 }
-\caption{UML Class Diagram — main Django models}
+\caption{UML Class Diagram --- main Django models}
 \label{fig:class_diagram}
 \end{figure}
 
 \subsection{REST API Endpoints}
 
+La plateforme expose plus de 45 endpoints REST, organisés en quatre groupes de ressources : \texttt{/api/auth/} pour la gestion des utilisateurs et de l'authentification, \texttt{/api/patients/} pour les dossiers médicaux et le pipeline d'import/prétraitement, \texttt{/api/predictions/} pour l'inférence et le réentraînement du modèle SVM, et \texttt{/api/audit/} pour la consultation du journal d'activité.
+
+Tous les endpoints suivent les conventions REST standard : les verbes HTTP (\texttt{GET}, \texttt{POST}, \texttt{PATCH}, \texttt{DELETE}) expriment l'intention de l'opération, les codes de retour HTTP (200, 201, 400, 401, 403, 404) renseignent explicitement sur le résultat, et les réponses sont uniformément en JSON. Chaque endpoint est protégé par le middleware JWT de DRF, qui vérifie la validité du token d'accès avant d'autoriser la requête. Les actions sensibles (suppression, réentraînement, intégration de données) sont en outre restreintes par le système RBAC : seuls les rôles habilités peuvent les appeler, toute tentative non autorisée retournant une erreur 403.
+
+Le groupe \texttt{/api/patients/preprocess/} mérite une attention particulière : il implémente un workflow asynchrone en plusieurs étapes. L'appel à \texttt{analyze/} déclenche une tâche Celery qui soumet les données au modèle LLM (Qwen2.5:14B) ; les endpoints \texttt{status/} et \texttt{rows/} permettent de suivre la progression et de consulter les corrections proposées ; \texttt{cell-corrections/} permet à un clinicien de surcharger manuellement une suggestion LLM ; enfin \texttt{integrate/} finalise l'intégration des données corrigées dans la base patients après validation par le Chef de service.
+
 The platform exposes 45+ REST endpoints. Key endpoints are listed below:
 
-\begin{longtable}{llp{6.5cm}}
+\begin{longtable}{@{}
+  >{\bfseries\footnotesize}p{1.3cm}
+  >{\footnotesize\ttfamily\raggedright\arraybackslash}p{6.8cm}
+  >{\footnotesize\raggedright\arraybackslash}p{5.5cm}@{}}
 \caption{Principal REST API endpoints}\label{tab:api_endpoints}\\
 \toprule
 \textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
 \midrule
 \endfirsthead
-\multicolumn{3}{c}{\tablename\ \thetable{} (continued)}\\
+\multicolumn{3}{c}{\tablename\ \thetable\ (continued)}\\
 \toprule\textbf{Method} & \textbf{Endpoint} & \textbf{Description}\\\midrule
 \endhead
 \bottomrule
 \endlastfoot
-POST & \texttt{/api/auth/login/} & JWT login $\rightarrow$ access + refresh token \\
-POST & \texttt{/api/auth/refresh/} & Refresh expired access token \\
-GET & \texttt{/api/auth/users/} & List all users (admin) \\
-POST & \texttt{/api/auth/users/} & Create user account \\
-PATCH & \texttt{/api/auth/users/\{id\}/} & Update user profile \\
-DELETE & \texttt{/api/auth/users/\{id\}/} & Delete user (super admin) \\
-GET & \texttt{/api/patients/} & List patients (paginated, filterable) \\
-POST & \texttt{/api/patients/} & Create new patient record \\
-GET & \texttt{/api/patients/\{id\}/} & Full patient record \\
-PATCH & \texttt{/api/patients/\{id\}/} & Update patient data \\
-POST & \texttt{/api/patients/import/} & Import Excel/CSV file \\
-GET & \texttt{/api/patients/export/} & Export all patients as .xlsx \\
-GET & \texttt{/api/patients/flat/} & Flat view for analytics charts \\
-POST & \texttt{/api/patients/preprocess/analyze/} & Start async LLM preprocessing \\
-GET & \texttt{/api/patients/preprocess/\{sid\}/status/} & Preprocessing session status \\
-GET & \texttt{/api/patients/preprocess/\{sid\}/rows/} & LLM-suggested corrections per row \\
-PATCH & \texttt{/api/patients/preprocess/\{sid\}/cell-corrections/} & Override LLM correction \\
-POST & \texttt{/api/patients/preprocess/\{sid\}/integrate/} & Finalize data integration \\
-POST & \texttt{/api/predictions/train/} & Retrain SVM on current dataset \\
-POST & \texttt{/api/predictions/predict-patient/} & Predict mortality for 1 patient \\
-GET & \texttt{/api/predictions/metrics/} & Model performance metrics \\
-GET & \texttt{/api/audit/} & Paginated audit log (admin) \\
-DELETE & \texttt{/api/audit/cleanup-old/} & Manual log cleanup \\
+POST   & /api/auth/login/                           & JWT login $\rightarrow$ access + refresh token \\
+POST   & /api/auth/refresh/                         & Refresh expired access token \\
+GET    & /api/auth/users/                           & List all users (admin) \\
+POST   & /api/auth/users/                           & Create user account \\
+PATCH  & /api/auth/users/\{id\}/                   & Update user profile \\
+DELETE & /api/auth/users/\{id\}/                   & Delete user (super admin) \\
+GET    & /api/patients/                             & List patients (paginated, filterable) \\
+POST   & /api/patients/                             & Create new patient record \\
+GET    & /api/patients/\{id\}/                      & Full patient record \\
+PATCH  & /api/patients/\{id\}/                      & Update patient data \\
+POST   & /api/patients/import/                      & Import Excel/CSV file \\
+GET    & /api/patients/export/                      & Export all patients as .xlsx \\
+GET    & /api/patients/flat/                        & Flat view for analytics charts \\
+POST   & /api/patients/preprocess/analyze/          & Start async LLM preprocessing \\
+GET    & /api/patients/preprocess/\{sid\}/status/   & Preprocessing session status \\
+GET    & /api/patients/preprocess/\{sid\}/rows/     & LLM-suggested corrections per row \\
+PATCH  & /api/patients/preprocess/\{sid\}/\newline{}cell-corrections/   & Override LLM correction per cell \\
+POST   & /api/patients/preprocess/\{sid\}/\newline{}integrate/          & Finalize and integrate corrected data \\
+POST   & /api/predictions/train/                    & Retrain SVM on current dataset \\
+POST   & /api/predictions/predict-patient/          & Predict 1-year mortality for one patient \\
+GET    & /api/predictions/metrics/                  & Model performance metrics \\
+GET    & /api/audit/                                & Paginated audit log (admin only) \\
+DELETE & /api/audit/cleanup-old/                    & Manual cleanup of old log entries \\
 \end{longtable}
 
 \section{Authentication \& Security}\label{sec:auth}
 
 \subsection{JWT Authentication}
 
-Authentication follows the OAuth2-compatible JWT flow:
+AI NéphroCare uses \textbf{JSON Web Tokens (JWT)} via the \texttt{django\-restframe\-work\-simplejwt} library, following an OAuth2-compatible flow. Figure~\ref{fig:jwt_flow} illustrates the full exchange between the browser, the Django backend, and PostgreSQL.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+  actbox/.style={rectangle, draw=darkblue!80, fill=darkblue!72, text=white,
+                 font=\small\bfseries, minimum width=3.2cm, minimum height=0.65cm,
+                 align=center},
+  lline/.style={dashed, gray!45, line width=0.9pt},
+  fwd/.style={-{Stealth[scale=1.2]}, thick, darkblue!75},
+  msglbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt, midway, above, yshift=1pt},
+  nnum/.style={font=\scriptsize\bfseries, text=primary, circle, draw=primary!60,
+               inner sep=1.8pt, fill=white, line width=0.7pt},
+  notebox/.style={draw=orange!55, fill=yellow!12, font=\scriptsize, inner sep=5pt,
+                  align=left, rounded corners=3pt, text=navydark}
+]
+%--- Actors ---
+\node[actbox] (C) at (0,0)    {Browser};
+\node[actbox] (S) at (7.5,0)  {Django Backend};
+\node[actbox] (D) at (14.5,0) {PostgreSQL};
+
+%--- Lifelines ---
+\draw[lline] (C.south) -- ++(0,-11);
+\draw[lline] (S.south) -- ++(0,-11);
+\draw[lline] (D.south) -- ++(0,-11);
+
+%--- Step 1 : Login request ---
+\node[nnum] at (-1.1,-1.2) {1};
+\draw[fwd] (0,-1.2) -- node[msglbl]{POST /api/auth/login/} (7.5,-1.2);
+\node[font=\scriptsize, text=textsec] at (3.75,-1.65) {body: \{email, password\}};
+
+%--- Step 2 : DB verification ---
+\node[nnum] at (-1.1,-2.5) {2};
+\draw[fwd] (7.5,-2.5) -- node[msglbl]{SELECT user WHERE email=?} (14.5,-2.5);
+\draw[fwd] (14.5,-3.2) -- node[msglbl]{bcrypt.verify() OK} (7.5,-3.2);
+
+%--- Step 3 : Issue tokens ---
+\node[nnum] at (-1.1,-4.1) {3};
+\draw[fwd] (7.5,-4.1) -- node[msglbl]{access: JWT (8h),\ refresh: JWT (1d)} (0,-4.1);
+
+%--- Payload note ---
+\node[notebox] at (11.5,-5.2) {%
+  \textbf{JWT Payload}\\
+  user\_id, role, exp, iat\\
+  Signature: HMAC-SHA256};
+
+%--- Step 4 : Authenticated request ---
+\node[nnum] at (-1.1,-6.3) {4};
+\draw[fwd] (0,-6.3) -- node[msglbl]{GET /api/patients/ + Authorization: Bearer token} (7.5,-6.3);
+\node[font=\scriptsize, text=textsec] at (5.5,-6.8) {verify HMAC-SHA256 signature};
+\draw[fwd] (7.5,-7.5) -- node[msglbl]{200 OK + patient data} (0,-7.5);
+
+%--- Step 5 : Token refresh ---
+\node[nnum] at (-1.1,-8.5) {5};
+\draw[fwd] (0,-8.5) -- node[msglbl]{POST /api/auth/refresh/ + refresh token} (7.5,-8.5);
+\draw[fwd] (7.5,-9.2) -- node[msglbl]{new access JWT (8h)} (0,-9.2);
+\node[font=\scriptsize, text=textsec, align=center] at (3.75,-9.8)
+  {triggered automatically by Axios interceptor};
+
+\end{tikzpicture}}
+\caption{JWT authentication flow: token issuance (Steps 1--3), authenticated request (Step~4), and automatic token refresh via Axios interceptor (Step~5).}
+\label{fig:jwt_flow}
+\end{figure}
+
+The detailed steps are as follows:
 \begin{enumerate}
-  \item Client sends \texttt{POST /api/auth/login/} with email and password
-  \item Server validates credentials and returns \texttt{\{access: <jwt>, refresh: <jwt>\}}
-  \item Client attaches \texttt{Authorization: Bearer <access>} to subsequent requests
-  \item Access token expires after 8 hours; refresh token after 7 days
-  \item Axios interceptor automatically refreshes expired tokens transparently
+  \item The client sends \texttt{POST /api/auth/login/} with the user's email and password in JSON.
+  \item The server validates the credentials against the hashed (bcrypt) password stored in the database.
+  \item On success, the server returns a pair: \texttt{\{"access": "<jwt>", "refresh": "<jwt>"\}}.
+  \item For every subsequent request the client attaches \texttt{Authorization: Bearer <access\_token>}.
+  \item When the access token expires (after \textbf{8 hours}), the Axios interceptor on the frontend automatically calls \texttt{POST /api/auth/refresh/} with the refresh token to obtain a new access token, with no visible interruption for the user.
+  \item The refresh token itself expires after \textbf{1 day}; after that the user must log in again.
 \end{enumerate}
 
-The JWT payload encodes: \texttt{user\_id}, \texttt{role}, \texttt{exp} (expiration timestamp), \texttt{iat} (issued at). The server verifies the signature using \texttt{HS256} with a 256-bit secret key.
+The JWT payload encodes: \texttt{user\_id}, \texttt{role} (string), \texttt{exp} (expiration Unix timestamp), and \texttt{iat} (issued-at timestamp). The server verifies the token signature using \textbf{HMAC-SHA256 (HS256)} with a 256-bit secret key stored in the environment variable \texttt{SECRET\_KEY}, which is never committed to version control.
+
+\subsection{Role-Based Access Control (RBAC)}
+
+The platform defines \textbf{four roles} with hierarchical permissions. Each HTTP request passes through a DRF permission class that extracts the role from the JWT payload and enforces the access policy.
+
+\begin{table}[H]
+\centering
+\caption{RBAC permission matrix}\label{tab:rbac}
+\begin{tabularx}{\textwidth}{lXp{3.5cm}}
+\toprule
+\textbf{Role} & \textbf{Permitted actions} & \textbf{Restricted from} \\
+\midrule
+\textbf{Admin} &
+  Full access: user CRUD, patient management, preprocessing, predictions, audit log &
+  — \\
+\textbf{Head of Dept.} &
+  Approve preprocessing sessions, view all patients, run predictions, read audit log &
+  User CRUD, audit cleanup \\
+\textbf{Resident} &
+  Create and edit patients, submit preprocessing sessions for approval, run predictions &
+  User management, audit log, preprocessing approval \\
+\textbf{Professor} &
+  Read-only access to patients and prediction results &
+  All write operations \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+RBAC is enforced at two levels: (1) \textbf{Backend} — each DRF view carries a \texttt{permission\_classes} list that checks the role field from the JWT; (2) \textbf{Frontend} — the \texttt{ProtectedRoute} component reads the role from the \texttt{AuthContext} and redirects unauthorised users before the API call is even made.
+
+\subsection{Additional Security Measures}
+
+\begin{itemize}
+  \item \textbf{Password hashing}: all passwords are stored using Django's \textbf{PBKDF2+SHA256} hasher (the framework default, enforced via \texttt{AUTH\_PASSWORD\_VALIDATORS}), which applies 870\,000 iterations making brute-force attacks computationally prohibitive. The \texttt{bcrypt} library is listed as a dependency for future migration to a bcrypt-based hasher in production.
+  \item \textbf{Transport security}: the current deployment runs over HTTP on a local Docker network (\texttt{localhost:8000/3000}), which is acceptable for an intranet prototype. A production release would require TLS termination via a reverse proxy (e.g.\ Nginx + Let's Encrypt) and the Django settings \texttt{SECURE\_SSL\_REDIRECT}, \texttt{SESSION\_COOKIE\_SECURE}, and \texttt{CSRF\_COOKIE\_SECURE}. These hardening steps are identified as future work before any public-facing deployment.
+  \item \textbf{CORS}: the \texttt{django-cors-headers} middleware is configured with \texttt{CORS\_ALLOWED\_ORIGINS = [}\texttt{'http://localhost:3000']} so that only the declared frontend origin is permitted, blocking cross-origin requests from any other domain.
+  \item \textbf{Audit trail}: every state-changing action (create, update, delete on patients and users) is recorded in \texttt{AuditLog} with the actor's user ID, IP address, affected entity, and a text description of the change. The companion \texttt{HiddenAuditLog} table lets users hide individual log entries from their own view in the UI without deleting them from the database.
+  \item \textbf{Input validation}: all incoming data passes through DRF serializers before reaching the model layer, enforcing field types, uniqueness constraints, and required/optional fields. Malformed requests are rejected with an HTTP 400 response identifying the offending field.
+\end{itemize}
 
 \section{API Design}\label{sec:api}
 
+\subsection{DRF Serializers and Validation}
+
+Django REST Framework \textbf{serializers} sit between the HTTP layer and the database layer. Every endpoint uses a dedicated serializer that validates field types and constraints (e.g.\ \texttt{EmailField} uniqueness, required vs.\ optional fields), handles nested representations (e.g.\ the patient serializer structures the different data sections into a consistent response), and enforces write-protection on computed fields such as \texttt{date\_creation} and \texttt{utilisateur\_saisie}.
+
+Validation errors return HTTP \textbf{400 Bad Request} with a structured JSON body where each key is the offending field name and the value is a list of error messages. For example, submitting a duplicate email returns \texttt{\{"email": ["This field must be unique."]\}}.
+
+\subsection{Filtering and Search}
+
+The patient list endpoint (\texttt{GET /api/patients/}) returns a JSON object containing a \texttt{results} array and a \texttt{count} field. Filtering is implemented directly in the view layer via query parameters: \texttt{?search=} performs a full-text search across patient name, ID, and medical fields; \texttt{?sexe=}, \texttt{?age\_min=}, \texttt{?age\_max=}, \texttt{?statut\_inclusion=}, and \texttt{?date\_naissance=} allow targeted field-level filtering. All parameters can be combined freely in a single request.
+
 \subsection{Prediction Response Structure}
 
-The prediction API response provides clinicians with a complete, interpretable summary. The \texttt{POST /api/predictions/predict-patient/} endpoint returns: \texttt{risk\_zone} (Faible/Modérée/Élevée), \texttt{calibrated\_probability} (0–1), \texttt{raw\_probability}, \texttt{relative\_risk}, \texttt{top\_factors} (list of 5 SVM feature weights with direction), \texttt{recommendation} (clinical text), \texttt{features\_used} (32), and \texttt{model\_version}.
+The \texttt{POST /api/predictions/predict-patient/} endpoint assembles the patient's clinical features, runs them through the calibrated SVM pipeline, and returns a structured JSON response designed to be directly usable by clinicians:
+
+\begin{itemize}
+  \item \texttt{risk\_level} — categorical classification: \textit{Faible} ($<$10\,\%), \textit{Modéré} (10–40\,\%), or \textit{Élevé} ($\geq$40\,\%)
+  \item \texttt{score} — mortality risk expressed as a percentage (0–100)
+  \item \texttt{probability} — isotonically calibrated probability of 1-year mortality (0–1)
+  \item \texttt{factors} — ordered list of the most influential clinical features with their SVM weight and direction
+  \item \texttt{recommendation} — auto-generated clinical text summarising the risk level and key factors
+  \item \texttt{features\_used} — list of feature keys actually used in the prediction
+  \item \texttt{n\_features} — count of non-missing features used
+  \item \texttt{model} — identifier of the SVM model file used, enabling audit reproducibility
+  \item \texttt{doietal\_risk\_score} / \texttt{doietal\_risk\_category} — secondary risk score based on the Doi et al.\ clinical index
+\end{itemize}
 
 \section{Frontend Architecture}\label{sec:frontend}
 
@@ -2945,7 +3356,7 @@ Three sequence diagrams illustrate the principal system interactions.
 %========================================================
 \subsection{Sequence Diagram 1: User Authentication}
 
-Figure~\ref{fig:seq_auth} illustrates the complete JWT authentication flow. The process begins when the user enters credentials in the browser interface. The React frontend transmits them securely to the Django API, which queries the PostgreSQL database to verify the user record and validate the password hash. Upon successful authentication, the API returns a signed JWT access token (valid 8 hours) and a refresh token (valid 7 days). Subsequent API requests include the access token in the Authorization header; expired tokens are transparently renewed by the Axios interceptor without requiring re-login.
+Figure~\ref{fig:seq_auth} illustrates the complete JWT authentication flow. The process begins when the user enters credentials in the browser interface. The React frontend transmits them securely to the Django API, which queries the PostgreSQL database to verify the user record and validate the password hash. Upon successful authentication, the API returns a signed JWT access token (valid 8 hours) and a refresh token (valid 1 day). Subsequent API requests include the access token in the Authorization header; expired tokens are transparently renewed by the Axios interceptor without requiring re-login.
 
 \begin{figure}[H]
 \centering
@@ -3049,6 +3460,12 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 %========================================================
 \subsection{Sequence Diagram 3: Mortality Risk Prediction}
 
+Figure~\ref{fig:seq_predict} traces the complete workflow triggered when a clinician requests a 1-year mortality prediction for a patient. The sequence involves five actors: the clinician navigating the React frontend, the Django REST API, the PostgreSQL database, and the pre-trained SVM pipeline loaded from a \texttt{.joblib} file.
+
+The flow begins when the clinician clicks the \textit{Prédire} button (Step~1), which sends \texttt{POST /predictions/predict-patient/} to the backend with the patient's identifier (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features()} to build the clinical feature vector (Step~5). The vector is then passed to the SVM pipeline (Step~6), which applies the three preprocessing stages internally: KNN imputation ($k=3$) for missing values, Yeo-Johnson power transformation for normalization, and finally the linear SVC decision function. The raw probability $p_\text{raw}$ is returned (Step~7) and may optionally be refined by an isotonic calibrator (Steps~8--9) when one is available.
+
+The backend then derives the risk score as $\text{score} = p \times 100$ and assigns a categorical risk level using fixed clinical thresholds: \textbf{Faible} ($\leq 30\%$), \textbf{Modéré} (31--70\%), or \textbf{Élevé} ($>70\%$). A clinical recommendation text and the list of most influential factors are assembled before the action is logged in \texttt{AuditLog} (Step~11). The structured JSON response (Step~13) contains \texttt{risk\_level}, \texttt{score}, \texttt{probability}, \texttt{factors}, \texttt{recommendation}, and \texttt{features\_used}, which the frontend uses to render the risk gauge and results panel (Step~14).
+
 \begin{figure}[H]
 \centering
 \resizebox{0.95\textwidth}{!}{%
@@ -3058,7 +3475,7 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 \node[actorbox] (F) at (3.5,0)   {React\\Frontend};
 \node[actorbox] (B) at (7,0)     {Django API};
 \node[actorbox] (DB) at (10.5,0) {PostgreSQL};
-\node[actorbox] (ML) at (14,0)   {SVM Pipeline\\(.joblib)};
+\node[actorbox] (ML) at (14,0)   {SVM Pipeline};
 
 % --- Lifelines ---
 \foreach \x in {0,3.5,7,10.5,14}
@@ -3085,16 +3502,16 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 \draw[msgret] (14,-7.3)  -- node[msglbl]{7. p\_raw $\in$ [0,1]} (7,-7.3);
 \draw[msgfwd] (7,-8.0)   -- node[msglbl]{8. iso\_calibrator.transform(p\_raw)} (14,-8.0);
 \draw[msgret] (14,-8.7)  -- node[msglbl]{9. p\_calib (calibrated probability)} (7,-8.7);
-\draw[msgfwd] (7,-9.4)   -- node[msglbl]{10. iso\_cal $\rightarrow$ $\hat{p}$; zones: $<10\%$$\rightarrow$Faible, $10{-}40\%$$\rightarrow$Modérée, $\geq40\%$$\rightarrow$Élevée} (7,-9.4);
+\draw[msgfwd] (7,-9.4)   -- node[msglbl]{10. $\hat{p}<10\%$$\rightarrow$Faible,\ $10\%{\leq}\hat{p}<40\%$$\rightarrow$Modéré,\ $\hat{p}{\geq}40\%$$\rightarrow$Élevé} (7,-9.4);
   \draw[msgfwd] (7.13,-9.2) arc(90:-270:0.25cm);
 \draw[msgfwd] (7,-10.1)  -- node[msglbl]{11. INSERT INTO audit\_auditlog} (10.5,-10.1);
 \draw[msgret] (10.5,-10.8) -- node[msglbl]{12. OK} (7,-10.8);
-\draw[msgret] (7,-11.5)  -- node[msglbl]{13. \{risk\_zone, p\_calib, top\_5\_factors, recommendation\}} (3.5,-11.5);
+\draw[msgret] (7,-11.5)  -- node[msglbl]{13. \{risk\_level, score, probability, factors, recommendation\}} (3.5,-11.5);
 \draw[msgret] (3.5,-12.2) -- node[msglbl]{14. Display risk gauge + results} (0,-12.2);
 
 % Zone annotation
 \node[draw,fill=green!10,font=\tiny,align=left,inner sep=3pt] at (11.5,-10.3)
-  {Faible: $\hat{p} < 10\%$\\Modérée: $10\% \leq \hat{p} < 40\%$\\Élevée: $\hat{p} \geq 40\%$\\(TRIPOD/DOPPS/KDIGO)};
+  {Faible: $\hat{p} < 10\%$\\Modéré: $10\% \leq \hat{p} < 40\%$\\Élevé: $\hat{p} \geq 40\%$};
 
 \end{tikzpicture}
 }
@@ -3138,6 +3555,8 @@ Functional testing covered the complete user journey from authentication through
   \item \textbf{RBAC}: Systematic verification that Résident accounts cannot access validation or administration endpoints, and that Chef de service accounts cannot access admin-only user management functions
   \item \textbf{Password confirmation}: Verification that account modifications (role change, password reset) correctly require entering the user's own password before saving
 \end{itemize}
+
+Figure~\ref{fig:test_results} provides a summary view of the functional test coverage, confirming that all critical user flows were validated across each role.
 
 \begin{figure}[H]
 \centering

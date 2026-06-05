@@ -374,7 +374,7 @@ function Dashboard() {
         ...shellSx,
       }}
     >
-      <Box sx={{ maxWidth: 1680, mx: 'auto', width: '100%' }}>
+      <Box sx={{ width: '100%' }}>
         <AppSidebar />
 
         <Box sx={{ minWidth: 0, '@media (min-width:768px)': { ml: '252px' } }}>
