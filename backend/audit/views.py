@@ -63,6 +63,51 @@ class PatientAuditHistoryView(APIView):
         return Response(payload)
 
 
+class MyRecentActivityView(APIView):
+    """Return the last 10 audit log entries for the authenticated user."""
+    permission_classes = [CanViewPatients]
+
+    _ACTION_LABELS = [
+        ('CREATION_PATIENT',         'Nouveau patient ajouté',      '#1E9E84'),
+        ('MODIFICATION_PATIENT',     'Dossier patient modifié',     '#5B6BC0'),
+        ('SUPPRESSION_PATIENT',      'Patient supprimé',            '#D47A8E'),
+        ('PREDICTION_MORTALITE',     'Prédiction IA lancée',        '#8B6FC4'),
+        ('IMPORT_FICHIER',           'Import fichier Excel/CSV',    '#1A6B8A'),
+        ('PREPROCESSING_SUBMITTED',  'Fichier soumis pour validation', '#d18f47'),
+        ('PREPROCESSING_APPROVED',   '✓ Import validé et intégré',    '#1E9E84'),
+        ('PREPROCESSING_REJECTED',   '✗ Import refusé',               '#D47A8E'),
+        ('CREATION_UTILISATEUR',     'Création de compte',          '#1A6B8A'),
+        ('MODIFICATION_UTILISATEUR', 'Compte utilisateur modifié',  '#5B6BC0'),
+        ('SUPPRESSION_UTILISATEUR',  'Compte supprimé',             '#D47A8E'),
+        ('MODIFICATION_MOT_DE_PASSE','Mot de passe modifié',        '#6B8A9C'),
+    ]
+
+    def _resolve_label(self, action):
+        for prefix, label, color in self._ACTION_LABELS:
+            if action and action.startswith(prefix):
+                return label, color
+        return _humanize_action(action), '#6B8A9C'
+
+    def get(self, request):
+        entries = AuditLog.objects.filter(
+            utilisateur=request.user
+        ).order_by('-date')[:10]
+
+        payload = []
+        for e in entries:
+            label, color = self._resolve_label(e.action)
+            payload.append({
+                'id': e.id,
+                'label': label,
+                'action': e.action,
+                'entite': e.entite,
+                'entite_id': e.entite_id,
+                'date': e.date,
+                'color': color,
+            })
+        return Response(payload)
+
+
 class PatientAuditHistoryHideView(APIView):
     permission_classes = [CanViewPatients]
 

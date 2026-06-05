@@ -3361,17 +3361,6 @@ function PatientsManagement() {
                   minWidth: { lg: 340 },
                 }}
               >
-                <Chip
-                  label={roleLabel}
-                  sx={{
-                    alignSelf: { xs: 'flex-start', lg: 'flex-end' },
-                    background: `linear-gradient(135deg,${PM.steel},${PM.navy})`,
-                    color: '#fff', fontWeight: 700, fontSize: '0.75rem',
-                    border: 'none',
-                    '& .MuiChip-icon': { display: 'none' },
-                    '& .MuiAvatar-root': { display: 'none' }
-                  }}
-                />
                 <Box sx={{ p: 0, borderRadius: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}>
                   <Tabs
                     value={activeTab}

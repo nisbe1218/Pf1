@@ -89,6 +89,8 @@ function Dashboard() {
   const location = useLocation();
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [expandedActivity, setExpandedActivity] = useState(null);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [adminPassword, setAdminPassword] = useState('');
@@ -99,6 +101,7 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showManagementPanel, setShowManagementPanel] = useState(false);
+  const [activeFilter, setActiveFilter] = useState(null);
 
   const isAdminScope = user?.role === 'super_admin' || user?.role === 'chef_service';
   const isDashboardActive = location.pathname.startsWith('/dashboard');
@@ -181,12 +184,12 @@ function Dashboard() {
       const allowed = user?.role === 'super_admin'
         || managedUser.role?.nom === 'professeur'
         || managedUser.role?.nom === 'resident';
-      if (!allowed) {
-        return false;
-      }
-      if (!lower) {
-        return true;
-      }
+      if (!allowed) return false;
+      if (activeFilter === 'active'   && !managedUser.is_active) return false;
+      if (activeFilter === 'inactive' &&  managedUser.is_active) return false;
+      if (['super_admin','chef_service','professeur','resident'].includes(activeFilter)
+          && managedUser.role?.nom !== activeFilter) return false;
+      if (!lower) return true;
       return [
         managedUser.email,
         managedUser.nom,
@@ -195,7 +198,7 @@ function Dashboard() {
         managedUser.role?.nom,
       ].some((value) => value?.toLowerCase().includes(lower));
     });
-  }, [user?.role, users, search]);
+  }, [user?.role, users, search, activeFilter]);
 
   const resolveRoleById = (roleId) => {
     return roles.find((role) => String(role.id) === String(roleId)) || null;
@@ -223,8 +226,15 @@ function Dashboard() {
     loadManagementData();
   }, [isAdminScope]);
 
+  useEffect(() => {
+    if (!isAdminScope) {
+      api.get('audit/my-activity/').then(r => setRecentActivity(r.data || [])).catch(() => {});
+    }
+  }, [isAdminScope]);
+
   const resetForm = () => {
     setForm(emptyForm);
+    setAdminPassword('');
     setError('');
     setSuccess('');
   };
@@ -267,7 +277,7 @@ function Dashboard() {
         telephone: form.telephone,
         role_id: form.role_id,
         is_active: form.is_active,
-        confirmation_password: adminPassword,
+        ...(form.id ? { confirmation_password: adminPassword } : {}),
       };
 
       if (form.password && String(form.password).trim()) {
@@ -405,32 +415,42 @@ function Dashboard() {
                 </Button>
               </Box>
 
-              {/* Droite — stats inline */}
-              <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
+              {/* Droite — stats inline (admin/chef uniquement) */}
+              {isAdminScope && <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
                 {[
-                  { label: 'Actifs',         value: stats.activeUsers     },
-                  { label: 'Inactifs',       value: stats.inactiveUsers   },
-                  { label: 'Super Admins',   value: stats.adminsCount     },
-                  { label: 'Chefs Service',  value: stats.chefsCount      },
-                  { label: 'Professeurs',    value: stats.professorsCount },
-                  { label: 'Résidents',      value: stats.residentsCount  },
-                  { label: 'Rôles',          value: stats.rolesCount      },
-                ].map(({ label, value }) => (
-                  <Box key={label} sx={{
-                    px: 2.5, py: 1.75,
-                    borderRadius: 3,
-                    background: 'rgba(255,255,255,0.12)',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    minWidth: 90, textAlign: 'center',
-                    transition: 'background 0.2s',
-                    '&:hover': { background: 'rgba(255,255,255,0.20)' },
-                  }}>
-                    <Typography variant="h5" fontWeight={900} sx={{ color: '#fff', letterSpacing: '-.03em' }}>{value}</Typography>
-                    <Typography sx={{ fontSize: 11, color: 'rgba(255,255,255,0.70)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', mt: 0.25 }}>{label}</Typography>
-                  </Box>
-                ))}
-              </Stack>
+                  { label: 'Actifs',        value: stats.activeUsers,     filterKey: 'active'       },
+                  { label: 'Inactifs',      value: stats.inactiveUsers,   filterKey: 'inactive'     },
+                  { label: 'Super Admins',  value: stats.adminsCount,     filterKey: 'super_admin'  },
+                  { label: 'Chefs Service', value: stats.chefsCount,      filterKey: 'chef_service' },
+                  { label: 'Professeurs',   value: stats.professorsCount, filterKey: 'professeur'   },
+                  { label: 'Résidents',     value: stats.residentsCount,  filterKey: 'resident'     },
+                  { label: 'Rôles',         value: stats.rolesCount,      filterKey: null           },
+                ].map(({ label, value, filterKey }) => {
+                  const isActive = filterKey && activeFilter === filterKey;
+                  return (
+                    <Box
+                      key={label}
+                      onClick={() => filterKey && setActiveFilter((f) => f === filterKey ? null : filterKey)}
+                      sx={{
+                        px: 2.5, py: 1.75,
+                        borderRadius: 3,
+                        background: isActive ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.12)',
+                        border: isActive ? '2px solid rgba(255,255,255,0.70)' : '1px solid rgba(255,255,255,0.18)',
+                        backdropFilter: 'blur(8px)',
+                        minWidth: 90, textAlign: 'center',
+                        cursor: filterKey ? 'pointer' : 'default',
+                        transition: 'all 0.18s',
+                        transform: isActive ? 'translateY(-2px)' : 'none',
+                        boxShadow: isActive ? '0 6px 18px rgba(0,0,0,0.18)' : 'none',
+                        '&:hover': filterKey ? { background: 'rgba(255,255,255,0.22)', transform: 'translateY(-1px)' } : {},
+                      }}
+                    >
+                      <Typography variant="h5" fontWeight={900} sx={{ color: '#fff', letterSpacing: '-.03em' }}>{value}</Typography>
+                      <Typography sx={{ fontSize: 11, color: isActive ? '#fff' : 'rgba(255,255,255,0.70)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', mt: 0.25 }}>{label}</Typography>
+                    </Box>
+                  );
+                })}
+              </Stack>}
             </Stack>
           </Paper>
 
@@ -438,7 +458,7 @@ function Dashboard() {
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
       <Grid container spacing={3}>
-        <Grid item xs={12} xl={isAdminScope ? 4 : 12}>
+        <Grid item xs={12} xl={isAdminScope ? 4 : 5}>
           <Stack spacing={3} sx={isAdminScope ? { position: { xl: 'sticky' }, top: { xl: 24 } } : undefined}>
             <Card elevation={0} sx={subtlePanelSx}>
               <Box sx={{ height: 10, background: `linear-gradient(90deg, #0D4D63 0%, #1A8FA8 55%, #D47A8E 100%)` }} />
@@ -496,6 +516,105 @@ function Dashboard() {
             </Card>
           </Stack>
         </Grid>
+
+        {!isAdminScope && (
+          <Grid item xs={12} xl={7}>
+            <Card elevation={0} sx={subtlePanelSx}>
+              <Box sx={{ height: 10, background: `linear-gradient(90deg, #0D4D63 0%, #1A8FA8 55%, #D47A8E 100%)` }} />
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" fontWeight={800} sx={{ color: DASHBOARD_THEME.deepNavy, mb: 2 }}>
+                  Activité récente
+                </Typography>
+                {recentActivity.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">Aucune activité enregistrée pour le moment.</Typography>
+                  </Box>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {recentActivity.map((item) => {
+                      const isApproved = item.action?.startsWith('PREPROCESSING_APPROVED');
+                      const isRejected = item.action?.startsWith('PREPROCESSING_REJECTED');
+                      const isExpanded = expandedActivity === item.id;
+
+                      // Parse action string: "TYPE: detail — comment"
+                      const actionParts = (item.action || '').split(': ');
+                      const actionType = actionParts[0] || '';
+                      const actionDetail = actionParts.slice(1).join(': ') || '';
+                      const mainDetail = actionDetail.split(' — ')[0] || '';
+                      const commentPart = actionDetail.includes(' — ') ? actionDetail.split(' — ').slice(1).join(' — ') : null;
+
+                      // Navigation target
+                      const navTarget = actionType.includes('PATIENT') ? '/patients'
+                        : actionType.includes('PREDICTION') ? '/modele-ai'
+                        : actionType.includes('PREPROCESSING') ? '/patients?tab=preprocessing'
+                        : null;
+
+                      return (
+                        <Box
+                          key={item.id}
+                          onClick={() => setExpandedActivity(isExpanded ? null : item.id)}
+                          sx={{
+                            borderRadius: 3, overflow: 'hidden',
+                            border: '1.5px solid',
+                            borderColor: isApproved ? 'rgba(30,158,132,0.35)' : isRejected ? 'rgba(212,122,142,0.35)' : isExpanded ? DASHBOARD_THEME.medicalBlue : DASHBOARD_THEME.borderLight,
+                            cursor: 'pointer',
+                            transition: 'all 0.18s ease',
+                            '&:hover': { borderColor: DASHBOARD_THEME.medicalBlue, boxShadow: '0 2px 8px rgba(26,107,138,0.10)' },
+                          }}
+                        >
+                          {/* Ligne principale */}
+                          <Box sx={{
+                            display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+                            bgcolor: isApproved ? 'rgba(30,158,132,0.06)' : isRejected ? 'rgba(212,122,142,0.06)' : isExpanded ? 'rgba(26,107,138,0.04)' : 'rgba(0,0,0,0.02)',
+                          }}>
+                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: item.color, flexShrink: 0 }} />
+                            <Typography variant="body2" fontWeight={isApproved || isRejected ? 700 : 600} sx={{ flex: 1, color: isApproved || isRejected ? item.color : DASHBOARD_THEME.deepNavy }}>
+                              {item.label}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, mr: 0.5 }}>
+                              {item.date ? new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </Typography>
+                            <Box sx={{ color: DASHBOARD_THEME.textMuted, fontSize: 10, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>▾</Box>
+                          </Box>
+
+                          {/* Détails expandés */}
+                          {isExpanded && (
+                            <Box sx={{ px: 2, pb: 1.5, pt: 0.5, borderTop: `1px solid ${DASHBOARD_THEME.borderLight}`, bgcolor: '#fafcfe' }}>
+                              {mainDetail && (
+                                <Typography variant="caption" sx={{ display: 'block', color: DASHBOARD_THEME.textMuted, mb: 0.5 }}>
+                                  {mainDetail}
+                                </Typography>
+                              )}
+                              {commentPart && (
+                                <Typography variant="caption" sx={{ display: 'block', color: isRejected ? DASHBOARD_THEME.softRose : DASHBOARD_THEME.medicalBlue, fontStyle: 'italic', mb: 0.5 }}>
+                                  💬 {commentPart}
+                                </Typography>
+                              )}
+                              {item.entite_id && (
+                                <Typography variant="caption" sx={{ display: 'block', color: DASHBOARD_THEME.textMuted }}>
+                                  Référence : {item.entite} #{item.entite_id}
+                                </Typography>
+                              )}
+                              {navTarget && (
+                                <Box
+                                  component="span"
+                                  onClick={(e) => { e.stopPropagation(); navigate(navTarget); }}
+                                  sx={{ display: 'inline-block', mt: 1, fontSize: 11, fontWeight: 700, color: DASHBOARD_THEME.medicalBlue, cursor: 'pointer', textDecoration: 'underline', '&:hover': { color: DASHBOARD_THEME.deepNavy } }}
+                                >
+                                  Voir →
+                                </Box>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {isAdminScope && (
           <Grid item xs={12} xl={8}>
@@ -603,16 +722,18 @@ function Dashboard() {
                     </Grid>
                   </Grid>
 
-                  <TextField
-                    label="Mot de passe de validation"
-                    type="password"
-                    value={adminPassword}
-                    onChange={(event) => setAdminPassword(event.target.value)}
-                    fullWidth
-                    required
-                    size="small"
-                    helperText={t('dashboardSaveConfirmationPassword')}
-                  />
+                  {form.id && (
+                    <TextField
+                      label="Mot de passe de validation"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(event) => setAdminPassword(event.target.value)}
+                      fullWidth
+                      required
+                      size="small"
+                      helperText={t('dashboardSaveConfirmationPassword')}
+                    />
+                  )}
 
                   {!form.id && (
                     <TextField
@@ -657,10 +778,22 @@ function Dashboard() {
               <Card elevation={0} sx={softCardSx}>
                 <CardContent sx={{ p: 3 }}>
                   <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" spacing={2.25} sx={{ mb: 2.25 }}>
-                    <Stack direction="row" spacing={1.25} alignItems="center">
+                    <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
                       <Typography variant="h6" fontWeight={800} sx={{ color: DASHBOARD_THEME.deepNavy }}>
                         Comptes gérés
                       </Typography>
+                      {activeFilter && (
+                        <Chip
+                          size="small"
+                          label={{
+                            active: 'Actifs', inactive: 'Inactifs',
+                            super_admin: 'Super Admins', chef_service: 'Chefs Service',
+                            professeur: 'Professeurs', resident: 'Résidents',
+                          }[activeFilter]}
+                          onDelete={() => setActiveFilter(null)}
+                          sx={{ fontWeight: 700, bgcolor: DASHBOARD_THEME.medicalBlue, color: '#fff', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.8)' } }}
+                        />
+                      )}
                       {isAdminScope && (
                         <Button
                           size="small"

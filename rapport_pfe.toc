@@ -90,12 +90,12 @@
 \contentsline {subsection}{\numberline {4.5.1}Validation Rules}{54}{subsection.4.5.1}%
 \contentsline {subsection}{\numberline {4.5.2}Audit Logs}{55}{subsection.4.5.2}%
 \contentsline {section}{\numberline {4.6}Data Engineering Layer}{55}{section.4.6}%
-\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:14B)}{56}{subsection.4.6.1}%
-\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{57}{subsection.4.6.2}%
+\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:7B)}{56}{subsection.4.6.1}%
+\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{58}{subsection.4.6.2}%
 \contentsline {subsection}{\numberline {4.6.3}Celery Asynchronous Task Queue}{58}{subsection.4.6.3}%
 \contentsline {section}{\numberline {4.7}Feature Engineering}{58}{section.4.7}%
 \contentsline {subsection}{\numberline {4.7.1}Clinical Feature Extraction}{58}{subsection.4.7.1}%
-\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{58}{subsection.4.7.2}%
+\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{59}{subsection.4.7.2}%
 \contentsline {section}{\numberline {4.8}Discussion}{59}{section.4.8}%
 \contentsline {subsection}{\numberline {4.8.1}Why No External ETL}{59}{subsection.4.8.1}%
 \contentsline {subsection}{\numberline {4.8.2}Impact on Model Performance}{59}{subsection.4.8.2}%
@@ -160,39 +160,47 @@
 \contentsline {subsection}{\numberline {6.3.3}Prediction Response Structure}{95}{subsection.6.3.3}%
 \contentsline {section}{\numberline {6.4}Frontend Architecture}{95}{section.6.4}%
 \contentsline {subsection}{\numberline {6.4.1}React Structure}{95}{subsection.6.4.1}%
-\contentsline {subsection}{\numberline {6.4.2}Application Sidebar and Navigation}{95}{subsection.6.4.2}%
-\contentsline {subsection}{\numberline {6.4.3}Pages and Interfaces}{96}{subsection.6.4.3}%
-\contentsline {section}{\numberline {6.5}Data Visualization}{101}{section.6.5}%
-\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{101}{subsection.6.5.1}%
-\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{101}{section*.80}%
-\contentsline {subsubsection}{Sex Distribution and Key KPIs}{101}{section*.82}%
-\contentsline {subsubsection}{Age Distribution by Sex}{101}{section*.84}%
-\contentsline {subsubsection}{Complication Type Frequencies}{102}{section*.86}%
-\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{102}{section*.88}%
-\contentsline {subsubsection}{Top Comorbidity Combinations}{102}{section*.90}%
-\contentsline {subsection}{\numberline {6.5.2}AI Prediction Results Visualization (AI Model --- Prediction Tab)}{102}{subsection.6.5.2}%
-\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{103}{section.6.6}%
-\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{103}{subsection.6.6.1}%
-\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{104}{subsection.6.6.2}%
-\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{105}{subsection.6.6.3}%
-\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{108}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Deployment Architecture}{108}{section.7.1}%
-\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{108}{subsection.7.1.1}%
-\contentsline {section}{\numberline {7.2}System Testing}{108}{section.7.2}%
-\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{108}{subsection.7.2.1}%
-\contentsline {subsection}{\numberline {7.2.2}API Tests}{109}{subsection.7.2.2}%
-\contentsline {section}{\numberline {7.3}Performance Evaluation}{110}{section.7.3}%
-\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{110}{subsection.7.3.1}%
-\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{110}{subsection.7.3.2}%
-\contentsline {section}{\numberline {7.4}Results \& Impact}{111}{section.7.4}%
-\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{111}{subsection.7.4.1}%
-\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{111}{subsection.7.4.2}%
-\contentsline {section}{\numberline {7.5}Limitations}{112}{section.7.5}%
-\contentsline {subsection}{\numberline {7.5.1}Data Availability}{112}{subsection.7.5.1}%
-\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{112}{subsection.7.5.2}%
-\contentsline {section}{\numberline {7.6}Future Work}{112}{section.7.6}%
-\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{112}{subsection.7.6.1}%
-\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{112}{subsection.7.6.2}%
-\contentsline {subsection}{\numberline {7.6.3}External ETL Pipelines}{113}{subsection.7.6.3}%
-\contentsline {chapter}{General Conclusion}{114}{chapter*.99}%
-\contentsline {chapter}{Webography}{119}{chapter*.101}%
+\contentsline {subsection}{\numberline {6.4.2}Pages and Interfaces}{95}{subsection.6.4.2}%
+\contentsline {paragraph}{KPI summary.}{99}{section*.69}%
+\contentsline {paragraph}{User Management (CRUD).}{100}{section*.72}%
+\contentsline {paragraph}{Import validation workflow.}{100}{section*.75}%
+\contentsline {paragraph}{Click-to-expand interaction.}{101}{section*.78}%
+\contentsline {paragraph}{Import decision notifications.}{101}{section*.80}%
+\contentsline {paragraph}{Step 1 — File upload.}{102}{section*.84}%
+\contentsline {paragraph}{Step 2 — Analysis pipeline (11 stages).}{102}{section*.86}%
+\contentsline {paragraph}{Step 3 --- LLM correction review table.}{105}{section*.90}%
+\contentsline {paragraph}{Step 4 --- Integration.}{107}{section*.94}%
+\contentsline {section}{\numberline {6.5}Data Visualization}{111}{section.6.5}%
+\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{111}{subsection.6.5.1}%
+\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{111}{section*.107}%
+\contentsline {subsubsection}{Sex Distribution and Key KPIs}{111}{section*.109}%
+\contentsline {subsubsection}{Age Distribution by Sex}{111}{section*.111}%
+\contentsline {subsubsection}{Complication Type Frequencies}{111}{section*.113}%
+\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{112}{section*.115}%
+\contentsline {subsubsection}{Top Comorbidity Combinations}{112}{section*.117}%
+\contentsline {subsection}{\numberline {6.5.2}AI Prediction Results Visualization (AI Model --- Prediction Tab)}{112}{subsection.6.5.2}%
+\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{113}{section.6.6}%
+\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{113}{subsection.6.6.1}%
+\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{114}{subsection.6.6.2}%
+\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{115}{subsection.6.6.3}%
+\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{118}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Deployment Architecture}{118}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{118}{subsection.7.1.1}%
+\contentsline {section}{\numberline {7.2}System Testing}{118}{section.7.2}%
+\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{118}{subsection.7.2.1}%
+\contentsline {subsection}{\numberline {7.2.2}API Tests}{119}{subsection.7.2.2}%
+\contentsline {section}{\numberline {7.3}Performance Evaluation}{120}{section.7.3}%
+\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{120}{subsection.7.3.1}%
+\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{120}{subsection.7.3.2}%
+\contentsline {section}{\numberline {7.4}Results \& Impact}{121}{section.7.4}%
+\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{121}{subsection.7.4.1}%
+\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{121}{subsection.7.4.2}%
+\contentsline {section}{\numberline {7.5}Limitations}{122}{section.7.5}%
+\contentsline {subsection}{\numberline {7.5.1}Data Availability}{122}{subsection.7.5.1}%
+\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{122}{subsection.7.5.2}%
+\contentsline {section}{\numberline {7.6}Future Work}{122}{section.7.6}%
+\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{122}{subsection.7.6.1}%
+\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{122}{subsection.7.6.2}%
+\contentsline {subsection}{\numberline {7.6.3}External ETL Pipelines}{123}{subsection.7.6.3}%
+\contentsline {chapter}{General Conclusion}{124}{chapter*.126}%
+\contentsline {chapter}{Webography}{129}{chapter*.128}%

@@ -262,16 +262,16 @@
 \citation{llm_clinical_nlp_2023}
 \@writefile{lof}{\contentsline {figure}{\numberline {4.2}{\ignorespaces LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and Chef de service approval, the cleaned data enters the ML pipeline.}}{56}{figure.caption.44}\protected@file@percent }
 \newlabel{fig:llm_pipeline}{{4.2}{56}{LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and Chef de service approval, the cleaned data enters the ML pipeline}{figure.caption.44}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:14B)}{56}{subsection.4.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:7B)}{56}{subsection.4.6.1}\protected@file@percent }
 \citation{rag_lewis_2020}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{57}{subsection.4.6.2}\protected@file@percent }
-\citation{beddhu2000charlson,albumin_dialysis_2018,kdigo2015,dopps2022}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{58}{subsection.4.6.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.6.3}Celery Asynchronous Task Queue}{58}{subsection.4.6.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4.7}Feature Engineering}{58}{section.4.7}\protected@file@percent }
 \newlabel{sec:feature_engineering}{{4.7}{58}{Feature Engineering}{section.4.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.7.1}Clinical Feature Extraction}{58}{subsection.4.7.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{58}{subsection.4.7.2}\protected@file@percent }
-\newlabel{sec:interaction_features}{{4.7.2}{58}{Derived Risk Indicators}{subsection.4.7.2}{}}
+\citation{beddhu2000charlson,albumin_dialysis_2018,kdigo2015,dopps2022}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{59}{subsection.4.7.2}\protected@file@percent }
+\newlabel{sec:interaction_features}{{4.7.2}{59}{Derived Risk Indicators}{subsection.4.7.2}{}}
 \newlabel{eq:int1}{{4.2}{59}{Derived Risk Indicators}{equation.4.2}{}}
 \newlabel{eq:int2}{{4.3}{59}{Derived Risk Indicators}{equation.4.3}{}}
 \newlabel{eq:int3}{{4.4}{59}{Derived Risk Indicators}{equation.4.4}{}}
@@ -461,100 +461,138 @@
 \@writefile{toc}{\contentsline {section}{\numberline {6.4}Frontend Architecture}{95}{section.6.4}\protected@file@percent }
 \newlabel{sec:frontend}{{6.4}{95}{Frontend Architecture}{section.6.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {6.4.1}React Structure}{95}{subsection.6.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.4.2}Application Sidebar and Navigation}{95}{subsection.6.4.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.3}{\ignorespaces AI NéphroCare navigation sidebar --- main interface entry points}}{95}{figure.caption.65}\protected@file@percent }
-\newlabel{fig:sidebar}{{6.3}{95}{AI NéphroCare navigation sidebar --- main interface entry points}{figure.caption.65}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.4.3}Pages and Interfaces}{96}{subsection.6.4.3}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.4}{\ignorespaces Administrator dashboard --- 7 KPI cards and user management table}}{97}{figure.caption.66}\protected@file@percent }
-\newlabel{fig:dashboard_admin}{{6.4}{97}{Administrator dashboard --- 7 KPI cards and user management table}{figure.caption.66}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.5}{\ignorespaces Preprocessing interface --- file upload, LLM analysis with Qwen 14B, and correction review workflow}}{97}{figure.caption.68}\protected@file@percent }
-\newlabel{fig:preproc_ui}{{6.5}{97}{Preprocessing interface --- file upload, LLM analysis with Qwen 14B, and correction review workflow}{figure.caption.68}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.6}{\ignorespaces LLM correction review interface --- Qwen2.5:14B suggestions with medical justifications}}{98}{figure.caption.69}\protected@file@percent }
-\newlabel{fig:llm_corrections}{{6.6}{98}{LLM correction review interface --- Qwen2.5:14B suggestions with medical justifications}{figure.caption.69}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.7}{\ignorespaces Data management interface --- searchable patient table with dynamic column support}}{98}{figure.caption.71}\protected@file@percent }
-\newlabel{fig:data_mgmt}{{6.7}{98}{Data management interface --- searchable patient table with dynamic column support}{figure.caption.71}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.8}{\ignorespaces Patient analysis interface --- epidemiological and clinical statistics charts}}{99}{figure.caption.73}\protected@file@percent }
-\newlabel{fig:analysis_charts}{{6.8}{99}{Patient analysis interface --- epidemiological and clinical statistics charts}{figure.caption.73}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.9}{\ignorespaces AI Model analysis dashboard --- SVM performance metrics and risk zone overview}}{99}{figure.caption.75}\protected@file@percent }
-\newlabel{fig:ai_dashboard}{{6.9}{99}{AI Model analysis dashboard --- SVM performance metrics and risk zone overview}{figure.caption.75}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.10}{\ignorespaces AI Model patient list --- each row shows patient summary and a Predict action button}}{100}{figure.caption.77}\protected@file@percent }
-\newlabel{fig:ai_patients}{{6.10}{100}{AI Model patient list --- each row shows patient summary and a Predict action button}{figure.caption.77}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.11}{\ignorespaces AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}}{100}{figure.caption.79}\protected@file@percent }
-\newlabel{fig:ai_prediction}{{6.11}{100}{AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}{figure.caption.79}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6.5}Data Visualization}{101}{section.6.5}\protected@file@percent }
-\newlabel{sec:dataviz}{{6.5}{101}{Data Visualization}{section.6.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{101}{subsection.6.5.1}\protected@file@percent }
-\newlabel{sec:dataviz_charts}{{6.5.1}{101}{Clinical Analytics Charts (Patient Management --- Analysis Tab)}{subsection.6.5.1}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{101}{section*.80}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.12}{\ignorespaces Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}}{101}{figure.caption.81}\protected@file@percent }
-\newlabel{fig:chart_monthly}{{6.12}{101}{Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}{figure.caption.81}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Sex Distribution and Key KPIs}{101}{section*.82}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.13}{\ignorespaces Sex distribution of the hemodialysis cohort with associated KPI indicators}}{101}{figure.caption.83}\protected@file@percent }
-\newlabel{fig:chart_sex}{{6.13}{101}{Sex distribution of the hemodialysis cohort with associated KPI indicators}{figure.caption.83}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Age Distribution by Sex}{101}{section*.84}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.14}{\ignorespaces Age distribution of hemodialysis patients grouped by sex in 5-year age bands}}{101}{figure.caption.85}\protected@file@percent }
-\newlabel{fig:chart_age}{{6.14}{101}{Age distribution of hemodialysis patients grouped by sex in 5-year age bands}{figure.caption.85}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Complication Type Frequencies}{102}{section*.86}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.15}{\ignorespaces Frequency of documented complication types across the patient cohort}}{102}{figure.caption.87}\protected@file@percent }
-\newlabel{fig:chart_complications}{{6.15}{102}{Frequency of documented complication types across the patient cohort}{figure.caption.87}{}}
-\@writefile{toc}{\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{102}{section*.88}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.16}{\ignorespaces Distribution of CKD etiologies stratified by inclusion status in the cohort}}{102}{figure.caption.89}\protected@file@percent }
-\newlabel{fig:chart_etiology}{{6.16}{102}{Distribution of CKD etiologies stratified by inclusion status in the cohort}{figure.caption.89}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Top Comorbidity Combinations}{102}{section*.90}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.17}{\ignorespaces Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}}{102}{figure.caption.91}\protected@file@percent }
-\newlabel{fig:chart_comorbidities}{{6.17}{102}{Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}{figure.caption.91}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.5.2}AI Prediction Results Visualization (AI Model --- Prediction Tab)}{102}{subsection.6.5.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.18}{\ignorespaces Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}}{102}{figure.caption.92}\protected@file@percent }
-\newlabel{fig:prediction_display}{{6.18}{102}{Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}{figure.caption.92}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.19}{\ignorespaces AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}}{103}{figure.caption.93}\protected@file@percent }
-\newlabel{fig:ai_dashboard_charts}{{6.19}{103}{AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}{figure.caption.93}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{103}{section.6.6}\protected@file@percent }
-\newlabel{sec:workflows}{{6.6}{103}{User Workflows \& Sequence Diagrams}{section.6.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{103}{subsection.6.6.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.20}{\ignorespaces Sequence Diagram 1 — JWT Authentication flow}}{104}{figure.caption.94}\protected@file@percent }
-\newlabel{fig:seq_auth}{{6.20}{104}{Sequence Diagram 1 — JWT Authentication flow}{figure.caption.94}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{104}{subsection.6.6.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.21}{\ignorespaces Sequence Diagram 2 — Patient Import and LLM Preprocessing}}{105}{figure.caption.95}\protected@file@percent }
-\newlabel{fig:seq_preproc}{{6.21}{105}{Sequence Diagram 2 — Patient Import and LLM Preprocessing}{figure.caption.95}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{105}{subsection.6.6.3}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6.22}{\ignorespaces Sequence Diagram 3 — Mortality Risk Prediction workflow}}{106}{figure.caption.96}\protected@file@percent }
-\newlabel{fig:seq_predict}{{6.22}{106}{Sequence Diagram 3 — Mortality Risk Prediction workflow}{figure.caption.96}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4.2}Pages and Interfaces}{95}{subsection.6.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.3}{\ignorespaces Landing page --- public entry point of the AI NéphroCare platform}}{96}{figure.caption.65}\protected@file@percent }
+\newlabel{fig:landing}{{6.3}{96}{Landing page --- public entry point of the AI NéphroCare platform}{figure.caption.65}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.4}{\ignorespaces Login page --- split-panel design with branding (left) and JWT authentication form (right)}}{97}{figure.caption.66}\protected@file@percent }
+\newlabel{fig:login}{{6.4}{97}{Login page --- split-panel design with branding (left) and JWT authentication form (right)}{figure.caption.66}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.5}{\ignorespaces AI NéphroCare navigation sidebar --- persistent across all authenticated pages}}{98}{figure.caption.67}\protected@file@percent }
+\newlabel{fig:sidebar}{{6.5}{98}{AI NéphroCare navigation sidebar --- persistent across all authenticated pages}{figure.caption.67}{}}
+\@writefile{toc}{\contentsline {paragraph}{KPI summary.}{99}{section*.69}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.6}{\ignorespaces Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}}{99}{figure.caption.70}\protected@file@percent }
+\newlabel{fig:dashboard_kpi}{{6.6}{99}{Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}{figure.caption.70}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.7}{\ignorespaces KPI filter active --- clicking \textit  {Professeurs} restricts the list and displays an active-filter chip}}{99}{figure.caption.71}\protected@file@percent }
+\newlabel{fig:dashboard_filter}{{6.7}{99}{KPI filter active --- clicking \textit {Professeurs} restricts the list and displays an active-filter chip}{figure.caption.71}{}}
+\@writefile{toc}{\contentsline {paragraph}{User Management (CRUD).}{100}{section*.72}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.8}{\ignorespaces User management CRUD panel --- account creation and editing form}}{100}{figure.caption.73}\protected@file@percent }
+\newlabel{fig:dashboard_crud}{{6.8}{100}{User management CRUD panel --- account creation and editing form}{figure.caption.73}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.9}{\ignorespaces Deletion confirmation dialog --- password required before account removal}}{100}{figure.caption.74}\protected@file@percent }
+\newlabel{fig:dashboard_delete_confirm}{{6.9}{100}{Deletion confirmation dialog --- password required before account removal}{figure.caption.74}{}}
+\@writefile{toc}{\contentsline {paragraph}{Import validation workflow.}{100}{section*.75}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.10}{\ignorespaces Professeur/Résident dashboard --- connected profile (left) and recent activity feed (right)}}{101}{figure.caption.77}\protected@file@percent }
+\newlabel{fig:dashboard_resident}{{6.10}{101}{Professeur/Résident dashboard --- connected profile (left) and recent activity feed (right)}{figure.caption.77}{}}
+\@writefile{toc}{\contentsline {paragraph}{Click-to-expand interaction.}{101}{section*.78}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.11}{\ignorespaces Activity feed entry expanded --- full action detail, reviewer comment, and direct navigation shortcut}}{101}{figure.caption.79}\protected@file@percent }
+\newlabel{fig:dashboard_activity_expand}{{6.11}{101}{Activity feed entry expanded --- full action detail, reviewer comment, and direct navigation shortcut}{figure.caption.79}{}}
+\@writefile{toc}{\contentsline {paragraph}{Import decision notifications.}{101}{section*.80}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.12}{\ignorespaces Import decision notification in the activity feed --- green entry for approval, pink entry for rejection, both displaying the reviewer's comment}}{102}{figure.caption.81}\protected@file@percent }
+\newlabel{fig:dashboard_notif_decision}{{6.12}{102}{Import decision notification in the activity feed --- green entry for approval, pink entry for rejection, both displaying the reviewer's comment}{figure.caption.81}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.13}{\ignorespaces Preprocessing interface --- general view before file upload}}{102}{figure.caption.83}\protected@file@percent }
+\newlabel{fig:preproc_overview}{{6.13}{102}{Preprocessing interface --- general view before file upload}{figure.caption.83}{}}
+\@writefile{toc}{\contentsline {paragraph}{Step 1 — File upload.}{102}{section*.84}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.14}{\ignorespaces Step 1 --- file upload zone with Excel/CSV file selected, ready for LLM analysis}}{102}{figure.caption.85}\protected@file@percent }
+\newlabel{fig:preproc_upload}{{6.14}{102}{Step 1 --- file upload zone with Excel/CSV file selected, ready for LLM analysis}{figure.caption.85}{}}
+\@writefile{toc}{\contentsline {paragraph}{Step 2 — Analysis pipeline (11 stages).}{102}{section*.86}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6.4}{\ignorespaces Preprocessing pipeline stages and corresponding interface labels}}{103}{table.caption.87}\protected@file@percent }
+\newlabel{tab:pipeline_stages}{{6.4}{103}{Preprocessing pipeline stages and corresponding interface labels}{table.caption.87}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.15}{\ignorespaces Step 2 --- LLM analysis in progress, real-time progress bar with current processing message}}{105}{figure.caption.89}\protected@file@percent }
+\newlabel{fig:preproc_progress}{{6.15}{105}{Step 2 --- LLM analysis in progress, real-time progress bar with current processing message}{figure.caption.89}{}}
+\@writefile{toc}{\contentsline {paragraph}{Step 3 --- LLM correction review table.}{105}{section*.90}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.16}{\ignorespaces Feuille \textit  {Données} du fichier \texttt  {.xlsx} exporté --- les cellules modifiées par le LLM sont surlignées en jaune pâle (\texttt  {\#FFF2CC}) avec une police orange grasse, générées par \texttt  {openpyxl}}}{106}{figure.caption.91}\protected@file@percent }
+\newlabel{fig:preproc_export_donnees}{{6.16}{106}{Feuille \textit {Données} du fichier \texttt {.xlsx} exporté --- les cellules modifiées par le LLM sont surlignées en jaune pâle (\texttt {\#FFF2CC}) avec une police orange grasse, générées par \texttt {openpyxl}}{figure.caption.91}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.17}{\ignorespaces Feuille \textit  {Corrections} du fichier \texttt  {.xlsx} exporté --- tableau récapitulatif listant chaque cellule modifiée avec sa valeur originale, sa valeur corrigée, le type de correction et la justification médicale}}{107}{figure.caption.92}\protected@file@percent }
+\newlabel{fig:preproc_export_corrections}{{6.17}{107}{Feuille \textit {Corrections} du fichier \texttt {.xlsx} exporté --- tableau récapitulatif listant chaque cellule modifiée avec sa valeur originale, sa valeur corrigée, le type de correction et la justification médicale}{figure.caption.92}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.18}{\ignorespaces Step 3 --- LLM correction review table: quality score, KPI cards, and cell-level corrections with medical justifications}}{107}{figure.caption.93}\protected@file@percent }
+\newlabel{fig:preproc_corrections}{{6.18}{107}{Step 3 --- LLM correction review table: quality score, KPI cards, and cell-level corrections with medical justifications}{figure.caption.93}{}}
+\@writefile{toc}{\contentsline {paragraph}{Step 4 --- Integration.}{107}{section*.94}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.19}{\ignorespaces Integration version selector --- the user chooses between the corrected version (recommended) and the original file before persisting data to the database}}{107}{figure.caption.95}\protected@file@percent }
+\newlabel{fig:preproc_integration_choice}{{6.19}{107}{Integration version selector --- the user chooses between the corrected version (recommended) and the original file before persisting data to the database}{figure.caption.95}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.20}{\ignorespaces Successful integration confirmation --- the platform notifies the user and redirects to the Data Management tab}}{108}{figure.caption.96}\protected@file@percent }
+\newlabel{fig:preproc_integration_success}{{6.20}{108}{Successful integration confirmation --- the platform notifies the user and redirects to the Data Management tab}{figure.caption.96}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.21}{\ignorespaces Data management interface --- searchable patient table with dynamic column support}}{108}{figure.caption.98}\protected@file@percent }
+\newlabel{fig:data_mgmt}{{6.21}{108}{Data management interface --- searchable patient table with dynamic column support}{figure.caption.98}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.22}{\ignorespaces Patient analysis interface --- epidemiological and clinical statistics charts}}{109}{figure.caption.100}\protected@file@percent }
+\newlabel{fig:analysis_charts}{{6.22}{109}{Patient analysis interface --- epidemiological and clinical statistics charts}{figure.caption.100}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.23}{\ignorespaces AI Model analysis dashboard --- SVM performance metrics and risk zone overview}}{109}{figure.caption.102}\protected@file@percent }
+\newlabel{fig:ai_dashboard}{{6.23}{109}{AI Model analysis dashboard --- SVM performance metrics and risk zone overview}{figure.caption.102}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.24}{\ignorespaces AI Model patient list --- each row shows patient summary and a Predict action button}}{109}{figure.caption.104}\protected@file@percent }
+\newlabel{fig:ai_patients}{{6.24}{109}{AI Model patient list --- each row shows patient summary and a Predict action button}{figure.caption.104}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.25}{\ignorespaces AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}}{110}{figure.caption.106}\protected@file@percent }
+\newlabel{fig:ai_prediction}{{6.25}{110}{AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}{figure.caption.106}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.5}Data Visualization}{111}{section.6.5}\protected@file@percent }
+\newlabel{sec:dataviz}{{6.5}{111}{Data Visualization}{section.6.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{111}{subsection.6.5.1}\protected@file@percent }
+\newlabel{sec:dataviz_charts}{{6.5.1}{111}{Clinical Analytics Charts (Patient Management --- Analysis Tab)}{subsection.6.5.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{111}{section*.107}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.26}{\ignorespaces Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}}{111}{figure.caption.108}\protected@file@percent }
+\newlabel{fig:chart_monthly}{{6.26}{111}{Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}{figure.caption.108}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Sex Distribution and Key KPIs}{111}{section*.109}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.27}{\ignorespaces Sex distribution of the hemodialysis cohort with associated KPI indicators}}{111}{figure.caption.110}\protected@file@percent }
+\newlabel{fig:chart_sex}{{6.27}{111}{Sex distribution of the hemodialysis cohort with associated KPI indicators}{figure.caption.110}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Age Distribution by Sex}{111}{section*.111}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.28}{\ignorespaces Age distribution of hemodialysis patients grouped by sex in 5-year age bands}}{111}{figure.caption.112}\protected@file@percent }
+\newlabel{fig:chart_age}{{6.28}{111}{Age distribution of hemodialysis patients grouped by sex in 5-year age bands}{figure.caption.112}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Complication Type Frequencies}{111}{section*.113}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.29}{\ignorespaces Frequency of documented complication types across the patient cohort}}{111}{figure.caption.114}\protected@file@percent }
+\newlabel{fig:chart_complications}{{6.29}{111}{Frequency of documented complication types across the patient cohort}{figure.caption.114}{}}
+\@writefile{toc}{\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{112}{section*.115}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.30}{\ignorespaces Distribution of CKD etiologies stratified by inclusion status in the cohort}}{112}{figure.caption.116}\protected@file@percent }
+\newlabel{fig:chart_etiology}{{6.30}{112}{Distribution of CKD etiologies stratified by inclusion status in the cohort}{figure.caption.116}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Top Comorbidity Combinations}{112}{section*.117}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.31}{\ignorespaces Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}}{112}{figure.caption.118}\protected@file@percent }
+\newlabel{fig:chart_comorbidities}{{6.31}{112}{Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}{figure.caption.118}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5.2}AI Prediction Results Visualization (AI Model --- Prediction Tab)}{112}{subsection.6.5.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.32}{\ignorespaces Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}}{112}{figure.caption.119}\protected@file@percent }
+\newlabel{fig:prediction_display}{{6.32}{112}{Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}{figure.caption.119}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.33}{\ignorespaces AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}}{113}{figure.caption.120}\protected@file@percent }
+\newlabel{fig:ai_dashboard_charts}{{6.33}{113}{AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}{figure.caption.120}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{113}{section.6.6}\protected@file@percent }
+\newlabel{sec:workflows}{{6.6}{113}{User Workflows \& Sequence Diagrams}{section.6.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{113}{subsection.6.6.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.34}{\ignorespaces Sequence Diagram 1 — JWT Authentication flow}}{114}{figure.caption.121}\protected@file@percent }
+\newlabel{fig:seq_auth}{{6.34}{114}{Sequence Diagram 1 — JWT Authentication flow}{figure.caption.121}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{114}{subsection.6.6.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.35}{\ignorespaces Sequence Diagram 2 — Patient Import and LLM Preprocessing}}{115}{figure.caption.122}\protected@file@percent }
+\newlabel{fig:seq_preproc}{{6.35}{115}{Sequence Diagram 2 — Patient Import and LLM Preprocessing}{figure.caption.122}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{115}{subsection.6.6.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6.36}{\ignorespaces Sequence Diagram 3 — Mortality Risk Prediction workflow}}{116}{figure.caption.123}\protected@file@percent }
+\newlabel{fig:seq_predict}{{6.36}{116}{Sequence Diagram 3 — Mortality Risk Prediction workflow}{figure.caption.123}{}}
 \pgfsyspdfmark {pgfid27}{6749099}{45861114}
-\@writefile{toc}{\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{108}{chapter.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{118}{chapter.7}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
 \@writefile{loa}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {7.1}Deployment Architecture}{108}{section.7.1}\protected@file@percent }
-\newlabel{sec:deploy}{{7.1}{108}{Deployment Architecture}{section.7.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{108}{subsection.7.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.2}System Testing}{108}{section.7.2}\protected@file@percent }
-\newlabel{sec:testing}{{7.2}{108}{System Testing}{section.7.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{108}{subsection.7.2.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {7.1}{\ignorespaces Functional test coverage overview --- key user flows verified across all four user roles}}{109}{figure.caption.97}\protected@file@percent }
-\newlabel{fig:test_results}{{7.1}{109}{Functional test coverage overview --- key user flows verified across all four user roles}{figure.caption.97}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2.2}API Tests}{109}{subsection.7.2.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.3}Performance Evaluation}{110}{section.7.3}\protected@file@percent }
-\newlabel{sec:perf}{{7.3}{110}{Performance Evaluation}{section.7.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{110}{subsection.7.3.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{110}{table.caption.98}\protected@file@percent }
-\newlabel{tab:latency}{{7.1}{110}{Prediction endpoint latency (measured over 100 requests)}{table.caption.98}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{110}{subsection.7.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.1}Deployment Architecture}{118}{section.7.1}\protected@file@percent }
+\newlabel{sec:deploy}{{7.1}{118}{Deployment Architecture}{section.7.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{118}{subsection.7.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.2}System Testing}{118}{section.7.2}\protected@file@percent }
+\newlabel{sec:testing}{{7.2}{118}{System Testing}{section.7.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{118}{subsection.7.2.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7.1}{\ignorespaces Functional test coverage overview --- key user flows verified across all four user roles}}{119}{figure.caption.124}\protected@file@percent }
+\newlabel{fig:test_results}{{7.1}{119}{Functional test coverage overview --- key user flows verified across all four user roles}{figure.caption.124}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2.2}API Tests}{119}{subsection.7.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.3}Performance Evaluation}{120}{section.7.3}\protected@file@percent }
+\newlabel{sec:perf}{{7.3}{120}{Performance Evaluation}{section.7.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{120}{subsection.7.3.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{120}{table.caption.125}\protected@file@percent }
+\newlabel{tab:latency}{{7.1}{120}{Prediction endpoint latency (measured over 100 requests)}{table.caption.125}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{120}{subsection.7.3.2}\protected@file@percent }
 \citation{kdigo2015}
-\@writefile{toc}{\contentsline {section}{\numberline {7.4}Results \& Impact}{111}{section.7.4}\protected@file@percent }
-\newlabel{sec:impact}{{7.4}{111}{Results \& Impact}{section.7.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{111}{subsection.7.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{111}{subsection.7.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.5}Limitations}{112}{section.7.5}\protected@file@percent }
-\newlabel{sec:limits}{{7.5}{112}{Limitations}{section.7.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.5.1}Data Availability}{112}{subsection.7.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{112}{subsection.7.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.6}Future Work}{112}{section.7.6}\protected@file@percent }
-\newlabel{sec:future}{{7.6}{112}{Future Work}{section.7.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{112}{subsection.7.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{112}{subsection.7.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.3}External ETL Pipelines}{113}{subsection.7.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.4}Results \& Impact}{121}{section.7.4}\protected@file@percent }
+\newlabel{sec:impact}{{7.4}{121}{Results \& Impact}{section.7.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{121}{subsection.7.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{121}{subsection.7.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.5}Limitations}{122}{section.7.5}\protected@file@percent }
+\newlabel{sec:limits}{{7.5}{122}{Limitations}{section.7.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5.1}Data Availability}{122}{subsection.7.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{122}{subsection.7.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.6}Future Work}{122}{section.7.6}\protected@file@percent }
+\newlabel{sec:future}{{7.6}{122}{Future Work}{section.7.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{122}{subsection.7.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{122}{subsection.7.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6.3}External ETL Pipelines}{123}{subsection.7.6.3}\protected@file@percent }
 \bibstyle{plainnat}
-\@writefile{toc}{\contentsline {chapter}{General Conclusion}{114}{chapter*.99}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{General Conclusion}{124}{chapter*.126}\protected@file@percent }
 \bibcite{who2021digital}{{1}{}{{}}{{}}}
 \bibcite{bright2012}{{2}{}{{}}{{}}}
 \bibcite{kdigo2015}{{3}{}{{}}{{}}}
@@ -601,5 +639,5 @@
 \bibcite{hanley1982auc}{{44}{}{{}}{{}}}
 \bibcite{kdigo_mineral_2017}{{45}{}{{}}{{}}}
 \providecommand\NAT@force@numbers{}\NAT@force@numbers
-\@writefile{toc}{\contentsline {chapter}{Webography}{119}{chapter*.101}\protected@file@percent }
-\gdef \@abspage@last{119}
+\@writefile{toc}{\contentsline {chapter}{Webography}{129}{chapter*.128}\protected@file@percent }
+\gdef \@abspage@last{129}

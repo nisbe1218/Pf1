@@ -30,5 +30,6 @@
 \contentsline {table}{\numberline {6.1}{\ignorespaces Django application structure}}{89}{table.caption.61}%
 \contentsline {table}{\numberline {6.2}{\ignorespaces Principal REST API endpoints}}{91}{table.6.2}%
 \contentsline {table}{\numberline {6.3}{\ignorespaces RBAC permission matrix}}{93}{table.caption.64}%
+\contentsline {table}{\numberline {6.4}{\ignorespaces Preprocessing pipeline stages and corresponding interface labels}}{103}{table.caption.87}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{110}{table.caption.98}%
+\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{120}{table.caption.125}%

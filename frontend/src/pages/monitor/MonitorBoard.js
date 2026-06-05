@@ -569,17 +569,6 @@ function MonitorBoard() {
                   minWidth: { lg: 340 },
                 }}
               >
-                <Chip
-                  label={roleLabel}
-                  sx={{
-                    alignSelf: { xs: 'flex-start', lg: 'flex-end' },
-                    background: `linear-gradient(135deg,${boardTheme.medicalBlue},${boardTheme.deepNavy})`,
-                    color: '#fff', fontWeight: 700, fontSize: '0.75rem',
-                    border: 'none',
-                    '& .MuiChip-icon': { display: 'none' },
-                    '& .MuiAvatar-root': { display: 'none' }
-                  }}
-                />
                 <Box sx={{ p: 0, borderRadius: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', justifyContent: { xs: 'flex-start', lg: 'flex-end' } }}>
                     <Chip label={t('monitorPatientChip')} sx={{ bgcolor: 'rgba(26,107,138,0.10)', color: boardTheme.medicalBlue, fontWeight: 700 }} />

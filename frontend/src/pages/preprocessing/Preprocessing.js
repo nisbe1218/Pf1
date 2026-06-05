@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import {
   Box, Paper, Typography, Button, LinearProgress,
   Table, TableBody, TableCell, TableHead, TableRow,
@@ -138,6 +139,8 @@ const SeverityBadge = ({ severity }) => {
 };
 
 export default function Preprocessing({ onIntegrated }) {
+  const { user } = useContext(AuthContext);
+  const isAdminOrChef = user?.role === 'super_admin' || user?.role === 'chef_service';
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
   const [loading, setLoading] = useState(() => !!localStorage.getItem('preprocess_session_id'));
@@ -321,32 +324,46 @@ export default function Preprocessing({ onIntegrated }) {
   const handleIntegrateConfirm = async () => {
     setIntegrateLoading(true);
     try {
-      await api.post(`patients/preprocess/${session}/integrate/`, { source: integrateSource });
-      setIntegrateSuccess('inserted');
-      // onIntegrated appelé au clic "Fermer" — pas ici
-    } catch { alert('Erreur lors de l\'intégration.'); }
+      if (isAdminOrChef) {
+        // Admin/Chef : intégration directe
+        await api.post(`patients/preprocess/${session}/integrate/`, { source: integrateSource });
+        setIntegrateSuccess('inserted');
+      } else {
+        // Résident/Professeur : soumettre pour validation par le chef/admin
+        await api.post(`patients/preprocess/${session}/submit-validation/`, { source: integrateSource });
+        setIntegrateSuccess('submitted');
+      }
+    } catch { alert('Erreur lors de la soumission.'); }
     finally { setIntegrateLoading(false); }
   };
 
   const pipelineStages = [
-    { key: 'upload', label: 'Lecture' },
-    { key: 'profile', label: 'Profilage' },
-    { key: 'chunking', label: 'Découpage' },
-    { key: 'retrieval', label: 'Retrieval' },
-    { key: 'llm1', label: 'LLM' },
-    { key: 'llm2', label: 'Correction' },
-    { key: 'merge', label: 'Rapport' },
+    { key: 'upload',     label: 'Lecture'                    },
+    { key: 'profile',    label: 'Analyse des données'        },
+    { key: 'chunking',   label: 'Préparation'                },
+    { key: 'retrieval',  label: 'Références médicales'       },
+    { key: 'route',      label: 'Initialisation IA'          },
+    { key: 'llm1',       label: 'Détection des anomalies'    },
+    { key: 'apply',      label: 'Corrections automatiques'   },
+    { key: 'bio',        label: 'Vérification biologique'    },
+    { key: 'flagged',    label: 'Vérification clinique'      },
+    { key: 'knn',        label: 'Complétion des données'     },
+    { key: 'merge',      label: 'Rapport final'              },
   ];
 
   const currentStageKey = (() => {
     const t = String(statusMessage || '').toLowerCase();
     if (t.includes('lecture') || t.includes('initialisation')) return 'upload';
     if (t.includes('profilage')) return 'profile';
-    if (t.includes('chunk')) return 'chunking';
+    if (t.includes('chunk') || t.includes('découpage')) return 'chunking';
     if (t.includes('retrieval') || t.includes('contexte') || t.includes('rag')) return 'retrieval';
-    if (t.includes('batch') || t.includes('llm') || t.includes('ollama')) return 'llm1';
-    if (t.includes('correction') || t.includes('bio') || t.includes('knn')) return 'llm2';
-    if (t.includes('rapport') || t.includes('fusion') || t.includes('finalis')) return 'merge';
+    if (t.includes('route') || t.includes('routage')) return 'route';
+    if (t.includes('batch') || t.includes('llm') || t.includes('ollama') || t.includes('analyse llm')) return 'llm1';
+    if (t.includes('plan de correction') || t.includes('application du plan')) return 'apply';
+    if (t.includes('biolog') || t.includes('loinc') || t.includes('bio')) return 'bio';
+    if (t.includes('aberrant') || t.includes('flagg') || t.includes('anomal')) return 'flagged';
+    if (t.includes('knn') || t.includes('imputation')) return 'knn';
+    if (t.includes('rapport') || t.includes('finalis')) return 'merge';
     return null;
   })();
 
@@ -581,11 +598,11 @@ export default function Preprocessing({ onIntegrated }) {
         <Dialog open={integrateDialogOpen} onClose={() => !integrateLoading && setIntegrateDialogOpen(false)}
           PaperProps={{ sx: { borderRadius: 3, minWidth: 420, p: 1 } }}>
           <DialogTitle sx={{ fontWeight: 700, color: PALETTE.navy, fontSize: 18 }}>
-            Intégrer les données
+            {isAdminOrChef ? 'Intégrer les données' : 'Soumettre pour validation'}
           </DialogTitle>
           <Divider />
           <DialogContent sx={{ pt: 3 }}>
-            {integrateSuccess ? (
+            {integrateSuccess === 'inserted' ? (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <Typography sx={{ color: PALETTE.green, fontWeight: 700, fontSize: 16, mb: 1 }}>
                   ✓ Données intégrées avec succès !
@@ -594,10 +611,21 @@ export default function Preprocessing({ onIntegrated }) {
                   Les données ont été insérées dans la plateforme.
                 </Typography>
               </Box>
+            ) : integrateSuccess === 'submitted' ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography sx={{ color: PALETTE.teal, fontWeight: 700, fontSize: 16, mb: 1 }}>
+                  ✓ Demande envoyée au chef de service !
+                </Typography>
+                <Typography variant="body2" sx={{ color: PALETTE.textMuted }}>
+                  Les données seront intégrées après validation par le chef de service ou l'administrateur.
+                </Typography>
+              </Box>
             ) : (
               <>
                 <Typography variant="body2" sx={{ color: PALETTE.textMuted, mb: 2 }}>
-                  Choisissez la version à intégrer dans la plateforme.
+                  {isAdminOrChef
+                    ? 'Choisissez la version à intégrer dans la plateforme.'
+                    : 'Choisissez la version à soumettre pour validation. Les données seront intégrées après approbation du chef de service.'}
                 </Typography>
                 <FormControl component="fieldset" sx={{ width: '100%' }}>
                   <RadioGroup value={integrateSource} onChange={(e) => setIntegrateSource(e.target.value)}>
@@ -637,10 +665,10 @@ export default function Preprocessing({ onIntegrated }) {
               <Button variant="contained" onClick={() => {
                 setIntegrateDialogOpen(false);
                 setIntegrateSuccess(null);
-                if (onIntegrated) onIntegrated();
+                if (integrateSuccess === 'inserted' && onIntegrated) onIntegrated();
               }}
                 sx={{ bgcolor: PALETTE.teal, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3 }}>
-                Voir les patients →
+                {integrateSuccess === 'inserted' ? 'Voir les patients →' : 'Fermer'}
               </Button>
             ) : (
               <>
@@ -651,7 +679,9 @@ export default function Preprocessing({ onIntegrated }) {
                 <Button variant="contained" onClick={handleIntegrateConfirm} disabled={integrateLoading}
                   sx={{ bgcolor: PALETTE.navy, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3,
                     '&:hover': { bgcolor: PALETTE.navyLight } }}>
-                  {integrateLoading ? <><CircularProgress size={14} sx={{ color: 'white', mr: 1 }} />Intégration...</> : 'Intégrer les données'}
+                  {integrateLoading
+                    ? <><CircularProgress size={14} sx={{ color: 'white', mr: 1 }} />{isAdminOrChef ? 'Intégration...' : 'Envoi...'}</>
+                    : isAdminOrChef ? 'Intégrer les données' : 'Soumettre pour validation'}
                 </Button>
               </>
             )}

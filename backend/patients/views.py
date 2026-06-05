@@ -1507,12 +1507,17 @@ _ANOMALY_DISGUISED_MISSING = frozenset({
     'a préciser', 'en cours', 'void', '.', '/', '',
 })
 
+# Values that are invalid in binary (0/1) columns — "X", "x", "*", etc.
+_ANOMALY_INVALID_IN_BINARY = frozenset({'x', 'X', '*', 'X ', ' X', 'xx', 'XX'})
+
 # Decimal comma: "1,5" or "-1,5" or "1 234,56" (French locale numbers)
 _ANOMALY_DECIMAL_COMMA_RE = _re_anomaly.compile(r'^-?\d[\d\s]*,\d+$')
 # Pure numeric string in object column: "25.5", "100", "-3.14"
 _ANOMALY_NUMERIC_STR_RE = _re_anomaly.compile(r'^-?\d+(\.\d+)?$')
 # HTML/special char debris
 _ANOMALY_HTML_RE = _re_anomaly.compile(r'&[a-z]+;|<[a-z/][^>]*>', _re_anomaly.IGNORECASE)
+# Mixed Excel artefact: values like "1;(1/2024)", "2;(3/2023)" — number + semicolon + parenthesised date/fraction
+_ANOMALY_MIXED_SEMICOLON_RE = _re_anomaly.compile(r'^\d+\s*;\s*\(.*\)$')
 
 # Boolean text tokens (French + English) — if mixed with 0/1 numeric → incoherent
 _ANOMALY_BOOL_TEXT = frozenset({
@@ -1643,6 +1648,10 @@ def _build_technical_profile(dataframe):
                 # 4. HTML/special character debris in text fields
                 elif not _is_numeric_col and _ANOMALY_HTML_RE.search(_vs):
                     _has_html = True
+
+                # 4b. Mixed Excel artefact: "1;(1/2024)" — number + semicolon + parenthesised fragment
+                elif _ANOMALY_MIXED_SEMICOLON_RE.match(_vs):
+                    anomaly_candidates.append({'value': _v, 'type': 'artefact_excel_mixte'})
 
                 # 5. Decimal comma in non-numeric column (French locale: "1,5")
                 if not _is_numeric_col and _ANOMALY_DECIMAL_COMMA_RE.match(_vs):
@@ -6011,6 +6020,62 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
         })
     # ── End pre-pass ──
 
+    # ── Pre-pass: replace "X"/"x" with NaN in numeric/binary columns (deterministic) ──
+    # "X" is always invalid in:
+    #   - binary columns (0/1): cannot determine if X=0 or X=1 → null + KNN
+    #   - numeric columns (>60% numeric values): X is a placeholder for missing → null + KNN
+    # "X" is NOT replaced in text/categorical columns where it may be a legitimate value.
+    _x_cols_changed = 0
+    _x_col_details = []
+    _INVALID_X_VALS = {'x', 'X', 'X ', ' X', 'xx', 'XX', '*'}
+
+    import pandas as _pd_x
+    for _col in corrected.columns:
+        _series = corrected[_col]
+        _non_null = _series.dropna()
+        if len(_non_null) == 0:
+            continue
+        _str_vals = _non_null.astype(str).str.strip()
+        _has_x = _str_vals.isin(_INVALID_X_VALS).any()
+        if not _has_x:
+            continue
+
+        # Check if column is numeric or binary
+        _non_x_vals = _str_vals[~_str_vals.isin(_INVALID_X_VALS)]
+        _numeric_count = 0
+        for _v in _non_x_vals:
+            try:
+                float(_v)
+                _numeric_count += 1
+            except (ValueError, TypeError):
+                pass
+
+        _numeric_ratio = _numeric_count / len(_non_x_vals) if len(_non_x_vals) > 0 else 0
+        _is_numeric_or_binary = _numeric_ratio >= 0.6  # at least 60% numeric values
+
+        if _is_numeric_or_binary:
+            _before = corrected[_col].copy()
+            corrected[_col] = corrected[_col].apply(
+                lambda v: None if (isinstance(v, str) and v.strip() in _INVALID_X_VALS) else v
+            )
+            _changed = _count_series_changes(_before, corrected[_col])
+            if _changed > 0:
+                _x_cols_changed += _changed
+                _x_col_details.append({
+                    'column': str(_col),
+                    'cells_changed': _changed,
+                    'justification': 'Valeur "X" invalide dans colonne numérique/binaire — nullifiée puis estimée par imputation KNN (k=5 patients similaires)',
+                })
+
+    if _x_col_details:
+        applied_actions.append({
+            'action': 'invalid_x_cleanup',
+            'count': len(_x_col_details),
+            'cells_changed': _x_cols_changed,
+            'details': {'columns': _x_col_details},
+        })
+    # ── End pre-pass X ──
+
     # ── Pre-pass: global decimal comma normalization (French locale "1,5" → "1.5") ──
     # Applied unconditionally on all object columns — the regex is narrow enough to only
     # match values that look exactly like numbers written with a comma decimal separator.
@@ -6584,6 +6649,7 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
         missing_pct = float(tp.get('missing_pct') or 0)
         duplicate_rows = int(tp.get('duplicate_rows') or 0)
         total_rows = max(1, int(tp.get('row_count') or len(dataframe.index)))
+        total_cols = max(1, int(tp.get('columns') or len(dataframe.columns)))
         outlier_total = sum(
             int(c.get('outlier_count') or 0)
             for c in (tp.get('columns_with_issues') or tp.get('columns_profile') or [])
@@ -6597,6 +6663,20 @@ def _build_preprocess_report(dataframe, technical_profile, llm_analysis=None, co
         raw_score -= min(20, (duplicate_rows / total_rows) * 100 * 0.5)
         raw_score -= min(10, outlier_total * 0.5)
         raw_score -= type_error_cols * 3
+
+        # Penalty from applied corrections (Python pre-passes + LLM corrections)
+        # A high ratio of corrected cells indicates poor original data quality
+        if applied_actions is not None:
+            total_cells = total_rows * total_cols
+            corrected_cells = sum(
+                int(a.get('cells_changed') or 0)
+                for a in (applied_actions or [])
+                if isinstance(a, dict)
+            )
+            correction_ratio = corrected_cells / total_cells if total_cells > 0 else 0
+            # 0-1%: no penalty | 1-5%: -5 to -15 | 5-10%: -15 to -25 | >10%: -25 to -35
+            raw_score -= min(35, correction_ratio * 250)
+
         quality_score = max(5, min(100, int(round(raw_score))))
     else:
         quality_score = max(0, min(100, int(round(float(quality_score)))))
@@ -7797,9 +7877,11 @@ class PatientPreprocessCellCorrectionsView(APIView):
             if col and col not in issue_by_col:
                 issue_by_col[col] = issue
 
-        # Build justification lookup from applied_corrections action details
+        # Build correction lookups from applied_corrections action details.
         justification_by_col = {}
+        action_details_by_col = {}
         for action in (report.get('applied_corrections') or []):
+            action_name = action.get('action') or 'correction'
             for col_detail in (action.get('details', {}).get('columns') or []):
                 if not isinstance(col_detail, dict):
                     continue
@@ -7807,6 +7889,112 @@ class PatientPreprocessCellCorrectionsView(APIView):
                 justif = col_detail.get('justification', '')
                 if col_name and justif and col_name not in justification_by_col:
                     justification_by_col[col_name] = justif
+                if col_name:
+                    action_details_by_col.setdefault(col_name, []).append({
+                        'action': action_name,
+                        **col_detail,
+                    })
+
+        def _is_missing_value(value):
+            if value is None:
+                return True
+            try:
+                return bool(pd.isna(value))
+            except Exception:
+                return False
+
+        def _normalize_decimal_text(value):
+            if isinstance(value, str):
+                stripped = value.strip()
+                if re.match(r'^-?\d[\d\s]*,\d+$', stripped):
+                    return stripped.replace(' ', '').replace(',', '.')
+            return value
+
+        def _coerce_float(value):
+            if _is_missing_value(value):
+                return None
+            try:
+                return float(str(_normalize_decimal_text(value)).strip())
+            except (ValueError, TypeError):
+                return None
+
+        def _values_match(left, right):
+            if _is_missing_value(left) and _is_missing_value(right):
+                return True
+            left_num = _coerce_float(left)
+            right_num = _coerce_float(right)
+            if left_num is not None and right_num is not None:
+                return abs(left_num - right_num) < 1e-9
+            return str(left).strip() == str(right).strip()
+
+        def _match_mapping_detail(col, old_val, new_val):
+            for detail in action_details_by_col.get(col, []):
+                mapping = detail.get('mapping') or detail.get('corrections') or {}
+                if not isinstance(mapping, dict):
+                    continue
+                for source, target in mapping.items():
+                    if _values_match(source, old_val) and _values_match(target, new_val):
+                        return detail
+                    if _values_match(source, old_val) and _is_missing_value(target):
+                        return detail
+            return None
+
+        def _infer_cell_type(col, old_val, new_val, issue):
+            matched_detail = _match_mapping_detail(col, old_val, new_val)
+            if matched_detail:
+                return matched_detail.get('action') or issue.get('category') or 'correction'
+            old_text = str(old_val).strip() if old_val is not None else ''
+            if old_text in {'x', 'X', 'xx', 'XX', '*'}:
+                return 'valeur_invalide_x'
+            if isinstance(old_val, str) and re.match(r'^-?\d[\d\s]*,\d+$', old_val.strip()):
+                return 'separateur_decimal'
+            if _is_missing_value(old_val) and not _is_missing_value(new_val):
+                return 'knn_imputation'
+            if _values_match(old_val, new_val) and str(old_val).strip() != str(new_val).strip():
+                return 'normalisation_type'
+            if col in justification_by_col:
+                details = action_details_by_col.get(col) or []
+                return (details[0].get('action') if details else None) or issue.get('category') or 'correction'
+            return issue.get('category') or issue.get('type') or 'correction'
+
+        def _infer_cell_justification(col, old_val, new_val, issue):
+            matched_detail = _match_mapping_detail(col, old_val, new_val)
+            if matched_detail:
+                return (
+                    matched_detail.get('justification')
+                    or matched_detail.get('explanation')
+                    or f'Correction automatique appliquee: {old_val} -> {new_val}.'
+                )
+
+            old_text = str(old_val).strip() if old_val is not None else ''
+            if old_text in {'x', 'X', 'xx', 'XX', '*'}:
+                return (
+                    f'Valeur "{old_text}" invalide pour cette colonne numerique/binaire: '
+                    'elle a ete retiree puis estimee par KNN a partir des patients similaires.'
+                )
+
+            if isinstance(old_val, str) and re.match(r'^-?\d[\d\s]*,\d+$', old_val.strip()):
+                return (
+                    'Separateur decimal francais detecte: la virgule a ete remplacee '
+                    'par un point, sans modification clinique de la valeur.'
+                )
+
+            if _is_missing_value(old_val) and not _is_missing_value(new_val):
+                return (
+                    'Valeur manquante estimee par imputation KNN '
+                    'a partir des variables disponibles chez les patients similaires.'
+                )
+
+            if _values_match(old_val, new_val) and str(old_val).strip() != str(new_val).strip():
+                return (
+                    'Format numerique normalise: la valeur clinique est conservee, '
+                    'seul le typage a ete corrige pour permettre l analyse.'
+                )
+
+            action_justification = justification_by_col.get(col)
+            if action_justification:
+                return action_justification
+            return issue.get('explanation') or 'Correction automatique.'
 
         id_col = next(
             (k for k in (original_rows[0].keys() if original_rows else [])
@@ -7829,9 +8017,9 @@ class PatientPreprocessCellCorrectionsView(APIView):
                         'column': col,
                         'old_value': old_val,
                         'new_value': new_val,
-                        'type': issue.get('category') or issue.get('type') or 'correction',
+                        'type': _infer_cell_type(col, old_val, new_val, issue),
                         'severity': issue.get('severity') or 'warning',
-                        'justification': issue.get('explanation') or justification_by_col.get(col) or 'Correction automatique',
+                        'justification': _infer_cell_justification(col, old_val, new_val, issue),
                     })
 
         # Also include flagged issues (no correction applied) that aren't in cell_corrections
@@ -7974,6 +8162,13 @@ class PatientPreprocessSubmitValidationView(APIView):
             columns_count=summary.get('columns') or 0,
             quality_score=summary.get('quality_score'),
         )
+        AuditLog.objects.create(
+            utilisateur=request.user,
+            action=f"PREPROCESSING_SUBMITTED: {session.get('source_file_name','')} ({summary.get('rows',0)} lignes, score={summary.get('quality_score','?')})",
+            entite='PreprocessValidation',
+            entite_id=vr.id,
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+        )
         return Response({'validation_id': vr.id, 'status': 'pending'}, status=status.HTTP_201_CREATED)
 
 
@@ -8033,7 +8228,7 @@ class PatientPreprocessValidationDetailView(APIView):
         rows_key = 'original_rows' if vr.source == 'original' else 'corrected_rows'
         rows = session.get(rows_key) or session.get('corrected_rows') or []
         columns = session.get('columns', [])
-        preview = rows[:50]
+        preview = rows
 
         report = session.get('report', {})
         issues = report.get('issues', []) or report.get('all_issues', [])
@@ -8097,6 +8292,16 @@ class PatientPreprocessValidationDetailView(APIView):
             vr.reviewed_at = tz.now()
             vr.comment = comment
             vr.save()
+            # Notifier le soumetteur via l'audit log
+            if vr.submitted_by:
+                reviewer_name = f"{getattr(request.user, 'prenom', '')} {getattr(request.user, 'nom', '')}".strip() or request.user.email
+                AuditLog.objects.create(
+                    utilisateur=vr.submitted_by,
+                    action=f"PREPROCESSING_APPROVED: {vr.source_file_name or 'fichier'} validé et intégré par {reviewer_name}{' — ' + comment if comment else ''}",
+                    entite='PreprocessValidation',
+                    entite_id=vr.id,
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                )
             result_payload['validation_id'] = vr.id
             return Response(result_payload, status=result_status)
 
@@ -8106,6 +8311,16 @@ class PatientPreprocessValidationDetailView(APIView):
             vr.reviewed_at = tz.now()
             vr.comment = comment
             vr.save()
+            # Notifier le soumetteur via l'audit log
+            if vr.submitted_by:
+                reviewer_name = f"{getattr(request.user, 'prenom', '')} {getattr(request.user, 'nom', '')}".strip() or request.user.email
+                AuditLog.objects.create(
+                    utilisateur=vr.submitted_by,
+                    action=f"PREPROCESSING_REJECTED: {vr.source_file_name or 'fichier'} refusé par {reviewer_name}{' — ' + comment if comment else ''}",
+                    entite='PreprocessValidation',
+                    entite_id=vr.id,
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                )
             return Response({'validation_id': vr.id, 'status': 'rejected'})
 
         return Response({'error': 'Action invalide. Utilisez "approve" ou "reject".'}, status=status.HTTP_400_BAD_REQUEST)

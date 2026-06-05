@@ -1744,30 +1744,30 @@ The data engineering layer sits between raw data ingestion and ML inference. It 
 \label{fig:llm_pipeline}
 \end{figure}
 
-\subsection{LLM-Based Automated Cleaning (Qwen2.5:14B)}
+\subsection{LLM-Based Automated Cleaning (Qwen2.5:7B)}
 
-The platform deploys \textbf{Qwen2.5:14B} \cite{llm_clinical_nlp_2023} locally via Ollama as the data quality analysis model. Qwen2.5:14B was chosen for: (1) its strong reasoning on structured tabular data and medical terminology; (2) local deployment — patient data never leaves the hospital infrastructure; (3) its 14-billion parameter capacity for contextualizing clinical values, detecting unit errors, and generating justified corrections.
+The platform deploys \textbf{Qwen2.5:14B} \cite{llm_clinical_nlp_2023} locally via \textbf{Ollama} as the data quality analysis model. Qwen2.5:14B was chosen for: (1) its strong reasoning on structured tabular data and medical terminology; (2) on-premises deployment — patient data never leaves the hospital infrastructure; (3) its 14-billion-parameter capacity to contextualise clinical values, detect unit errors, and generate medically justified corrections.
 
-The LLM processing workflow:
+\textbf{Deployment configuration.} The model runs on an \textbf{NVIDIA GeForce RTX 3060} GPU (12~GB VRAM) via the Docker Compose \texttt{deploy.resources.reservations.devices} directive, with \texttt{driver: nvidia} and \texttt{capabilities: [gpu]}. At inference time the full 9~GB model fits in the 10.6~GB of available VRAM, enabling 100\% GPU inference with no CPU offloading. The Ollama context window is configured to \textbf{16\,384 tokens} (\texttt{OLLAMA\_NUM\_CTX=16384}, \texttt{MAX\_CONTEXT\_TOKENS=16384}), providing a budget of $16\,384 - 1\,200 - 800 - 200 = \mathbf{14\,184}$ available input tokens per LLM call. This is sufficient to accommodate the largest observed prompts ($\leq 8\,829$ tokens) without any truncation, ensuring the LLM receives the complete column data for each batch.
+
+The preprocessing pipeline is implemented as an 11-stage \textbf{Celery asynchronous task} (\texttt{analyze\_preprocess\_async}). The key stages are:
+
 \begin{enumerate}
-  \item The uploaded file is parsed into a DataFrame and each row is submitted to the LLM with its column names and values
-  \item The LLM identifies anomalies (impossible values, wrong units, heterogeneous formats) and proposes corrections with a medical justification for each
-  \item Corrections are stored in the \texttt{PreprocessValidationRequest} session and presented to the clinician for review
-  \item The clinician accepts, overrides, or rejects each correction individually
-  \item The validated version is submitted to the Chef de service for final approval before database integration
+  \item \textbf{Technical profiling} — Python performs a full statistical scan of every column (data types, missing rates, outlier detection, sentinel values, Excel artefacts) without any LLM call, producing a \texttt{technical\_profile} dict.
+  \item \textbf{Route determination} (\texttt{estimate\_route}) — the platform evaluates dataset complexity (missing rate, outlier count, clinical column criticality) and selects the processing mode:
+    \begin{itemize}
+      \item \textbf{Deterministic only}: clean file ($\leq$50 rows, 0\% missing) — Python rules, no LLM call
+      \item \textbf{Balanced}: moderate complexity — Qwen2.5:7B with reduced context
+      \item \textbf{Advanced}: complex dataset ($>$300 rows or $\geq$10\% missing) — full RAG context
+    \end{itemize}
+  \item \textbf{RAG retrieval} — semantic chunks are used to query ChromaDB and inject the most relevant nephrology guidelines into the LLM prompt.
+  \item \textbf{LLM batch analysis — Pass 1} — all columns are split into batches of \textbf{5 columns} (\texttt{LLM\_BATCH\_SIZE=5}); for each batch \textbf{all row values} are serialised and sent to Qwen2.5:7B. The model returns a structured \texttt{correction\_plan} (type casts, date parsing, fill-missing, flagged anomalies). For a 90-column dataset this produces at most $\lceil 90/5 \rceil = 18$ LLM calls.
+  \item \textbf{Biological correction pass} (\texttt{\_run\_bio\_value\_correction\_pass}) — each biological column is matched against the \textbf{LOINC database} (primary) or the medical knowledge base (fallback); the LLM identifies aberrant unique values and corrects them across all rows.
+  \item \textbf{LLM flagged corrections} (\texttt{\_run\_llm\_flagged\_corrections}) — columns flagged in Pass 1 but not covered by the bio KB are re-analysed; each suspicious value is classified as \textit{error} (auto-corrected), \textit{extreme\_real} (kept, flagged), or \textit{uncertain} (kept, flagged).
+  \item \textbf{KNN imputation} (\texttt{\_run\_model\_imputation}) — values nullified by the correction passes are re-estimated via K-Nearest Neighbours ($k=5$) using all available clinical features.
 \end{enumerate}
 
-Before calling the LLM, the platform runs an \textbf{intelligent routing step} implemented in \texttt{estimate\_route()} and called by the Celery task on every import. The motivation is resource efficiency: running Qwen2.5:14B on every uploaded file would impose a systematic 1--2 minute latency even for small, clean datasets where LLM analysis brings no value. The routing function evaluates three indicators of dataset complexity — percentage of missing values, number of outliers in biological columns, and presence of critical clinical columns (albumin, creatinine, dialysis variables) with high missingness — and selects one of three processing modes:
-
-\begin{itemize}
-  \item \textbf{Deterministic only}: clean file ($\leq$50 rows, 0\% missing, no outliers) — Python rules only, no LLM call, sub-second processing
-  \item \textbf{Balanced}: moderate complexity — Qwen2.5:14B with reduced context window, faster inference
-  \item \textbf{Advanced}: complex medical dataset ($>$300 rows, $\geq$10\% missing, or clinical complexity score $\geq$6) — Qwen2.5:14B with full RAG context and extended processing
-\end{itemize}
-
-This adaptive approach makes the preprocessing system both clinically powerful for complex imports and operationally fast for routine ones.
-
-For biological columns, the platform also runs a \textbf{dedicated biological correction pass} that matches each column against the LOINC reference database and the medical knowledge base to detect unit errors and outliers independently of the LLM general analysis.
+This multi-pass architecture ensures that both \textbf{structural anomalies} (type errors, formats) and \textbf{clinical anomalies} (biologically impossible values, unit errors) are addressed, while preserving extreme-but-plausible values that would be incorrectly removed by a purely statistical approach.
 
 \subsection{RAG Knowledge Base (ChromaDB)}
 
@@ -3019,110 +3019,356 @@ The React application is organized around:
   \item \textbf{Axios Instance}: Centralized HTTP client with JWT interceptor and error handling
 \end{itemize}
 
-\subsection{Application Sidebar and Navigation}
-
-\begin{figure}[H]
-\centering
-\framebox[0.3\textwidth][c]{\small[Screenshot: Application Sidebar]}
-\caption{AI NéphroCare navigation sidebar --- main interface entry points}
-\label{fig:sidebar}
-\end{figure}
-
-The application navigation is structured around a persistent left sidebar visible on all authenticated pages. The sidebar contains:
-\begin{itemize}
-  \item \textbf{Platform logo and branding} at the top
-  \item \textbf{Navigation links} to all main sections: Dashboard, Patient Management (Preprocessing, Data Management, Analysis), AI Model, Monitoring
-  \item \textbf{User role indicator} showing the current user's role (Admin, Chef de service, Résident, Professeur)
-  \item \textbf{Logout button} at the bottom
-\end{itemize}
-
-Access to each section is controlled by the user's role (RBAC): some sections are visible to all authenticated users, while others (such as administration functions) are restricted to administrators.
-
 \subsection{Pages and Interfaces}
 
 \begin{description}
-  \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard interface varies by user role:
 
-\textbf{Administrator dashboard} displays \textbf{7 KPI cards}:
-\begin{itemize}
-  \item Total active accounts
-  \item Total inactive accounts
-  \item Number of administrator accounts
-  \item Number of Chef de service accounts
-  \item Number of Résident accounts
-  \item Number of Professeur accounts
-  \item Total number of existing roles
-\end{itemize}
-Additionally, the administrator dashboard includes a full user management table with create, edit, and delete actions.
-
-\textbf{Chef de service dashboard} displays \textbf{6 KPI cards} (excluding admin-related metrics):
-\begin{itemize}
-  \item Total active accounts
-  \item Total inactive accounts
-  \item Number of Chef de service accounts
-  \item Number of Résident accounts
-  \item Number of Professeur accounts
-  \item Total number of existing roles
-\end{itemize}
-
-\textbf{Important}: Any modification of user account information (email, role, password, or status) requires the acting user to enter their own account password for authentication confirmation before the change is saved. This double-authentication mechanism prevents unauthorized modifications.
-
-\textbf{Account creation}: To add a new account, the administrator must fill in the following mandatory fields: email address, telephone number, last name (\textit{nom}), first name (\textit{prénom}), role (Admin / Chef de service / Résident / Professeur), account status (active/inactive), and an initial password.
+  \item[\textbf{Landing Page} (\texttt{/})] The landing page is the public entry point of the platform, accessible without authentication. It presents the platform identity through a full-screen hero layout composed of a gradient background in deep blue tones, a large anatomical illustration of kidneys on the right side, and a concise value proposition on the left: the platform name \textit{AI NéphroCare}, the tagline \textit{"Bienvenue dans votre espace santé"}, a short description inviting users to open their secure account, and a \textbf{"Commencer"} call-to-action button that redirects to the login page.
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Admin Dashboard with 7 KPI cards]}
-\caption{Administrator dashboard --- 7 KPI cards and user management table}
-\label{fig:dashboard_admin}
+\IfFileExists{landing_page.png}{\includegraphics[width=0.85\textwidth]{landing_page.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Landing Page]}}
+\caption{Landing page --- public entry point of the AI NéphroCare platform}
+\label{fig:landing}
+\end{figure}
+
+  \item[\textbf{Login Page} (\texttt{/login})] The login page is divided into two panels. The left panel displays the platform branding: the name \textit{AI NéphroCare} in large pink typography over a dark blue background, accompanied by a 3D kidney illustration and the subtitle \textit{"Une plateforme intelligente dédiée à la néphrologie, pensée pour vos patients et vos équipes."}. The right panel presents a minimal authentication form over a white background with floating decorative dots, containing:
+\begin{itemize}
+  \item An \textbf{email} input field with envelope icon
+  \item A \textbf{password} input field with padlock icon
+  \item A \textbf{Connexion} submit button that initiates the JWT authentication flow (POST \texttt{/api/auth/login/})
+\end{itemize}
+On successful authentication, the user is redirected to their role-appropriate dashboard. On failure, an error message is displayed inline without page reload.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{login_page.png}{\includegraphics[width=0.85\textwidth]{login_page.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Login Page]}}
+\caption{Login page --- split-panel design with branding (left) and JWT authentication form (right)}
+\label{fig:login}
+\end{figure}
+
+  \item[\textbf{Navigation Sidebar}] Once authenticated, all pages share a persistent left sidebar (width: 248 px) that serves as the main navigation hub of the application. It is composed of:
+\begin{itemize}
+  \item \textbf{Platform logo and branding} at the top (\textit{AI NÉPHROCARE}), with a gradient gradient typography
+  \item \textbf{Navigation card} with links to all main sections: Dashboard, Patients, Analyse IA, Monitor
+  \item \textbf{User profile card} at the bottom showing the connected user's email and role badge
+  \item \textbf{Notifications button} (visible to Chef de service and Super Admin only) with a badge counter for pending validation requests
+  \item \textbf{Logout button} that clears the JWT tokens and redirects to the login page
+\end{itemize}
+
+Access to each section is controlled by the user's role (RBAC): navigation items are filtered at the routing level via the \texttt{ProtectedRoute} component, so unauthorised sections are never rendered.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{sidebar.png}{\includegraphics[width=0.3\textwidth]{sidebar.png}}{\framebox[0.3\textwidth][c]{\small[Screenshot: Navigation Sidebar]}}
+\caption{AI NéphroCare navigation sidebar --- persistent across all authenticated pages}
+\label{fig:sidebar}
+\end{figure}
+
+  \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard is the first authenticated page. Its content is entirely \textbf{role-dependent}: Super Admin and Chef de Service see an administrative dashboard focused on user governance, while Professeur and Résident see a clinical dashboard focused on their own activity.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection*{Dashboard --- Super Admin and Chef de Service}
+% ──────────────────────────────────────────────────────────────────────────────
+
+The administrative dashboard is organised into two columns:
+\begin{itemize}
+  \item \textbf{Left column} — Connected profile card (identity, role, email, telephone).
+  \item \textbf{Right column} — User management area: KPI summary, user list with search, and CRUD panel.
+\end{itemize}
+
+\paragraph{KPI summary.}
+The hero banner displays \textbf{7 interactive KPI cards} for Super Admin (6 for Chef de Service, excluding Super Admins):
+\textit{Actifs}, \textit{Inactifs}, \textit{Super Admins}, \textit{Chefs Service}, \textit{Professeurs}, \textit{Résidents}, \textit{Rôles}.
+Each card is \textbf{clickable}: clicking it filters the \textit{Comptes gérés} list below to show only matching accounts (by status or role). An active filter is displayed as a labelled chip with a dismiss button. The text search bar operates \textbf{in parallel} with the KPI filter.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_kpi.png}{\includegraphics[width=0.85\textwidth]{dashboard_kpi.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Admin dashboard --- KPI cards]}}
+\caption{Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}
+\label{fig:dashboard_kpi}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_filter.png}{\includegraphics[width=0.85\textwidth]{dashboard_filter.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: KPI filter active]}}
+\caption{KPI filter active --- clicking \textit{Professeurs} restricts the list and displays an active-filter chip}
+\label{fig:dashboard_filter}
+\end{figure}
+
+\paragraph{User Management (CRUD).}
+Clicking the \textit{Afficher} toggle reveals the CRUD panel. The form supports:
+\begin{itemize}
+  \item \textbf{Create}: email, telephone, last name, first name, role, status, initial password (no confirmation password required).
+  \item \textbf{Edit}: pencil icon pre-fills the form; administrator must re-enter their \textbf{own password} before saving (\texttt{confirmation\_password} validated server-side via \texttt{check\_password()}).
+  \item \textbf{Delete}: bin icon opens a dialog requiring the administrator's password before deletion.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_crud.png}{\includegraphics[width=0.85\textwidth]{dashboard_crud.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: CRUD form]}}
+\caption{User management CRUD panel --- account creation and editing form}
+\label{fig:dashboard_crud}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_delete_confirm.png}{\includegraphics[width=0.70\textwidth]{dashboard_delete_confirm.png}}{\framebox[0.70\textwidth][c]{\small[Screenshot: Delete confirmation dialog]}}
+\caption{Deletion confirmation dialog --- password required before account removal}
+\label{fig:dashboard_delete_confirm}
+\end{figure}
+
+The \textbf{double-authentication} on write operations prevents unauthorised modifications and ensures every change is traceable in the audit log.
+
+\paragraph{Import validation workflow.}
+When a Résident or Professeur submits a preprocessed file for approval, the chef receives a \textbf{notification badge} in the sidebar. Clicking \textbf{"Aperçu"} opens a preview modal showing file name, submitter, row/column counts, quality score, and the first 15 rows. From the modal, the chef can \textbf{validate and integrate} (data inserted into the patient database) or close without action. A reject action is available via the detail endpoint with a mandatory reason.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection*{Dashboard --- Professeur and Résident}
+% ──────────────────────────────────────────────────────────────────────────────
+
+Clinical users (Professeur, Résident) see a dedicated dashboard with \textbf{no administrative panels}. The layout presents two side-by-side panels:
+
+\begin{itemize}
+  \item \textbf{Left panel} — Connected profile card: avatar with initials, full name, role badge, email, telephone.
+  \item \textbf{Right panel} — \textbf{Activité récente}: a real-time feed of the last 10 actions performed by the connected user, fetched from \texttt{GET /api/audit/my-activity/}. Each entry shows a colour-coded indicator, a human-readable label, and a timestamp. The entries tracked include:
+  \begin{itemize}
+    \item Patient added, modified, or deleted
+    \item Mortality prediction launched
+    \item Preprocessing file submitted for validation
+    \item Import approved or rejected by the chef
+  \end{itemize}
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_resident.png}{\includegraphics[width=0.85\textwidth]{dashboard_resident.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Professeur/Résident dashboard --- profile + activity feed]}}
+\caption{Professeur/Résident dashboard --- connected profile (left) and recent activity feed (right)}
+\label{fig:dashboard_resident}
+\end{figure}
+
+\paragraph{Click-to-expand interaction.}
+Clicking any activity entry \textbf{expands} it inline to reveal: the full action detail (e.g.\ patient identifier), any comment left by the reviewer, the entity reference, and a \textit{"Voir →"} shortcut to the relevant section (patient list, AI model, or preprocessing tab). Clicking again collapses the entry.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_activity_expand.png}{\includegraphics[width=0.75\textwidth]{dashboard_activity_expand.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: Activity entry expanded --- full detail, comment, entity reference, navigation link]}}
+\caption{Activity feed entry expanded --- full action detail, reviewer comment, and direct navigation shortcut}
+\label{fig:dashboard_activity_expand}
+\end{figure}
+
+\paragraph{Import decision notifications.}
+When the Chef de Service or Super Admin approves or rejects a submitted import, the backend writes an \texttt{AuditLog} entry in the \textbf{submitter's} log. The entry appears with a \textbf{distinct visual style}:
+\begin{itemize}
+  \item \textbf{Approved}: green border and bold label \textit{"\checkmark{} Import validé et intégré"} with the reviewer's name and comment.
+  \item \textbf{Rejected}: pink border and bold label \textit{"$\times$ Import refusé"} with the rejection reason.
+\end{itemize}
+This ensures the clinician is immediately informed of the outcome of their submission without requiring a separate notification system.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{dashboard_notif_decision.png}{\includegraphics[width=0.75\textwidth]{dashboard_notif_decision.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: Import decision notification --- approved (green) or rejected (pink)]}}
+\caption{Import decision notification in the activity feed --- green entry for approval, pink entry for rejection, both displaying the reviewer's comment}
+\label{fig:dashboard_notif_decision}
 \end{figure}
 
   \item[\textbf{Patient Management} (\texttt{/patients})] The patient management module is organized into three tabs presented in the following logical order: \textit{Preprocessing}, \textit{Data Management}, and \textit{Analysis}.
 
 \subsubsection*{Tab 1 --- Preprocessing Interface}
 
+The preprocessing tab is the entry point for data quality control. It guides the user through a four-step workflow: file upload, AI analysis, correction review, and integration. The platform uses the \textbf{Qwen2.5:14B} large language model deployed locally via \textbf{Ollama}, chosen for its strong reasoning on structured clinical tabular data, its on-premises deployment (patient data never leaves the hospital network), and its 14B parameters that allow contextualised corrections with medical justification.
+
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Preprocessing Interface --- file upload and LLM analysis]}
-\caption{Preprocessing interface --- file upload, LLM analysis with Qwen 14B, and correction review workflow}
-\label{fig:preproc_ui}
+\IfFileExists{preproc_overview.png}{\includegraphics[width=0.85\textwidth]{preproc_overview.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Preprocessing interface --- general view]}}
+\caption{Preprocessing interface --- general view before file upload}
+\label{fig:preproc_overview}
 \end{figure}
 
-The preprocessing tab allows authorized users to upload Excel or CSV patient data files and subject them to an AI-driven data quality analysis. The platform uses the \textbf{Qwen2.5:14B} language model (deployed locally via Ollama), a state-of-the-art large language model specifically chosen for its:
-\begin{itemize}
-  \item \textbf{Strong reasoning capacity} on structured tabular data and medical terminology
-  \item \textbf{Local deployment capability}: runs on-premises via Ollama, ensuring patient data never leaves the hospital infrastructure
-  \item \textbf{14 billion parameters}: sufficient capacity to contextualize clinical values, detect unit errors, and suggest corrections with medical justification
-\end{itemize}
-
-The preprocessing workflow proceeds as follows:
-\begin{enumerate}
-  \item The user uploads an Excel or CSV file containing patient records
-  \item The platform parses the file and displays a data profile (column names, types, null rates)
-  \item The user clicks \textbf{"Launch LLM Analysis"} to start the asynchronous Qwen2.5:14B analysis via Celery
-  \item A \textbf{progress indicator} shows the real-time analysis progress
-  \item Once complete, a \textbf{correction review table} displays each row with LLM-suggested corrections, including a medical justification for each change
-  \item The user can \textbf{accept, modify, or reject} each correction individually
-  \item Once satisfied, the user submits the validated data to the \textbf{Chef de service} for final approval
-  \item Upon approval, the data is \textbf{integrated into the platform database}
-\end{enumerate}
-
-The interface displays the following windows and panels:
-\begin{itemize}
-  \item \textbf{File upload panel}: drag-and-drop zone with file format validation
-  \item \textbf{Data profile panel}: table showing column statistics
-  \item \textbf{LLM analysis progress window}: real-time progress bar with current row being processed
-  \item \textbf{Correction review table}: row-by-row LLM suggestions with justifications
-  \item \textbf{Validation buttons}: Accept All, Reject All, and per-cell override
-  \item \textbf{Submit for approval} button (sends to Chef de service)
-\end{itemize}
-
-Once preprocessing is complete and the version is selected, the system transitions directly to the \textbf{Data Management tab}, where the values from the selected file version are mapped to the fixed columns of the platform's standardized patient table.
+\paragraph{Step 1 — File upload.}
+The interface presents a \textbf{drag-and-drop upload zone} that accepts \texttt{.xlsx} and \texttt{.csv} files. Upon file selection, the platform validates the format, displays the file name, and enables the analysis launch button.
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: LLM correction review table with suggestions and justifications]}
-\caption{LLM correction review interface --- Qwen2.5:14B suggestions with medical justifications}
-\label{fig:llm_corrections}
+\IfFileExists{preproc_upload.png}{\includegraphics[width=0.85\textwidth]{preproc_upload.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: File upload --- Excel/CSV file selected]}}
+\caption{Step 1 --- file upload zone with Excel/CSV file selected, ready for LLM analysis}
+\label{fig:preproc_upload}
+\end{figure}
+
+\paragraph{Step 2 — Analysis pipeline (11 stages).}
+Clicking \textbf{"Lancer l'analyse LLM"} triggers an asynchronous \textbf{Celery} task (\texttt{analyze\_preprocess\_async}) that orchestrates the following eleven-stage pipeline. Each stage updates the progress bar and status message visible on the frontend.
+
+Table~\ref{tab:pipeline_stages} maps each backend stage to the label displayed in the interface progress bar.
+
+\begin{table}[H]
+\centering
+\caption{Preprocessing pipeline stages and corresponding interface labels}
+\label{tab:pipeline_stages}
+\begin{tabular}{clll}
+\toprule
+\textbf{\#} & \textbf{Backend function} & \textbf{Role} & \textbf{Interface label} \\
+\midrule
+1  & \texttt{\_read\_uploaded\_dataframe}     & File parsing         & Lecture \\
+2  & \texttt{\_build\_technical\_profile}     & Statistical scan     & Analyse des données \\
+3  & \texttt{\_build\_preprocess\_chunks}     & RAG chunking         & Préparation \\
+4  & \texttt{\_build\_retrieval\_context}     & ChromaDB retrieval   & Références médicales \\
+5  & \texttt{\_determine\_preprocess\_route}  & LLM routing          & Initialisation IA \\
+6  & \texttt{\_call\_ollama\_qwen\_analysis}  & LLM batch analysis   & Détection des anomalies \\
+7  & \texttt{\_apply\_llm\_correction\_plan}  & Apply corrections    & Corrections automatiques \\
+8  & \texttt{\_run\_bio\_value\_correction\_pass} & LOINC/KB bio pass & Vérification biologique \\
+9  & \texttt{\_run\_llm\_flagged\_corrections} & Flagged value triage & Vérification clinique \\
+10 & \texttt{\_run\_model\_imputation}        & KNN imputation       & Complétion des données \\
+11 & \texttt{\_build\_preprocess\_report}     & Quality report       & Rapport final \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{enumerate}
+
+  \item \textbf{File reading.} The uploaded Excel or CSV file is parsed into a Pandas DataFrame. All column names and data types are preserved as-is from the source file.
+
+  \item \textbf{Technical profiling.} Python performs a full statistical scan of \textbf{every column}: data types, missing value rates, unique value counts, outlier detection, and anomaly candidate identification (sentinel values, biologically impossible values, Excel artefacts, future dates). This stage produces a \texttt{technical\_profile} dictionary used to ground all subsequent stages without any LLM call.
+
+  \item \textbf{Semantic chunking for RAG.} The dataset is split into semantic row-chunks by clinical domain (11 sections: demography, IRC, comorbidities, biology, dialysis, complications, etc.), capping at 40 rows per chunk while preserving patient coherence. These chunks are not sent to the LLM; they serve exclusively as retrieval units for ChromaDB.
+
+  \item \textbf{RAG retrieval.} The chunks are used to query ChromaDB, which stores embeddings of nephrology clinical guidelines, LOINC reference ranges, and dialysis protocol summaries. The top-$k$ most relevant document fragments are injected into the LLM prompt as medical grounding context.
+
+  \item \textbf{Route determination.} The platform evaluates dataset complexity and selects the analysis mode: \textit{LLM-only} (default), \textit{deterministic} (Python rules only, no LLM), or \textit{hybrid}. In the deployed configuration the route is always LLM with \texttt{qwen2.5:14b} as primary model.
+
+  \item \textbf{LLM batch analysis — Pass 1.} All columns are split into batches of 5 (\texttt{LLM\_BATCH\_SIZE=5}). For each batch, all row values of the 5 columns are serialised and sent to Qwen2.5:14B with the RAG context. The model returns a structured \texttt{correction\_plan} (JSON) specifying type casts, date parsing, missing value fills, and flagged anomalies. Results from all batches are merged into a single correction plan. For a 90-column dataset this produces at most $\lceil 90/5 \rceil = 18$ LLM calls.
+
+  \item \textbf{Apply correction plan.} The merged \texttt{correction\_plan} is applied to the full DataFrame: numeric type casts, date standardisation, boolean normalisation, fill-missing values, and Excel artefact removal.
+
+  \item \textbf{Biological value correction pass.} For each column matched to a LOINC code (primary) or the medical knowledge base (fallback), the platform asks the LLM to identify aberrant unique values based on authoritative clinical reference ranges, then corrects them across all rows.
+
+  \item \textbf{LLM flagged corrections.} Columns flagged in Pass 1 but not covered by the bio KB are re-analysed. Each suspicious value is classified as \textit{error} (auto-corrected), \textit{extreme\_real} (extreme but clinically plausible --- kept with flag), or \textit{uncertain} (kept with flag). Only confirmed errors are automatically corrected.
+
+  \item \textbf{KNN imputation.} Values nullified by the correction passes are re-estimated using K-Nearest Neighbours ($k=5$), inferring each missing value from the 5 most similar patients across all available clinical features.
+
+  \item \textbf{Report generation.} A final quality report is assembled: quality score (0--100), total corrections, column-level issues, LLM confidence contract, and pipeline metadata. The session is persisted and the frontend is notified that the analysis is complete.
+
+\end{enumerate}
+
+\subsubsection*{Python Deterministic Pre-passes}
+
+In addition to the LLM passes, the \texttt{\_apply\_llm\_correction\_plan()} function runs a set of \textbf{deterministic Python pre-passes} before the LLM correction plan is applied. These handle unambiguous error patterns that do not require LLM interpretation:
+
+\begin{itemize}
+  \item \textbf{Excel serial-date artefacts}: values such as \texttt{1899-12-30}, \texttt{1900-01-01} (produced by pandas when reading Excel serial date~0) are unconditionally replaced with \texttt{null}. The set of known artefact strings is defined in \texttt{\_ANOMALY\_EXCEL\_DATE\_ARTIFACTS}.
+
+  \item \textbf{\texttt{"X"} values in numeric/binary columns}: in columns where at least 60\% of non-null values are numeric (including binary 0/1 columns), any cell containing \texttt{"X"}, \texttt{"x"}, \texttt{"*"}, or similar placeholders is replaced with \texttt{null} and subsequently imputed by KNN. This handles the common clinical data-entry pattern where \texttt{X} marks an unevaluated or unknown observation. Text/categorical columns (fewer than 60\% numeric values) are left untouched, as \texttt{X} may be a legitimate value there.
+
+  \item \textbf{Mixed semicolon artefacts}: values matching the pattern \texttt{digit;(fraction-or-date)} (e.g.\ \texttt{1;(1/2024)}) are detected by the regex \texttt{\^{}\textbackslash d+\textbackslash s*;\textbackslash s*\textbackslash(.*\textbackslash)\$} and flagged as \texttt{artefact\_excel\_mixte} for the LLM to classify and correct.
+
+  \item \textbf{Decimal comma normalisation}: French-locale numbers such as \texttt{1,5} or \texttt{2~234,56} in object columns are converted to their dot-decimal equivalents (\texttt{1.5}, \texttt{2234.56}).
+\end{itemize}
+
+These pre-passes ensure that obvious structural errors are removed \textit{before} the LLM analysis, reducing noise in the LLM prompt and preventing trivially incorrect values from being classified as \textit{uncertain}.
+
+The interface displays a \textbf{progress view} (MUI \texttt{LinearProgress}) updated after each stage, with a status message tracking the current step and a \textbf{cancel button} to interrupt the Celery task at any point. The frontend polls \texttt{GET /api/patients/preprocess/\{session\_id\}/status/} every 3 seconds via a \texttt{setInterval} hook.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_progress.png}{\includegraphics[width=0.85\textwidth]{preproc_progress.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Analysis in progress --- LinearProgress bar and status message]}}
+\caption{Step 2 --- LLM analysis in progress, real-time progress bar with current processing message}
+\label{fig:preproc_progress}
+\end{figure}
+
+\paragraph{Step 3 --- LLM correction review table.}
+Once the analysis completes, the interface displays a \textbf{results summary} followed by the \textbf{correction review table}. The summary section contains:
+
+\begin{itemize}
+  \item A \textbf{Quality Score ring} (custom SVG \texttt{ScoreRing} component, range 0--100): green if $\geq 80$, orange if $\geq 50$, red below 50
+  \item Three \textbf{KPI stat cards} (custom \texttt{StatCard} component, MUI \texttt{Paper}):
+    \begin{itemize}
+      \item \textbf{Lignes analysées} — total number of rows processed by the LLM
+      \item \textbf{Cellules corrigées} — number of individual cell values automatically corrected
+      \item \textbf{Colonnes suspectes} — number of columns flagged as anomalous but without an automatic correction (manual review recommended)
+    \end{itemize}
+\end{itemize}
+
+The correction review table is organised in two \textbf{tabs} (MUI \texttt{Tabs} / \texttt{Tab}):
+
+\begin{enumerate}
+  \item \textbf{Cellules corrigées} — lists every automatic correction with the following columns:
+    \begin{itemize}
+      \item \textbf{Ligne} — row index in the source file
+      \item \textbf{ID Patient} — patient identifier
+      \item \textbf{Colonne} — clinical field name
+      \item \textbf{Valeur originale} — raw value from the imported file
+      \item \textbf{Valeur corrigée} — value proposed by the LLM (clickable: the user can \textbf{edit it inline} to override the suggestion)
+      \item \textbf{Type} — correction category (type cast, outlier, KNN imputation, boolean normalisation, Excel artefact)
+      \item \textbf{Justification} — medical explanation generated by Qwen2.5:14B
+    \end{itemize}
+    Each corrected cell is rendered as a \textbf{MUI \texttt{Chip}} colour-coded by correction type (green for corrected, pink for KNN). Clicking a cell activates an \textbf{inline text field} to manually override the LLM's suggestion; the override is persisted via \texttt{POST /api/patients/preprocess/\{session\}/apply-overrides/}.
+
+  \item \textbf{Colonnes suspectes} — lists columns flagged by the LLM as potentially erroneous but for which no automatic correction was applied. Each row shows the column name, anomaly category, and LLM justification so the user can decide on a manual correction.
+\end{enumerate}
+
+Below the table, two \textbf{export buttons} allow the user to download the data as an \texttt{.xlsx} file before integration:
+
+\begin{itemize}
+  \item \textbf{Exporter corrigé (.xlsx)} — downloads the corrected version. The file is generated server-side by the \texttt{PatientPreprocessExportView} using the \texttt{openpyxl} library and contains \textbf{two sheets}:
+    \begin{itemize}
+      \item \textbf{Sheet 1 — ``Données''}: the full dataset with all corrections applied. Every cell whose value was changed by the LLM is \textbf{highlighted in pale yellow} (\texttt{\#FFF2CC}) with a \textbf{bold orange font} (\texttt{\#B45309}), making modified cells immediately visible. The header row uses a dark navy background (\texttt{\#0A2B3E}) with white bold text.
+      \item \textbf{Sheet 2 — ``Corrections''}: a summary table listing every changed cell with the columns \textit{N° Ligne}, \textit{ID Patient}, \textit{Colonne}, \textit{Valeur originale}, \textit{Valeur corrigée}, \textit{Type}, and \textit{Justification} — identical structure to the on-screen review table.
+    \end{itemize}
+  \item \textbf{Exporter original (.xlsx)} — downloads the raw file as imported, with only the header row styled, and no cell highlighting.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_export_donnees.png}{\includegraphics[width=0.85\textwidth]{preproc_export_donnees.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Feuille ``Données'' --- cellules modifiées surlignées en jaune]}}
+\caption{Feuille \textit{Données} du fichier \texttt{.xlsx} exporté --- les cellules modifiées par le LLM sont surlignées en jaune pâle (\texttt{\#FFF2CC}) avec une police orange grasse, générées par \texttt{openpyxl}}
+\label{fig:preproc_export_donnees}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_export_corrections.png}{\includegraphics[width=0.85\textwidth]{preproc_export_corrections.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Feuille ``Corrections'' --- tableau récapitulatif des modifications]}}
+\caption{Feuille \textit{Corrections} du fichier \texttt{.xlsx} exporté --- tableau récapitulatif listant chaque cellule modifiée avec sa valeur originale, sa valeur corrigée, le type de correction et la justification médicale}
+\label{fig:preproc_export_corrections}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_corrections.png}{\includegraphics[width=0.85\textwidth]{preproc_corrections.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: LLM correction review table]}}
+\caption{Step 3 --- LLM correction review table: quality score, KPI cards, and cell-level corrections with medical justifications}
+\label{fig:preproc_corrections}
+\end{figure}
+
+\paragraph{Step 4 --- Integration.}
+Once the user has reviewed and optionally overridden corrections, they click \textbf{"Intégrer dans la plateforme"} to persist the dataset into the platform database. Before confirming, the user must explicitly \textbf{choose which version to integrate} via a radio-button selector:
+
+\begin{itemize}
+  \item \textbf{Version corrigée} (recommended) --- the dataset with all LLM corrections, bio-value corrections, and KNN imputation applied. This is the version that will improve the downstream SVM prediction accuracy.
+  \item \textbf{Version originale} --- the raw file as uploaded, without any modifications. This option is available if the clinician considers the original data reliable and does not wish to apply the automated corrections.
+\end{itemize}
+
+This explicit choice guarantees that no data modification reaches the database without the user's deliberate consent, in line with the platform's principle of \textbf{human-in-the-loop} clinical validation.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_integration_choice.png}{\includegraphics[width=0.75\textwidth]{preproc_integration_choice.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: Version selector --- corrigée vs originale]}}
+\caption{Integration version selector --- the user chooses between the corrected version (recommended) and the original file before persisting data to the database}
+\label{fig:preproc_integration_choice}
+\end{figure}
+
+Once the version is selected and confirmed, the integration call (\texttt{POST /api/patients/preprocess/\{session\}/integrate/}) triggers a \textbf{column mapping process} that translates the source file's column names into the platform's standardised schema:
+
+\begin{itemize}
+  \item Each source column is compared against a configurable mapping dictionary (\texttt{column\_mapping.json}). If a match is found (e.g.\ \textit{"Albumine basale"} $\rightarrow$ \texttt{albumine\_basale}), the value is stored in the corresponding field of the patient's structured clinical record.
+  \item Columns that belong to a known clinical section (demography, biology, dialysis, comorbidities, etc.) are stored in the relevant JSONB section of the \texttt{Patient} model.
+  \item Columns that do \textbf{not} match any predefined field are stored as \textbf{dynamic columns} in the \texttt{extra\_data} JSONB field, preserving institution-specific variables without requiring any schema migration.
+\end{itemize}
+
+A success notification confirms the integration, and the system transitions automatically to the \textbf{Data Management tab} where the imported patients are immediately visible.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{preproc_integration_success.png}{\includegraphics[width=0.75\textwidth]{preproc_integration_success.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: Integration success confirmation]}}
+\caption{Successful integration confirmation --- the platform notifies the user and redirects to the Data Management tab}
+\label{fig:preproc_integration_success}
 \end{figure}
 
 \subsubsection*{Tab 2 --- Data Management}

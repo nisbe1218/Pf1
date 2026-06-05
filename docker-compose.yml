@@ -37,29 +37,29 @@ services:
       - DB_PORT=5432
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:7b-instruct
-      - OLLAMA_PREPROCESS_MODEL=qwen2.5:7b-instruct
-      - OLLAMA_FALLBACK_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_MODEL=qwen2.5:14b
+      - OLLAMA_PREPROCESS_MODEL=qwen2.5:14b
+      - OLLAMA_FALLBACK_MODEL=qwen2.5:14b
       - OLLAMA_TIMEOUT_SECONDS=1500
       - OLLAMA_PRIMARY_TIMEOUT_SECONDS=1200
       - OLLAMA_FALLBACK_TIMEOUT_SECONDS=1200
       - OLLAMA_NUM_PREDICT=500
       - OLLAMA_RETRY_NUM_PREDICT=500
       - OLLAMA_MIN_PASS2_NUM_PREDICT=300
-      - OLLAMA_MAX_COLUMNS=40
+      - OLLAMA_MAX_COLUMNS=90
       - OLLAMA_PREVIEW_ROWS=2
-      - OLLAMA_RETRY_MAX_COLUMNS=20
+      - OLLAMA_RETRY_MAX_COLUMNS=30
       - OLLAMA_RETRY_PREVIEW_ROWS=2
-      - LLM_MAX_PRIORITY_COLUMNS=25
-      - OLLAMA_NUM_CTX=8192
-      - MAX_CONTEXT_TOKENS=8192
+      - LLM_MAX_PRIORITY_COLUMNS=90
+      - OLLAMA_NUM_CTX=16384
+      - MAX_CONTEXT_TOKENS=16384
       - CONTEXT_OUTPUT_TOKENS=1200
       - SYSTEM_PROMPT_TOKENS=800
       - CONTEXT_RETRY_MARGIN=200
       - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
       - CHROMA_PERSIST_DIR=/tmp/preprocess/chroma
       - RAG_MAX_CHUNKS=1
-      - LLM_BATCH_SIZE=2
+      - LLM_BATCH_SIZE=5
       - PREPROCESS_TIMEOUT_MINUTES=720
       - LLM_MAX_SAMPLE_ROWS=9999
       - OLLAMA_PRIMARY_TIMEOUT_SECONDS=2400
@@ -103,29 +103,29 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:7b-instruct
-      - OLLAMA_PREPROCESS_MODEL=qwen2.5:7b-instruct
-      - OLLAMA_FALLBACK_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_MODEL=qwen2.5:14b
+      - OLLAMA_PREPROCESS_MODEL=qwen2.5:14b
+      - OLLAMA_FALLBACK_MODEL=qwen2.5:14b
       - OLLAMA_TIMEOUT_SECONDS=2400
       - OLLAMA_PRIMARY_TIMEOUT_SECONDS=2400
       - OLLAMA_FALLBACK_TIMEOUT_SECONDS=2400
       - OLLAMA_NUM_PREDICT=500
       - OLLAMA_RETRY_NUM_PREDICT=500
       - OLLAMA_MIN_PASS2_NUM_PREDICT=300
-      - OLLAMA_MAX_COLUMNS=40
+      - OLLAMA_MAX_COLUMNS=90
       - OLLAMA_PREVIEW_ROWS=2
-      - OLLAMA_RETRY_MAX_COLUMNS=20
+      - OLLAMA_RETRY_MAX_COLUMNS=30
       - OLLAMA_RETRY_PREVIEW_ROWS=2
-      - LLM_MAX_PRIORITY_COLUMNS=25
-      - OLLAMA_NUM_CTX=8192
-      - MAX_CONTEXT_TOKENS=8192
+      - LLM_MAX_PRIORITY_COLUMNS=90
+      - OLLAMA_NUM_CTX=16384
+      - MAX_CONTEXT_TOKENS=16384
       - CONTEXT_OUTPUT_TOKENS=1200
       - SYSTEM_PROMPT_TOKENS=800
       - CONTEXT_RETRY_MARGIN=200
       - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
       - CHROMA_PERSIST_DIR=/tmp/preprocess/chroma
       - RAG_MAX_CHUNKS=1
-      - LLM_BATCH_SIZE=2
+      - LLM_BATCH_SIZE=5
       - LLM_MAX_SAMPLE_ROWS=9999
     env_file:
       - ./backend/.env
@@ -161,6 +161,15 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
 volumes:

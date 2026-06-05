@@ -140,10 +140,6 @@ class UtilisateurListView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        confirmed, error_response = confirm_admin_password(request)
-        if not confirmed:
-            return error_response
-
         payload = request.data.copy()
         payload.pop('confirmation_password', None)
         serializer = CreateUtilisateurSerializer(data=payload)

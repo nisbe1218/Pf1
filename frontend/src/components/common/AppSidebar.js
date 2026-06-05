@@ -116,52 +116,219 @@ function NavItem({ icon, label, active, onClick, count }) {
 function BottomIllustration() { return null; }
 
 /* ── NotifPopover ──────────────────────────────────────────────────────────── */
-function NotifPopover({ anchor, onClose, pendingValidations, onValidate, approvingId }) {
+function PreviewModal({ validation, onClose, onValidate, onRequestReject, approvingId, rejectingId }) {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!validation) return;
+    api.get(`patients/preprocess/validations/${validation.id}/`)
+      .then(r => setData(r.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [validation?.id]);
+
+  if (!validation) return null;
+  return createPortal(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9100,background:'rgba(0,0,0,0.45)',backdropFilter:'blur(3px)'}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',zIndex:9101,
+        width:'min(92vw,780px)',maxHeight:'82vh',borderRadius:20,background:'#fff',
+        boxShadow:'0 24px 64px rgba(10,43,62,0.22)',border:'1px solid #e4eaf0',
+        display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px 14px',borderBottom:'1px solid #f0f4f8',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:C.deepNavy}}>{data?.source_file_name || validation.source_file_name || 'Aperçu du fichier'}</div>
+            <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>
+              Par <strong>{typeof validation.submitted_by==='object'?validation.submitted_by?.username:validation.submitted_by}</strong>
+              {data && <> · {data.rows_count} lignes · {data.columns_count} colonnes · Score qualité : <strong style={{color:data.quality_score>=80?C.tealGreen:data.quality_score>=50?'#d18f47':C.dustyRose}}>{data.quality_score}/100</strong></>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{border:'1px solid #e4eaf0',background:'#f8fafc',borderRadius:8,cursor:'pointer',color:C.textMuted,width:30,height:30,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
+        {/* Body */}
+        <div style={{flex:1,overflowY:'auto',padding:'16px 22px'}}>
+          {loading ? (
+            <div style={{textAlign:'center',padding:40,color:C.textMuted}}>Chargement de l'aperçu...</div>
+          ) : !data ? (
+            <div style={{textAlign:'center',padding:40,color:C.dustyRose}}>Impossible de charger l'aperçu.</div>
+          ) : (
+            <>
+              {data.issues_count > 0 && (
+                <div style={{marginBottom:12,padding:'8px 12px',borderRadius:8,background:'#fff8e1',border:'1px solid #ffe082',fontSize:12,color:'#b45309',fontWeight:600}}>
+                  ⚠ {data.issues_count} anomalie(s) détectée(s) — vérifier avant intégration
+                </div>
+              )}
+              <div style={{overflowX:'auto',borderRadius:8,border:'1px solid #e4eaf0'}}>
+                <table style={{borderCollapse:'collapse',width:'100%',fontSize:11}}>
+                  <thead>
+                    <tr style={{background:'#f5f9fc'}}>
+                      {(data.columns||[]).map(col => (
+                        <th key={col} style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:C.textMuted,borderBottom:'2px solid #e4eaf0',whiteSpace:'nowrap'}}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.preview_rows||[]).map((row, i) => (
+                      <tr key={i} style={{background:i%2===0?'#fff':'#fafcfe'}}>
+                        {(data.columns||[]).map(col => (
+                          <td key={col} style={{padding:'6px 10px',borderBottom:'1px solid #f0f4f8',color:C.textDark,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {row[col]===null||row[col]===undefined?<span style={{color:'#ccc'}}>—</span>:String(row[col])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{marginTop:8,fontSize:11,color:C.textMuted}}>Aperçu complet du fichier sur {data.rows_count} ligne(s) et {data.columns_count || data.columns?.length || 0} colonne(s).</div>
+            </>
+          )}
+        </div>
+        {/* Footer */}
+        <div style={{padding:'14px 22px',borderTop:'1px solid #f0f4f8',display:'flex',gap:10,justifyContent:'flex-end',flexShrink:0}}>
+          <button onClick={onClose} style={{padding:'9px 18px',borderRadius:9,border:'1px solid #e4eaf0',background:'#f8fafc',color:C.textMuted,fontWeight:600,fontSize:13,cursor:'pointer'}}>
+            Fermer
+          </button>
+          {validation.status === 'pending' && (
+            <button onClick={()=>{onRequestReject(validation); onClose();}} disabled={rejectingId===validation.id}
+              style={{padding:'9px 18px',borderRadius:9,border:'1px solid #fecdd3',background:'#fff1f2',color:'#be123c',fontWeight:700,fontSize:13,cursor:rejectingId===validation.id?'wait':'pointer'}}>
+              {rejectingId===validation.id ? 'Refus...' : 'Refuser'}
+            </button>
+          )}
+          {validation.status === 'pending' && (
+          <button onClick={()=>{onValidate(validation.id); onClose();}} disabled={approvingId===validation.id}
+            style={{padding:'9px 20px',borderRadius:9,border:'none',background:`linear-gradient(135deg,${C.medBlue},${C.oceanT})`,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+            {approvingId===validation.id ? 'Validation...' : '✓ Valider et intégrer'}
+          </button>
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+function RejectModal({ validation, onClose, onConfirm, rejectingId }) {
+  const [reason, setReason] = React.useState('');
+
+  React.useEffect(() => {
+    setReason('');
+  }, [validation?.id]);
+
+  if (!validation) return null;
+  return createPortal(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9200,background:'rgba(0,0,0,0.42)',backdropFilter:'blur(3px)'}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',zIndex:9201,width:'min(92vw,460px)',borderRadius:18,background:'#fff',boxShadow:'0 22px 58px rgba(10,43,62,0.22)',border:'1px solid #fee2e2',overflow:'hidden'}}>
+        <div style={{padding:'18px 20px',borderBottom:'1px solid #fee2e2',background:'#fff7f7'}}>
+          <div style={{fontWeight:800,fontSize:16,color:'#9f1239'}}>Refuser la validation</div>
+          <div style={{fontSize:12,color:C.textMuted,marginTop:4}}>{validation.source_file_name || 'Fichier importe'}</div>
+        </div>
+        <div style={{padding:20}}>
+          <label style={{display:'block',fontSize:12,fontWeight:700,color:C.deepNavy,marginBottom:8}}>Raison du refus</label>
+          <textarea
+            value={reason}
+            onChange={(e)=>setReason(e.target.value)}
+            placeholder="Ex: valeurs incoherentes, colonnes manquantes, corrections a revoir..."
+            rows={5}
+            style={{width:'100%',resize:'vertical',border:'1px solid #fecdd3',borderRadius:10,padding:'11px 12px',fontSize:13,color:C.textDark,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
+          />
+          <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>Cette raison sera affichee dans les notifications de l'administrateur et du chef de service.</div>
+        </div>
+        <div style={{padding:'14px 20px',borderTop:'1px solid #f0f4f8',display:'flex',gap:10,justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'9px 16px',borderRadius:9,border:'1px solid #e4eaf0',background:'#f8fafc',color:C.textMuted,fontWeight:700,cursor:'pointer'}}>Annuler</button>
+          <button onClick={()=>onConfirm(validation.id, reason.trim())} disabled={rejectingId===validation.id || !reason.trim()}
+            style={{padding:'9px 18px',borderRadius:9,border:'none',background:(!reason.trim()||rejectingId===validation.id)?'#fecdd3':'#be123c',color:'#fff',fontWeight:800,cursor:(!reason.trim()||rejectingId===validation.id)?'not-allowed':'pointer'}}>
+            {rejectingId===validation.id ? 'Refus...' : 'Confirmer le refus'}
+          </button>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPreview, approvingId, rejectingId }) {
   if (!anchor) return null;
-  const PANEL_W = 360, hasPending = pendingValidations && pendingValidations.length > 0;
+  const visibleValidations = (validations || []).slice(0, 12);
+  const pendingCount = visibleValidations.filter(v => v.status === 'pending').length;
+  const hasItems = visibleValidations.length > 0;
+  const PANEL_W = 380;
   const vw = window.innerWidth, vh = window.innerHeight;
-  const estimatedH = hasPending ? Math.min(140 + pendingValidations.length * 158, 520) : 240;
+  const estimatedH = hasItems ? Math.min(140 + visibleValidations.length * 176, 560) : 240;
   let left = anchor.right + 14; if (left + PANEL_W > vw - 12) left = vw - PANEL_W - 12;
   let top = anchor.top + (anchor.height / 2) - estimatedH / 2;
   top = Math.max(12, Math.min(top, vh - estimatedH - 12));
   const arrowY = anchor.top + anchor.height / 2 - 7;
   const fmt = (iso) => { try { const d=new Date(iso),now=new Date(),m=Math.floor((now-d)/60000); if(m<1)return'À l\'instant'; if(m<60)return`Il y a ${m} min`; if(m<1440)return`Il y a ${Math.floor(m/60)}h`; return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } catch{return iso;} };
+  const statusMeta = (status) => ({
+    pending: { label: 'Validation en attente', color: '#F59E0B', bg: '#fffbeb', border: '#fde68a' },
+    approved: { label: 'Validation acceptee', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+    rejected: { label: 'Validation refusee', color: '#be123c', bg: '#fff1f2', border: '#fecdd3' },
+  }[status] || { label: 'Validation', color: C.medBlue, bg: '#eff6ff', border: '#bfdbfe' });
   const content = (<>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9000}}/>
     <div style={{position:'fixed',top:arrowY,left:anchor.right+5,width:13,height:13,background:'#fff',transform:'rotate(45deg)',zIndex:9002,boxShadow:'-2px -2px 6px rgba(0,0,0,0.06)',borderLeft:'1px solid #e4eaf0',borderTop:'1px solid #e4eaf0'}}/>
     <div style={{position:'fixed',top,left,width:PANEL_W,zIndex:9001,borderRadius:20,background:'#fff',boxShadow:'0 12px 48px rgba(10,43,62,0.16)',border:'1px solid #e4eaf0',overflow:'hidden',animation:'notifIn 0.2s ease-out'}}>
-      <div style={{padding:'16px 18px 14px',borderBottom:'1px solid #f0f4f8',display:'flex',alignItems:'center',justifyContent:'space-between',background:hasPending?'linear-gradient(135deg,#fff5f7,#fdf4ff)':'linear-gradient(135deg,#f0fdf9,#f0f9ff)'}}>
+      <div style={{padding:'16px 18px 14px',borderBottom:'1px solid #f0f4f8',display:'flex',alignItems:'center',justifyContent:'space-between',background:pendingCount?'linear-gradient(135deg,#fff5f7,#fdf4ff)':'linear-gradient(135deg,#f0fdf9,#f0f9ff)'}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:40,height:40,borderRadius:12,background:hasPending?'linear-gradient(135deg,#D47A8E30,#9B59B620)':'linear-gradient(135deg,#d1fae5,#dbeafe)',display:'flex',alignItems:'center',justifyContent:'center',color:hasPending?C.softRose:'#10B981'}}>{IconBell(17)}</div>
+          <div style={{width:40,height:40,borderRadius:12,background:pendingCount?'linear-gradient(135deg,#D47A8E30,#9B59B620)':'linear-gradient(135deg,#d1fae5,#dbeafe)',display:'flex',alignItems:'center',justifyContent:'center',color:pendingCount?C.softRose:'#10B981'}}>{IconBell(17)}</div>
           <div>
             <div style={{fontWeight:700,fontSize:15,color:C.deepNavy}}>Notifications</div>
             <div style={{display:'flex',alignItems:'center',gap:5,marginTop:3}}>
-              <div style={{width:7,height:7,borderRadius:'50%',background:hasPending?'#F59E0B':'#10B981',animation:hasPending?'pulse 1.8s infinite':'none'}}/>
-              <span style={{fontSize:12,color:C.textMuted,fontWeight:500}}>{hasPending?`${pendingValidations.length} import(s) en attente`:'Tout est à jour'}</span>
+              <div style={{width:7,height:7,borderRadius:'50%',background:pendingCount?'#F59E0B':'#10B981',animation:pendingCount?'pulse 1.8s infinite':'none'}}/>
+              <span style={{fontSize:12,color:C.textMuted,fontWeight:500}}>{pendingCount?`${pendingCount} validation(s) en attente`:'Aucune validation en attente'}</span>
             </div>
           </div>
         </div>
         <button onClick={onClose} style={{width:30,height:30,borderRadius:8,border:'1px solid #e4eaf0',background:'#f8fafc',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:C.textMuted}} onMouseEnter={e=>e.currentTarget.style.background='#eef2f6'} onMouseLeave={e=>e.currentTarget.style.background='#f8fafc'}>{IconClose}</button>
       </div>
       <div style={{maxHeight:400,overflowY:'auto',padding:'14px 16px 16px',background:'#fafcfe'}}>
-        {hasPending?(
+        {hasItems?(
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {pendingValidations.map(v=>(
-              <div key={v.id} style={{borderRadius:14,background:'#fff',border:`1.5px solid ${C.softRose}28`,overflow:'hidden'}}>
-                <div style={{height:3,background:`linear-gradient(90deg,${C.softRose},#8B5CF6)`}}/>
+            {visibleValidations.map(v=>{
+              const meta = statusMeta(v.status);
+              return (
+              <div key={v.id} style={{borderRadius:14,background:'#fff',border:`1.5px solid ${meta.border}`,overflow:'hidden'}}>
+                <div style={{height:3,background:meta.color}}/>
                 <div style={{padding:'12px 14px'}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                    <span style={{display:'inline-flex',alignItems:'center',gap:4,background:`${C.softRose}12`,border:`1px solid ${C.softRose}28`,borderRadius:20,padding:'2px 9px',fontSize:11,fontWeight:600,color:C.dustyRose}}><div style={{width:5,height:5,borderRadius:'50%',background:C.softRose,animation:'pulse 1.5s infinite'}}/>Import en attente</span>
-                    <span style={{fontSize:11,color:C.textMuted}}>{v.submitted_at?fmt(v.submitted_at):''}</span>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4,background:meta.bg,border:`1px solid ${meta.border}`,borderRadius:20,padding:'2px 9px',fontSize:11,fontWeight:700,color:meta.color}}><div style={{width:5,height:5,borderRadius:'50%',background:meta.color,animation:v.status==='pending'?'pulse 1.5s infinite':'none'}}/>{meta.label}</span>
+                    <span style={{fontSize:11,color:C.textMuted}}>{(v.reviewed_at || v.submitted_at)?fmt(v.reviewed_at || v.submitted_at):''}</span>
                   </div>
                   <div style={{fontSize:13,fontWeight:600,color:C.deepNavy,marginBottom:3}}>{v.source_file_name||'Fichier importé'}</div>
                   <div style={{fontSize:12,color:C.textMuted}}>Par <strong style={{color:C.textDark}}>{typeof v.submitted_by==='object'?(v.submitted_by?.username||v.submitted_by?.first_name||'Utilisateur'):(v.submitted_by||'Utilisateur')}</strong>{v.rows_count?` · ${v.rows_count} lignes`:''}</div>
-                  <button onClick={()=>onValidate(v.id)} disabled={approvingId===v.id} style={{marginTop:10,width:'100%',padding:'9px 0',borderRadius:10,border:'none',background:approvingId===v.id?'#f1f5f9':`linear-gradient(135deg,${C.medBlue},${C.oceanT})`,color:approvingId===v.id?C.textMuted:'#fff',fontWeight:600,fontSize:13,cursor:approvingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}} onMouseEnter={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='brightness(1.08)'}} onMouseLeave={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='none'}}>
-                    {approvingId===v.id?'Validation...':(<><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Valider et intégrer</>)}
-                  </button>
+                  {v.status === 'rejected' && (
+                    <div style={{marginTop:9,padding:'8px 10px',borderRadius:9,background:'#fff1f2',border:'1px solid #fecdd3',fontSize:12,color:'#9f1239',lineHeight:1.45}}>
+                      <strong>Raison du refus :</strong> {v.comment || 'Aucune raison saisie.'}
+                    </div>
+                  )}
+                  {v.status === 'approved' && (
+                    <div style={{marginTop:9,padding:'8px 10px',borderRadius:9,background:'#ecfdf5',border:'1px solid #a7f3d0',fontSize:12,color:'#047857',lineHeight:1.45}}>
+                      Validation acceptee{v.reviewed_by ? ` par ${v.reviewed_by}` : ''}. Les donnees ont ete integrees.
+                    </div>
+                  )}
+                  <div style={{marginTop:10,display:'flex',gap:8}}>
+                    <button onClick={()=>onPreview(v)} style={{flex:1,padding:'8px 0',borderRadius:10,border:`1px solid ${C.medBlue}`,background:'white',color:C.medBlue,fontWeight:600,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/></svg>
+                      Aperçu
+                    </button>
+                    {v.status === 'pending' && (
+                      <button onClick={()=>onReject(v)} disabled={rejectingId===v.id} style={{flex:1,padding:'8px 0',borderRadius:10,border:'1px solid #fecdd3',background:'#fff1f2',color:'#be123c',fontWeight:700,fontSize:12,cursor:rejectingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                        Refuser
+                      </button>
+                    )}
+                    {v.status === 'pending' && (
+                    <button onClick={()=>onValidate(v.id)} disabled={approvingId===v.id} style={{flex:2,padding:'8px 0',borderRadius:10,border:'none',background:approvingId===v.id?'#f1f5f9':`linear-gradient(135deg,${C.medBlue},${C.oceanT})`,color:approvingId===v.id?C.textMuted:'#fff',fontWeight:600,fontSize:12,cursor:approvingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}} onMouseEnter={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='brightness(1.08)'}} onMouseLeave={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='none'}}>
+                      {approvingId===v.id?'Validation...':(<><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Valider et intégrer</>)}
+                    </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         ):(
           <div style={{textAlign:'center',padding:'28px 16px 24px'}}>
@@ -191,19 +358,38 @@ function AppSidebar() {
   const [notifAnchor, setNotifAnchor] = useState(null);
   const [pendingValidations, setPendingValidations] = useState([]);
   const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+  const [previewValidation, setPreviewValidation] = useState(null);
+  const [rejectValidation, setRejectValidation] = useState(null);
 
   useEffect(() => { const fn = () => setIsMobile(window.innerWidth < 768); window.addEventListener('resize', fn); return () => window.removeEventListener('resize', fn); }, []);
   useEffect(() => {
     if (!isChefOrAdmin) { setPendingValidations([]); return; }
-    const fetch = async () => { try { const r = await api.get('patients/preprocess/validations/?status=pending&page_size=20'); setPendingValidations(r.data?.results || []); } catch {} };
+    const fetch = async () => { try { const r = await api.get('patients/preprocess/validations/?status=all&page_size=20'); setPendingValidations(r.data?.results || []); } catch {} };
     fetch(); const iv = setInterval(fetch, 30000); return () => clearInterval(iv);
   }, [isChefOrAdmin]);
 
   const handleValidate = useCallback(async (id) => {
     setApprovingId(id);
-    try { await api.post(`patients/preprocess/validations/${id}/`, { action: 'approve' }); setPendingValidations(p => p.filter(v => v.id !== id)); }
+    try {
+      await api.post(`patients/preprocess/validations/${id}/`, { action: 'approve' });
+      setPendingValidations(p => p.map(v => v.id === id ? { ...v, status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.username || user?.email || '' } : v));
+    }
     catch { alert('Erreur lors de la validation.'); } finally { setApprovingId(null); }
-  }, []);
+  }, [user]);
+
+  const handleReject = useCallback(async (id, comment) => {
+    setRejectingId(id);
+    try {
+      await api.post(`patients/preprocess/validations/${id}/`, { action: 'reject', comment });
+      setPendingValidations(p => p.map(v => v.id === id ? { ...v, status: 'rejected', comment, reviewed_at: new Date().toISOString(), reviewed_by: user?.username || user?.email || '' } : v));
+      setRejectValidation(null);
+    } catch {
+      alert('Erreur lors du refus.');
+    } finally {
+      setRejectingId(null);
+    }
+  }, [user]);
 
   const handleNav = useCallback((path) => { navigate(path); setMobileOpen(false); }, [navigate]);
   const is = useCallback((prefix) => location.pathname.startsWith(prefix), [location.pathname]);
@@ -234,6 +420,11 @@ function AppSidebar() {
   }[user?.role] || ''), [user]);
 
   /* ── Corps ────────────────────────────────────────────────────────────── */
+  const pendingValidationCount = useMemo(
+    () => pendingValidations.filter(v => v.status === 'pending').length,
+    [pendingValidations]
+  );
+
   const SidebarContent = ({ onClose }) => (
     <>
       {/* Header */}
@@ -289,7 +480,7 @@ function AppSidebar() {
       <div style={{ padding: '8px 12px 16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
         <div style={{ background: 'rgba(255,255,255,0.75)', borderRadius: C.cardRadius, padding: '4px 0', border: '1px solid rgba(255,255,255,0.55)', boxShadow: '0 2px 10px rgba(13,77,99,0.07)' }}>
           {isChefOrAdmin && (
-            <NavItem icon={IconBell(18)} label={t('notifications')} active={false} count={pendingValidations.length}
+            <NavItem icon={IconBell(18)} label={t('notifications')} active={false} count={pendingValidationCount}
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setNotifAnchor(r); }} />
           )}
           <NavItem icon={IconLogout} label={t('logout')} active={false}
@@ -337,7 +528,9 @@ function AppSidebar() {
         </button>
       )}
       {Drawer}
-      <NotifPopover anchor={notifAnchor} onClose={() => setNotifAnchor(null)} pendingValidations={pendingValidations} onValidate={handleValidate} approvingId={approvingId} />
+      <NotifPopover anchor={notifAnchor} onClose={() => setNotifAnchor(null)} validations={pendingValidations} onValidate={handleValidate} onReject={(v) => { setRejectValidation(v); setNotifAnchor(null); }} onPreview={(v) => { setPreviewValidation(v); setNotifAnchor(null); }} approvingId={approvingId} rejectingId={rejectingId} />
+      <PreviewModal validation={previewValidation} onClose={() => setPreviewValidation(null)} onValidate={handleValidate} onRequestReject={(v) => { setRejectValidation(v); setPreviewValidation(null); }} approvingId={approvingId} rejectingId={rejectingId} />
+      <RejectModal validation={rejectValidation} onClose={() => setRejectValidation(null)} onConfirm={handleReject} rejectingId={rejectingId} />
     </>
   );
 }

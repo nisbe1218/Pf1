@@ -1889,6 +1889,18 @@ class PredictionPredictView(APIView):
             except Exception:
                 pass  # Ne pas bloquer la réponse si la sauvegarde échoue
 
+            try:
+                from audit.models import AuditLog
+                AuditLog.objects.create(
+                    utilisateur=request.user if request.user.is_authenticated else None,
+                    action=f"PREDICTION_MORTALITE: patient_id={patient_id} score={score} risque={risk_level}",
+                    entite='Patient',
+                    entite_id=patient_id if isinstance(patient_id, int) else None,
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                )
+            except Exception:
+                pass
+
         return Response(
             {
                 'prediction_type': prediction_type,
