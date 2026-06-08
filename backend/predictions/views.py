@@ -1855,7 +1855,7 @@ class PredictionPredictView(APIView):
             )
 
         score = round(float(np.clip(probability * 100, 0, 100)), 1)
-        risk_level = 'Faible' if probability < 0.10 else 'Modéré' if probability < 0.40 else 'Élevé'
+        risk_level = 'Faible' if probability < 0.10 else 'Modéré' if probability < 0.29 else 'Élevé'
         factors = build_interpretation(pipeline, feature_keys_trained)
 
         # ── Recommandation clinique ────────────────────────────────────────────
@@ -2088,7 +2088,7 @@ class PredictionPatientView(APIView):
             )
 
         score = round(float(np.clip(probability * 100, 0, 100)), 1)
-        risk_level = 'Faible' if probability < 0.10 else 'Modéré' if probability < 0.40 else 'Élevé'
+        risk_level = 'Faible' if probability < 0.10 else 'Modéré' if probability < 0.29 else 'Élevé'
         factors = build_interpretation(pipeline, feature_keys_trained)
 
         # ── Recommandation clinique ────────────────────────────────────────────

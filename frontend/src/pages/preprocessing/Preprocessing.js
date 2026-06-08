@@ -402,10 +402,14 @@ export default function Preprocessing({ onIntegrated }) {
       if (!colName) return;
       correctedColumns.add(colName);
       const colIssues = issuesByColumn[colName] || [];
-      let justification = colIssues.map(i => i.explanation).filter(Boolean).join(' | ') || '';
+      // Prefer backend-generated justification, fall back to issue explanation
+      let justification = c?.justification || c?.explanation || colIssues.map(i => i.explanation).filter(Boolean).join(' | ') || '';
       let correction = '';
       if (actionType === 'type_casts') correction = `→ ${c?.target_type || 'numeric'}`;
-      else if (actionType === 'fill_missing') correction = `Manquants comblés (${c?.strategy || 'auto'})`;
+      else if (actionType === 'fill_missing') {
+        const strat = typeof c?.strategy === 'object' ? (c?.strategy?.strategy || 'auto') : (c?.strategy || 'auto');
+        correction = `Manquants comblés (${strat})`;
+      }
       else if (actionType === 'trim_whitespace') correction = `Espaces nettoyés`;
       else if (actionType === 'parse_dates') correction = 'Format date unifié';
       else if (actionType === 'value_mappings') {
@@ -414,15 +418,18 @@ export default function Preprocessing({ onIntegrated }) {
       } else if (actionType === 'bio_value_correction' || actionType === 'llm_value_correction') {
         const corrs = c?.corrections || {};
         correction = Object.entries(corrs).slice(0, 2).map(([f, t]) => `${f}→${t ?? 'NaN'}`).join(', ');
-        justification = c?.justification || c?.explanation || justification;
       } else if (actionType === 'knn_imputation') {
         correction = `${c?.imputed_count ?? 0} valeur(s) KNN`;
       } else if (actionType === 'decimal_comma_fix') {
         correction = 'Virgule → point (notation française)';
       } else if (actionType === 'excel_artifact_cleanup') {
         correction = 'Artefact Excel → null';
+      } else if (actionType === 'unit_conversions') {
+        correction = `${c?.from_unit || '?'} → ${c?.to_unit || '?'} (×${c?.factor ?? '?'})`;
+      } else if (actionType === 'rename_columns') {
+        correction = `"${c?.from}" → "${c?.to}"`;
       } else correction = actionType;
-      tableRows.push({ colName, actionType, correction, justification: justification || 'Correction automatique', cells: c?.cells_changed ?? c?.imputed_count ?? null, status: actionType === 'knn_imputation' ? 'knn' : 'corrected', severity: 'corrected' });
+      tableRows.push({ colName, actionType, correction, justification: justification || '—', cells: c?.cells_changed ?? c?.imputed_count ?? null, status: actionType === 'knn_imputation' ? 'knn' : 'corrected', severity: 'corrected' });
     });
   });
 

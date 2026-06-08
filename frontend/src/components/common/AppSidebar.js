@@ -117,11 +117,16 @@ function BottomIllustration() { return null; }
 
 /* ── NotifPopover ──────────────────────────────────────────────────────────── */
 function PreviewModal({ validation, onClose, onValidate, onRequestReject, approvingId, rejectingId }) {
+  const { t } = useLanguage();
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState('data');
 
   React.useEffect(() => {
     if (!validation) return;
+    setActiveTab('data');
+    setLoading(true);
+    setData(null);
     api.get(`patients/preprocess/validations/${validation.id}/`)
       .then(r => setData(r.data))
       .catch(() => setData(null))
@@ -129,35 +134,65 @@ function PreviewModal({ validation, onClose, onValidate, onRequestReject, approv
   }, [validation?.id]);
 
   if (!validation) return null;
+
+  const mods = data?.modifications || [];
+  const modsCount = data?.modifications_count ?? mods.length;
+
   return createPortal(
     <>
       <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9100,background:'rgba(0,0,0,0.45)',backdropFilter:'blur(3px)'}}/>
       <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',zIndex:9101,
-        width:'min(92vw,780px)',maxHeight:'82vh',borderRadius:20,background:'#fff',
+        width:'min(92vw,820px)',maxHeight:'86vh',borderRadius:20,background:'#fff',
         boxShadow:'0 24px 64px rgba(10,43,62,0.22)',border:'1px solid #e4eaf0',
         display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
         {/* Header */}
-        <div style={{padding:'18px 22px 14px',borderBottom:'1px solid #f0f4f8',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-          <div>
-            <div style={{fontWeight:700,fontSize:16,color:C.deepNavy}}>{data?.source_file_name || validation.source_file_name || 'Aperçu du fichier'}</div>
-            <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>
-              Par <strong>{typeof validation.submitted_by==='object'?validation.submitted_by?.username:validation.submitted_by}</strong>
-              {data && <> · {data.rows_count} lignes · {data.columns_count} colonnes · Score qualité : <strong style={{color:data.quality_score>=80?C.tealGreen:data.quality_score>=50?'#d18f47':C.dustyRose}}>{data.quality_score}/100</strong></>}
+        <div style={{padding:'18px 22px 0',borderBottom:'1px solid #f0f4f8',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:12}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:16,color:C.deepNavy}}>{data?.source_file_name || validation.source_file_name || 'Aperçu du fichier'}</div>
+              <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>
+                Par <strong>{typeof validation.submitted_by==='object'?validation.submitted_by?.username:validation.submitted_by}</strong>
+                {data && <> · {data.rows_count} lignes · {data.columns_count} colonnes · Score qualité : <strong style={{color:data.quality_score>=80?C.tealGreen:data.quality_score>=50?'#d18f47':C.dustyRose}}>{data.quality_score}/100</strong></>}
+              </div>
             </div>
+            <button onClick={onClose} style={{border:'1px solid #e4eaf0',background:'#f8fafc',borderRadius:8,cursor:'pointer',color:C.textMuted,width:30,height:30,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>✕</button>
           </div>
-          <button onClick={onClose} style={{border:'1px solid #e4eaf0',background:'#f8fafc',borderRadius:8,cursor:'pointer',color:C.textMuted,width:30,height:30,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          {/* Tabs */}
+          <div style={{display:'flex',gap:0}}>
+            {[
+              { key: 'data',    label: t('previewTabData') },
+              ...(validation.source !== 'direct_import' ? [{ key: 'changes', label: t('previewTabChanges'), badge: !loading && modsCount > 0 ? modsCount : null }] : []),
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+                padding:'9px 18px',border:'none',background:'none',cursor:'pointer',
+                fontWeight: activeTab===tab.key ? 800 : 500,
+                fontSize:13,
+                color: activeTab===tab.key ? C.deepNavy : C.textMuted,
+                borderBottom: activeTab===tab.key ? `2px solid ${C.deepNavy}` : '2px solid transparent',
+                display:'flex',alignItems:'center',gap:6,
+                transition:'color .15s',
+              }}>
+                {tab.label}
+                {tab.badge != null && (
+                  <span style={{background:'#ffe082',color:'#b45309',borderRadius:20,padding:'1px 7px',fontSize:11,fontWeight:800}}>{tab.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
+
         {/* Body */}
         <div style={{flex:1,overflowY:'auto',padding:'16px 22px'}}>
           {loading ? (
-            <div style={{textAlign:'center',padding:40,color:C.textMuted}}>Chargement de l'aperçu...</div>
+            <div style={{textAlign:'center',padding:40,color:C.textMuted}}>{t('previewLoading')}</div>
           ) : !data ? (
-            <div style={{textAlign:'center',padding:40,color:C.dustyRose}}>Impossible de charger l'aperçu.</div>
-          ) : (
+            <div style={{textAlign:'center',padding:40,color:C.dustyRose}}>{t('previewLoadError')}</div>
+          ) : activeTab === 'data' ? (
             <>
               {data.issues_count > 0 && (
                 <div style={{marginBottom:12,padding:'8px 12px',borderRadius:8,background:'#fff8e1',border:'1px solid #ffe082',fontSize:12,color:'#b45309',fontWeight:600}}>
-                  ⚠ {data.issues_count} anomalie(s) détectée(s) — vérifier avant intégration
+                  ⚠ {data.issues_count} {t('previewAnomalies')}
                 </div>
               )}
               <div style={{overflowX:'auto',borderRadius:8,border:'1px solid #e4eaf0'}}>
@@ -182,25 +217,76 @@ function PreviewModal({ validation, onClose, onValidate, onRequestReject, approv
                   </tbody>
                 </table>
               </div>
-              <div style={{marginTop:8,fontSize:11,color:C.textMuted}}>Aperçu complet du fichier sur {data.rows_count} ligne(s) et {data.columns_count || data.columns?.length || 0} colonne(s).</div>
+              <div style={{marginTop:8,fontSize:11,color:C.textMuted}}>{t('previewFooter')} {data.rows_count} ligne(s) et {data.columns_count || data.columns?.length || 0} {t('previewFooterCols')}</div>
+            </>
+          ) : (
+            /* ── Changes tab ── */
+            <>
+              {data.source === 'original' ? (
+                <div style={{padding:'20px 16px',textAlign:'center',color:C.textMuted,fontSize:13}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📄</div>
+                  {t('previewOriginalSource')}
+                </div>
+              ) : mods.length === 0 ? (
+                <div style={{padding:'20px 16px',textAlign:'center',color:C.textMuted,fontSize:13}}>
+                  <div style={{fontSize:28,marginBottom:8}}>✓</div>
+                  {t('previewNoChanges')}
+                </div>
+              ) : (
+                <>
+                  <div style={{marginBottom:12,padding:'8px 12px',borderRadius:8,background:'#e8f4fd',border:'1px solid #bee3f8',fontSize:12,color:'#2c5282',fontWeight:600}}>
+                    ✎ {modsCount} {t('previewChangesCount')}
+                  </div>
+                  <div style={{overflowX:'auto',borderRadius:8,border:'1px solid #e4eaf0'}}>
+                    <table style={{borderCollapse:'collapse',width:'100%',fontSize:12}}>
+                      <thead>
+                        <tr style={{background:'#f5f9fc'}}>
+                          {[t('previewColRow'), t('previewColColumn'), t('previewColOriginal'), t('previewColCorrected')].map(h => (
+                            <th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:700,color:C.textMuted,borderBottom:'2px solid #e4eaf0',whiteSpace:'nowrap'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mods.map((m, i) => (
+                          <tr key={i} style={{background:i%2===0?'#fff':'#fafcfe'}}>
+                            <td style={{padding:'6px 12px',borderBottom:'1px solid #f0f4f8',color:C.textMuted,fontWeight:600,whiteSpace:'nowrap'}}>{m.row}</td>
+                            <td style={{padding:'6px 12px',borderBottom:'1px solid #f0f4f8',color:C.deepNavy,fontWeight:700,whiteSpace:'nowrap',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis'}}>{m.column}</td>
+                            <td style={{padding:'6px 12px',borderBottom:'1px solid #f0f4f8',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              {m.original == null || m.original === ''
+                                ? <span style={{color:'#ccc',fontStyle:'italic'}}>—</span>
+                                : <span style={{background:'#fff1f2',color:'#be123c',borderRadius:4,padding:'1px 5px',fontFamily:'monospace',fontSize:11}}>{m.original}</span>}
+                            </td>
+                            <td style={{padding:'6px 12px',borderBottom:'1px solid #f0f4f8',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              {m.corrected == null || m.corrected === ''
+                                ? <span style={{color:'#ccc',fontStyle:'italic'}}>—</span>
+                                : <span style={{background:'#ecfdf5',color:'#059669',borderRadius:4,padding:'1px 5px',fontFamily:'monospace',fontSize:11}}>{m.corrected}</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
+
         {/* Footer */}
         <div style={{padding:'14px 22px',borderTop:'1px solid #f0f4f8',display:'flex',gap:10,justifyContent:'flex-end',flexShrink:0}}>
           <button onClick={onClose} style={{padding:'9px 18px',borderRadius:9,border:'1px solid #e4eaf0',background:'#f8fafc',color:C.textMuted,fontWeight:600,fontSize:13,cursor:'pointer'}}>
-            Fermer
+            {t('previewClose')}
           </button>
           {validation.status === 'pending' && (
             <button onClick={()=>{onRequestReject(validation); onClose();}} disabled={rejectingId===validation.id}
               style={{padding:'9px 18px',borderRadius:9,border:'1px solid #fecdd3',background:'#fff1f2',color:'#be123c',fontWeight:700,fontSize:13,cursor:rejectingId===validation.id?'wait':'pointer'}}>
-              {rejectingId===validation.id ? 'Refus...' : 'Refuser'}
+              {rejectingId===validation.id ? t('notifRejecting') : t('notifReject')}
             </button>
           )}
           {validation.status === 'pending' && (
           <button onClick={()=>{onValidate(validation.id); onClose();}} disabled={approvingId===validation.id}
-            style={{padding:'9px 20px',borderRadius:9,border:'none',background:`linear-gradient(135deg,${C.medBlue},${C.oceanT})`,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>
-            {approvingId===validation.id ? 'Validation...' : '✓ Valider et intégrer'}
+            style={{padding:'9px 20px',borderRadius:9,border:'none',background:'#059669',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+            {approvingId===validation.id ? t('notifValidating') : `✓ ${t('notifValidate')}`}
           </button>
           )}
         </div>
@@ -211,6 +297,7 @@ function PreviewModal({ validation, onClose, onValidate, onRequestReject, approv
 }
 
 function RejectModal({ validation, onClose, onConfirm, rejectingId }) {
+  const { t } = useLanguage();
   const [reason, setReason] = React.useState('');
 
   React.useEffect(() => {
@@ -223,25 +310,25 @@ function RejectModal({ validation, onClose, onConfirm, rejectingId }) {
       <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9200,background:'rgba(0,0,0,0.42)',backdropFilter:'blur(3px)'}}/>
       <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',zIndex:9201,width:'min(92vw,460px)',borderRadius:18,background:'#fff',boxShadow:'0 22px 58px rgba(10,43,62,0.22)',border:'1px solid #fee2e2',overflow:'hidden'}}>
         <div style={{padding:'18px 20px',borderBottom:'1px solid #fee2e2',background:'#fff7f7'}}>
-          <div style={{fontWeight:800,fontSize:16,color:'#9f1239'}}>Refuser la validation</div>
-          <div style={{fontSize:12,color:C.textMuted,marginTop:4}}>{validation.source_file_name || 'Fichier importe'}</div>
+          <div style={{fontWeight:800,fontSize:16,color:'#9f1239'}}>{t('rejectModalTitle')}</div>
+          <div style={{fontSize:12,color:C.textMuted,marginTop:4}}>{validation.source_file_name || '—'}</div>
         </div>
         <div style={{padding:20}}>
-          <label style={{display:'block',fontSize:12,fontWeight:700,color:C.deepNavy,marginBottom:8}}>Raison du refus</label>
+          <label style={{display:'block',fontSize:12,fontWeight:700,color:C.deepNavy,marginBottom:8}}>{t('rejectReasonLabel')}</label>
           <textarea
             value={reason}
             onChange={(e)=>setReason(e.target.value)}
-            placeholder="Ex: valeurs incoherentes, colonnes manquantes, corrections a revoir..."
+            placeholder={t('rejectReasonPlaceholder')}
             rows={5}
             style={{width:'100%',resize:'vertical',border:'1px solid #fecdd3',borderRadius:10,padding:'11px 12px',fontSize:13,color:C.textDark,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
           />
-          <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>Cette raison sera affichee dans les notifications de l'administrateur et du chef de service.</div>
+          <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>{t('rejectReasonHint')}</div>
         </div>
         <div style={{padding:'14px 20px',borderTop:'1px solid #f0f4f8',display:'flex',gap:10,justifyContent:'flex-end'}}>
-          <button onClick={onClose} style={{padding:'9px 16px',borderRadius:9,border:'1px solid #e4eaf0',background:'#f8fafc',color:C.textMuted,fontWeight:700,cursor:'pointer'}}>Annuler</button>
+          <button onClick={onClose} style={{padding:'9px 16px',borderRadius:9,border:'1px solid #e4eaf0',background:'#f8fafc',color:C.textMuted,fontWeight:700,cursor:'pointer'}}>{t('rejectCancel')}</button>
           <button onClick={()=>onConfirm(validation.id, reason.trim())} disabled={rejectingId===validation.id || !reason.trim()}
             style={{padding:'9px 18px',borderRadius:9,border:'none',background:(!reason.trim()||rejectingId===validation.id)?'#fecdd3':'#be123c',color:'#fff',fontWeight:800,cursor:(!reason.trim()||rejectingId===validation.id)?'not-allowed':'pointer'}}>
-            {rejectingId===validation.id ? 'Refus...' : 'Confirmer le refus'}
+            {rejectingId===validation.id ? t('notifRejecting') : t('rejectConfirm')}
           </button>
         </div>
       </div>
@@ -251,6 +338,7 @@ function RejectModal({ validation, onClose, onConfirm, rejectingId }) {
 }
 
 function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPreview, approvingId, rejectingId }) {
+  const { t } = useLanguage();
   if (!anchor) return null;
   const visibleValidations = (validations || []).slice(0, 12);
   const pendingCount = visibleValidations.filter(v => v.status === 'pending').length;
@@ -264,10 +352,10 @@ function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPr
   const arrowY = anchor.top + anchor.height / 2 - 7;
   const fmt = (iso) => { try { const d=new Date(iso),now=new Date(),m=Math.floor((now-d)/60000); if(m<1)return'À l\'instant'; if(m<60)return`Il y a ${m} min`; if(m<1440)return`Il y a ${Math.floor(m/60)}h`; return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } catch{return iso;} };
   const statusMeta = (status) => ({
-    pending: { label: 'Validation en attente', color: '#F59E0B', bg: '#fffbeb', border: '#fde68a' },
-    approved: { label: 'Validation acceptee', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
-    rejected: { label: 'Validation refusee', color: '#be123c', bg: '#fff1f2', border: '#fecdd3' },
-  }[status] || { label: 'Validation', color: C.medBlue, bg: '#eff6ff', border: '#bfdbfe' });
+    pending:  { label: t('notifStatusPending'),  color: '#F59E0B', bg: '#fffbeb', border: '#fde68a' },
+    approved: { label: t('notifStatusApproved'), color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+    rejected: { label: t('notifStatusRejected'), color: '#be123c', bg: '#fff1f2', border: '#fecdd3' },
+  }[status] || { label: t('notifTitle'), color: C.medBlue, bg: '#eff6ff', border: '#bfdbfe' });
   const content = (<>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9000}}/>
     <div style={{position:'fixed',top:arrowY,left:anchor.right+5,width:13,height:13,background:'#fff',transform:'rotate(45deg)',zIndex:9002,boxShadow:'-2px -2px 6px rgba(0,0,0,0.06)',borderLeft:'1px solid #e4eaf0',borderTop:'1px solid #e4eaf0'}}/>
@@ -276,10 +364,10 @@ function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPr
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <div style={{width:40,height:40,borderRadius:12,background:pendingCount?'linear-gradient(135deg,#D47A8E30,#9B59B620)':'linear-gradient(135deg,#d1fae5,#dbeafe)',display:'flex',alignItems:'center',justifyContent:'center',color:pendingCount?C.softRose:'#10B981'}}>{IconBell(17)}</div>
           <div>
-            <div style={{fontWeight:700,fontSize:15,color:C.deepNavy}}>Notifications</div>
+            <div style={{fontWeight:700,fontSize:15,color:C.deepNavy}}>{t('notifTitle')}</div>
             <div style={{display:'flex',alignItems:'center',gap:5,marginTop:3}}>
               <div style={{width:7,height:7,borderRadius:'50%',background:pendingCount?'#F59E0B':'#10B981',animation:pendingCount?'pulse 1.8s infinite':'none'}}/>
-              <span style={{fontSize:12,color:C.textMuted,fontWeight:500}}>{pendingCount?`${pendingCount} validation(s) en attente`:'Aucune validation en attente'}</span>
+              <span style={{fontSize:12,color:C.textMuted,fontWeight:500}}>{pendingCount?`${pendingCount} ${t('notifPending')}`:t('notifNoPending')}</span>
             </div>
           </div>
         </div>
@@ -302,27 +390,27 @@ function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPr
                   <div style={{fontSize:12,color:C.textMuted}}>Par <strong style={{color:C.textDark}}>{typeof v.submitted_by==='object'?(v.submitted_by?.username||v.submitted_by?.first_name||'Utilisateur'):(v.submitted_by||'Utilisateur')}</strong>{v.rows_count?` · ${v.rows_count} lignes`:''}</div>
                   {v.status === 'rejected' && (
                     <div style={{marginTop:9,padding:'8px 10px',borderRadius:9,background:'#fff1f2',border:'1px solid #fecdd3',fontSize:12,color:'#9f1239',lineHeight:1.45}}>
-                      <strong>Raison du refus :</strong> {v.comment || 'Aucune raison saisie.'}
+                      <strong>{t('notifRejectReason')}</strong> {v.comment || t('notifNoReason')}
                     </div>
                   )}
                   {v.status === 'approved' && (
                     <div style={{marginTop:9,padding:'8px 10px',borderRadius:9,background:'#ecfdf5',border:'1px solid #a7f3d0',fontSize:12,color:'#047857',lineHeight:1.45}}>
-                      Validation acceptee{v.reviewed_by ? ` par ${v.reviewed_by}` : ''}. Les donnees ont ete integrees.
+                      {t('notifApprovedMsg')}{v.reviewed_by ? ` ${t('notifApprovedBy')} ${v.reviewed_by}` : ''}. {t('notifDataIntegrated')}
                     </div>
                   )}
                   <div style={{marginTop:10,display:'flex',gap:8}}>
                     <button onClick={()=>onPreview(v)} style={{flex:1,padding:'8px 0',borderRadius:10,border:`1px solid ${C.medBlue}`,background:'white',color:C.medBlue,fontWeight:600,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/></svg>
-                      Aperçu
+                      {t('notifPreview')}
                     </button>
                     {v.status === 'pending' && (
                       <button onClick={()=>onReject(v)} disabled={rejectingId===v.id} style={{flex:1,padding:'8px 0',borderRadius:10,border:'1px solid #fecdd3',background:'#fff1f2',color:'#be123c',fontWeight:700,fontSize:12,cursor:rejectingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
-                        Refuser
+                        {t('notifReject')}
                       </button>
                     )}
                     {v.status === 'pending' && (
-                    <button onClick={()=>onValidate(v.id)} disabled={approvingId===v.id} style={{flex:2,padding:'8px 0',borderRadius:10,border:'none',background:approvingId===v.id?'#f1f5f9':`linear-gradient(135deg,${C.medBlue},${C.oceanT})`,color:approvingId===v.id?C.textMuted:'#fff',fontWeight:600,fontSize:12,cursor:approvingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}} onMouseEnter={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='brightness(1.08)'}} onMouseLeave={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='none'}}>
-                      {approvingId===v.id?'Validation...':(<><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Valider et intégrer</>)}
+                    <button onClick={()=>onValidate(v.id)} disabled={approvingId===v.id} style={{flex:2,padding:'8px 0',borderRadius:10,border:'none',background:approvingId===v.id?'#f1f5f9':'#059669',color:approvingId===v.id?C.textMuted:'#fff',fontWeight:600,fontSize:12,cursor:approvingId===v.id?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}} onMouseEnter={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='brightness(1.08)'}} onMouseLeave={e=>{if(approvingId!==v.id)e.currentTarget.style.filter='none'}}>
+                      {approvingId===v.id?t('notifValidating'):(<><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>{t('notifValidate')}</>)}
                     </button>
                     )}
                   </div>
@@ -335,8 +423,8 @@ function NotifPopover({ anchor, onClose, validations, onValidate, onReject, onPr
             <div style={{width:60,height:60,borderRadius:18,margin:'0 auto 16px',background:'linear-gradient(135deg,#d1fae5,#dbeafe)',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <div style={{fontWeight:700,color:C.deepNavy,fontSize:15,marginBottom:6}}>Tout est à jour</div>
-            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.7}}>Aucune action en attente.<br/>Vous serez notifié dès qu'un import est soumis.</div>
+            <div style={{fontWeight:700,color:C.deepNavy,fontSize:15,marginBottom:6}}>{t('notifAllDone')}</div>
+            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.7}}>{t('notifNoPendingAction')}<br/>{t('notifWillBeNotified')}</div>
           </div>
         )}
       </div>
@@ -461,7 +549,9 @@ function AppSidebar() {
 
       {/* Carte utilisateur */}
       <div style={{ padding: '12px 12px 0', flexShrink: 0, position: 'relative', zIndex: 1 }}>
-        <div style={{ background: 'rgba(255,255,255,0.92)', borderRadius: C.cardRadius, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.60)', boxShadow: '0 4px 16px rgba(13,77,99,0.10)' }}>
+        <div onClick={() => navigate('/profil')} style={{ background: 'rgba(255,255,255,0.92)', borderRadius: C.cardRadius, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.60)', boxShadow: '0 4px 16px rgba(13,77,99,0.10)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow='0 6px 20px rgba(13,77,99,0.18)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow='0 4px 16px rgba(13,77,99,0.10)'}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #1A8FA8, #D47A8E)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 800, flexShrink: 0, boxShadow: '0 4px 12px rgba(13,77,99,0.20)' }}>
               {initials}
@@ -472,6 +562,7 @@ function AppSidebar() {
               </div>
               <div style={{ fontSize: 11, color: '#7a90a0', marginTop: 1, fontWeight: 500 }}>{roleBadge}</div>
             </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{flexShrink:0,opacity:0.4}}><path d="M9 18l6-6-6-6" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
         </div>
       </div>

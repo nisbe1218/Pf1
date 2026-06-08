@@ -2036,28 +2036,28 @@ function PatientsManagement() {
     labels: analysisSummary.ageSexDistribution.map((item) => item.band),
     datasets: [
       {
-        label: 'Homme',
+        label: t('analysisSexMale'),
         data: analysisSummary.ageSexDistribution.map((item) => item.homme),
         backgroundColor: 'rgba(61,90,138,0.82)',
         borderRadius: 6,
         borderSkipped: false,
       },
       {
-        label: 'Femme',
+        label: t('analysisSexFemale'),
         data: analysisSummary.ageSexDistribution.map((item) => item.femme),
         backgroundColor: 'rgba(158,61,106,0.82)',
         borderRadius: 6,
         borderSkipped: false,
       },
       {
-        label: 'Inconnu',
+        label: t('analysisSexUnknown'),
         data: analysisSummary.ageSexDistribution.map((item) => item.inconnu),
         backgroundColor: 'rgba(160,170,185,0.6)',
         borderRadius: 6,
         borderSkipped: false,
       },
     ],
-  }), [analysisSummary.ageSexDistribution]);
+  }), [analysisSummary.ageSexDistribution, t]);
 
   const sexDonutChartData = useMemo(() => {
     const counts = { Homme: 0, Femme: 0, Inconnu: 0 };
@@ -2065,7 +2065,7 @@ function PatientsManagement() {
       if (item.label in counts) counts[item.label] = item.count;
     });
     return {
-      labels: ['Homme', 'Femme', 'Inconnu'],
+      labels: [t('analysisSexMale'), t('analysisSexFemale'), t('analysisSexUnknown')],
       datasets: [{
         data: [counts.Homme, counts.Femme, counts.Inconnu],
         backgroundColor: ['rgba(61,90,138,0.85)', 'rgba(158,61,106,0.85)', 'rgba(160,170,185,0.6)'],
@@ -2074,7 +2074,7 @@ function PatientsManagement() {
         hoverOffset: 8,
       }],
     };
-  }, [analysisSummary.sexCounts]);
+  }, [analysisSummary.sexCounts, t]);
 
   const complicationTypeChartData = useMemo(() => {
     const palette = [
@@ -2790,7 +2790,7 @@ function PatientsManagement() {
       window.dispatchEvent(new Event('patientsInsertValidationUpdated'));
       setSuccess(
         failedCount === 0
-          ? `Insertion refusée par ${roleName}. ${deletedIds.length} patient(s) importé(s) supprimé(s). ${removedDynamicColumnsCount} colonne(s) dynamique(s) nettoyée(s).`
+          ? `Insertion annulée par ${roleName}. ${deletedIds.length} patient(s) importé(s) supprimé(s). ${removedDynamicColumnsCount} colonne(s) dynamique(s) nettoyée(s).`
           : `Insertion partiellement refusée par ${roleName}. ${deletedIds.length} patient(s) supprimé(s), ${failedCount} échec(s). ${removedDynamicColumnsCount} colonne(s) dynamique(s) nettoyée(s).`,
       );
       await loadPatients();
@@ -2880,48 +2880,52 @@ function PatientsManagement() {
 
       if (mode === 'schema') {
         setSuccess(`${importedFields} colonne(s) de structure importée(s) depuis Excel.`);
+        await loadSchema();
+        await loadPatients();
+      } else if (mode === 'pending_validation') {
+        const rowsCount = response.data?.rows_count || 0;
+        setSuccess(`Fichier soumis (${rowsCount} patient(s)). En attente de validation par le chef de service ou l'administrateur.`);
+        setInsertValidationStatus({ status: 'awaiting_external_validation', approvedBy: null, requestedBy: roleLabel, timestamp: new Date().toISOString(), pendingIds: [] });
       } else {
         const dynMsg = newDynamicCount > 0
           ? ` • ${newDynamicCount} nouvelle(s) colonne(s) dynamique(s) détectée(s).`
           : '';
         setSuccess(`${patientsCreated} patient(s) importé(s) et ${importedFields} colonne(s) gérée(s).${dynMsg}`);
-      }
 
-      if ((response.data?.errors || []).length) {
-        setError(`Import partiel: ${response.data.errors.length} ligne(s) rejetée(s).`);
-      }
-
-      const existingPatientIds = new Set(patients.map((patient) => patient.id));
-      if (patientsCreated > 0) {
-        await loadSchema();
-        const loadedPatients = await loadPatients();
-        if (canValidateInsertion) {
-          const newImportedIds = Array.from(new Set((loadedPatients || []).map((patient) => patient.id))).filter((id) => !existingPatientIds.has(id));
-          const requesterRoleName = roleLabel;
-          const validationTimestamp = new Date().toISOString();
-          await Promise.allSettled(newImportedIds.map((id) => {
-            const extra_data = {
-              insertion_validation_status: 'pending',
-              insertion_validation_requested_by: requesterRoleName,
-              insertion_validation_timestamp: validationTimestamp,
-            };
-            return api.patch(`patients/${id}/`, { extra_data });
-          }));
-          const newStatus = {
-            status: 'pending',
-            approvedBy: null,
-            requestedBy: requesterRoleName,
-            timestamp: validationTimestamp,
-            pendingIds: newImportedIds,
-          };
-          setInsertValidationStatus(newStatus);
-          window.dispatchEvent(new Event('patientsInsertValidationUpdated'));
-        } else {
-          setInsertValidationStatus({ status: 'idle', approvedBy: null, requestedBy: null, timestamp: null, pendingIds: [] });
+        if ((response.data?.errors || []).length) {
+          setError(`Import partiel: ${response.data.errors.length} ligne(s) rejetée(s).`);
         }
-      } else {
-        await loadSchema();
-        await loadPatients();
+
+        const existingPatientIds = new Set(patients.map((patient) => patient.id));
+        if (patientsCreated > 0) {
+          await loadSchema();
+          const loadedPatients = await loadPatients();
+          if (canValidateInsertion) {
+            const newImportedIds = Array.from(new Set((loadedPatients || []).map((patient) => patient.id))).filter((id) => !existingPatientIds.has(id));
+            const requesterRoleName = roleLabel;
+            const validationTimestamp = new Date().toISOString();
+            await Promise.allSettled(newImportedIds.map((id) => {
+              const extra_data = {
+                insertion_validation_status: 'pending',
+                insertion_validation_requested_by: requesterRoleName,
+                insertion_validation_timestamp: validationTimestamp,
+              };
+              return api.patch(`patients/${id}/`, { extra_data });
+            }));
+            const newStatus = {
+              status: 'pending',
+              approvedBy: null,
+              requestedBy: requesterRoleName,
+              timestamp: validationTimestamp,
+              pendingIds: newImportedIds,
+            };
+            setInsertValidationStatus(newStatus);
+            window.dispatchEvent(new Event('patientsInsertValidationUpdated'));
+          }
+        } else {
+          await loadSchema();
+          await loadPatients();
+        }
       }
     } catch (requestError) {
       const apiMessage = extractApiMessage(requestError, 'Import de la structure Excel impossible.');
@@ -3372,9 +3376,9 @@ function PatientsManagement() {
                       '& .MuiTabs-indicator': { background: `linear-gradient(90deg,${PM.rose},${PM.steel})`, height: 3, borderRadius: 2 },
                     }}
                   >
-                    <Tab value="pretraitement" label={language === 'en' ? 'Preprocessing' : 'Prétraitement'} />
-                    <Tab value="gestion" label={language === 'en' ? 'Management' : 'Gestion'} />
-                    <Tab value="analyse" label="Analyse" />
+                    <Tab value="pretraitement" label={t('tabPretraitement')} />
+                    <Tab value="gestion" label={t('tabGestion')} />
+                    <Tab value="analyse" label={t('tabAnalyse')} />
                   </Tabs>
                 </Box>
               </Box>
@@ -3431,12 +3435,16 @@ function PatientsManagement() {
             </Box>
           </Alert>
         )}
-        {/* Alerte validation pending supprimée */}
+        {insertValidationStatus.status === 'awaiting_external_validation' && (
+          <Alert severity="warning" sx={{ borderRadius: '14px', fontFamily: 'inherit' }}>
+            Fichier soumis pour validation. Un chef de service ou administrateur doit valider l'import avant intégration des données.
+          </Alert>
+        )}
         {insertValidationStatus.status === 'validated' && (
           <Alert severity="success" sx={{ borderRadius: '14px', fontFamily: 'inherit' }}>Insertion validée par {insertValidationStatus.approvedBy} le {formattedValidationTimestamp}.</Alert>
         )}
         {insertValidationStatus.status === 'rejected' && (
-          <Alert severity="error" sx={{ borderRadius: '14px', fontFamily: 'inherit' }}>Insertion refusée par {insertValidationStatus.approvedBy} le {formattedValidationTimestamp}.</Alert>
+          <Alert severity="error" sx={{ borderRadius: '14px', fontFamily: 'inherit' }}>Insertion annulée par {insertValidationStatus.approvedBy} le {formattedValidationTimestamp}.</Alert>
         )}
 
         {activeTab === 'pretraitement' ? (
@@ -3754,7 +3762,7 @@ function PatientsManagement() {
                         {!visiblePatients.length && (
                           <TableRow>
                             <TableCell colSpan={Math.max(2, patientColumnKeys.length + 1)} align="center">
-                              {language === 'en' ? 'No patient found for this filter.' : 'Aucun patient trouvé pour ce filtre.'}
+                              {t('patientsNoPatientFound')}
                             </TableCell>
                           </TableRow>
                         )}
@@ -3994,9 +4002,9 @@ function PatientsManagement() {
               <CardContent sx={{ py: 2.5 }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1.5}>
                   <Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Tableau d'analyse clinique</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisTitle')}</Typography>
                     <Typography variant="body2" sx={{ color: '#7a90b0', mt: 0.3, fontFamily: 'inherit' }}>
-                      Vue professionnelle orientée activité et risques cliniques.
+                      {t('analysisSubtitle')}
                     </Typography>
                   </Box>
                   <Chip
@@ -4011,11 +4019,11 @@ function PatientsManagement() {
             {/* ── KPI Cards ── */}
             <Grid container spacing={2}>
               {[
-                { label: 'Total patients', value: analysisSummary.totalPatients, accent: '#3d5a8a', sub: 'dossiers actifs' },
-                { label: 'Âge moyen', value: `${analysisSummary.averageAge} ans`, accent: '#1f7a8c', sub: `médiane ${analysisSummary.medianAge} ans` },
-                { label: 'Complétude', value: `${analysisSummary.averageCompleteness}%`, accent: '#2e7d56', sub: 'des champs remplis' },
-                { label: 'Colonnes totales', value: patientColumnKeys.length, accent: '#c17f24', sub: 'schéma plateforme' },
-                { label: 'Cols. dynamiques', value: dynamicColumnKeys.size + extraColumns.length, accent: '#6c3d9e', sub: 'importées' },
+                { label: t('analysisKpiTotalPatients'), value: analysisSummary.totalPatients, accent: '#3d5a8a', sub: t('analysisKpiActiveDossiers') },
+                { label: t('analysisKpiAvgAge'), value: `${analysisSummary.averageAge} ans`, accent: '#1f7a8c', sub: `${t('analysisKpiMedianAge')} ${analysisSummary.medianAge} ans` },
+                { label: t('analysisKpiCompleteness'), value: `${analysisSummary.averageCompleteness}%`, accent: '#2e7d56', sub: t('analysisKpiFieldsFilled') },
+                { label: t('analysisKpiTotalCols'), value: patientColumnKeys.length, accent: '#c17f24', sub: t('analysisKpiPlatformSchema') },
+                { label: t('analysisKpiDynCols'), value: dynamicColumnKeys.size + extraColumns.length, accent: '#6c3d9e', sub: t('analysisKpiImported') },
               ].map((kpi) => (
                 <Grid item xs={6} sm={4} md={12 / 5} key={kpi.label}>
                   <Card elevation={0} sx={{ borderRadius: '16px', border: `1px solid rgba(61,90,138,.10)`, boxShadow: '0 2px 12px rgba(30,45,90,.05)', overflow: 'hidden', height: '100%' }}>
@@ -4038,13 +4046,13 @@ function PatientsManagement() {
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                       <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#3d5a8a' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Évolution mensuelle — début de dialyse</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisMonthlyTitle')}</Typography>
                     </Stack>
                     {analysisSummary.monthlyInclusions.length ? (
                       <Box sx={{ height: 280 }}>
                         <Line data={monthlyInclusionChartData} options={defaultChartOptions} />
                       </Box>
-                    ) : <Typography variant="body2" color="text.secondary">Aucune date exploitable pour les inclusions.</Typography>}
+                    ) : <Typography variant="body2" color="text.secondary">{t('analysisNoInclusion')}</Typography>}
                   </CardContent>
                 </Card>
               </Grid>
@@ -4055,25 +4063,25 @@ function PatientsManagement() {
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                       <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#9e3d6a' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Répartition et indicateurs</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisDistributionTitle')}</Typography>
                     </Stack>
                     <Stack spacing={1.2}>
                       <Stack direction="row" spacing={2}>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Complications totales</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>{t('analysisCompTotal')}</Typography>
                           <Typography variant="h5" sx={{ fontWeight: 900, color: '#9e3d6a', letterSpacing: '-.02em', fontFamily: 'inherit' }}>{analysisKpis.complicationsTotal}</Typography>
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Charge élevée</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>{t('analysisHighBurden')}</Typography>
                           <Typography variant="h5" sx={{ fontWeight: 900, color: '#c17f24', letterSpacing: '-.02em', fontFamily: 'inherit' }}>{analysisSummary.highBurdenPatients}</Typography>
                         </Box>
                       </Stack>
                       <Box sx={{ p: 1.2, borderRadius: '10px', background: 'rgba(61,90,138,.05)', border: '1px solid rgba(61,90,138,.08)' }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>Profil dominant</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'inherit' }}>{t('analysisDominantProfile')}</Typography>
                         <Typography variant="body2" sx={{ fontWeight: 700, color: '#3d5a8a', fontFamily: 'inherit', mt: 0.2 }}>{analysisKpis.topEtiology}</Typography>
                       </Box>
                       <Box sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontFamily: 'inherit' }}>Répartition par sexe</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontFamily: 'inherit' }}>{t('analysisSexDistrib')}</Typography>
                         <Box sx={{ height: 160, position: 'relative' }}>
                           <Doughnut
                             data={sexDonutChartData}
@@ -4130,9 +4138,9 @@ function PatientsManagement() {
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                       <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#1f7a8c' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Distribution d'âge par sexe</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisAgeSexTitle')}</Typography>
                     </Stack>
-                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>Histogramme — nombre de patients par tranche d'âge</Typography>
+                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>{t('analysisAgeSexSubtitle')}</Typography>
                     <Box sx={{ height: 280 }}>
                       <Bar data={ageSexHistogramData} options={defaultChartOptions} />
                     </Box>
@@ -4146,14 +4154,14 @@ function PatientsManagement() {
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                       <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#c17f24' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Répartition des types de complications</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisCompTypesTitle')}</Typography>
                     </Stack>
-                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>Nombre de patients par type de complication enregistrée</Typography>
+                    <Typography variant="caption" sx={{ color: '#aab4c4', fontFamily: 'inherit', mb: 1.5, display: 'block' }}>{t('analysisCompTypesSubtitle')}</Typography>
                     {analysisSummary.complicationTypeDistribution.length ? (
                       <Box sx={{ height: 280 }}>
                         <Bar data={complicationTypeChartData} options={{ ...defaultChartOptions, indexAxis: 'y', plugins: { ...defaultChartOptions.plugins, legend: { display: false } } }} />
                       </Box>
-                    ) : <Typography variant="body2" color="text.secondary">Aucune complication renseignée.</Typography>}
+                    ) : <Typography variant="body2" color="text.secondary">{t('analysisNoComplication')}</Typography>}
                   </CardContent>
                 </Card>
               </Grid>
@@ -4164,7 +4172,7 @@ function PatientsManagement() {
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                       <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#2e7d56' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>Étiologie IRC par statut d'inclusion</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e2d5a', letterSpacing: '-.01em', fontFamily: 'inherit' }}>{t('analysisEtiologyTitle')}</Typography>
                     </Stack>
                     {analysisSummary.etiologyInclusionGrouped.labels.length ? (
                       <Box sx={{ height: 280 }}>

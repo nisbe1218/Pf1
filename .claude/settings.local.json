@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(docker exec medical_backend python -c ' *)",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(cd /c/Users/nisb6/Documents/project/frontend && grep -n \"Étiologies de l'IRC\\\\|Comorbidités principales\" src/pages/model-ai/ModelAI.js)",
+      "Read(//c/c/Users/nisb6/Documents/project/frontend/src/pages/model-ai/**)"
     ]
   }
 }

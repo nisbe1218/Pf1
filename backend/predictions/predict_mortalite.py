@@ -54,13 +54,30 @@ def _save_last_prediction(payload: dict):
         pass
 
 
+_SEUILS_FILE = MODEL_DIRECTORY / 'seuils_classification.joblib'
+
+
+def _load_seuils_roc():
+    """Charge T1/T2 depuis seuils_classification.joblib (Sensibilité≥90% + Youden bootstrappé)."""
+    try:
+        s = joblib.load(_SEUILS_FILE)
+        return float(s['T1']), float(s['T2']), 'roc_youden'
+    except Exception:
+        return None
+
+
 def _resolve_thresholds(metadata):
     """
-    Retourne (T1, T2, method) en lisant les métadonnées dans cet ordre de priorité :
-    1. calibration_thresholds (GMM + isotonique) — produit par train_isotonic.py
-    2. gmm_thresholds (GMM sur probabilités brutes SVM)
-    3. défaut fixe 0.10 / 0.40
+    Retourne (T1, T2, method) en lisant dans cet ordre de priorité :
+    1. seuils_classification.joblib (Sensibilité≥90% + Youden bootstrappé)
+    2. calibration_thresholds (GMM + isotonique)
+    3. gmm_thresholds
+    4. défaut fixe 0.10 / 0.29
     """
+    roc = _load_seuils_roc()
+    if roc:
+        return roc
+
     cal = metadata.get('calibration_thresholds', {})
     if cal.get('T1_clinical') and cal.get('T2_clinical'):
         return float(cal['T1_clinical']), float(cal['T2_clinical']), 'gmm+isotonic'
@@ -69,7 +86,7 @@ def _resolve_thresholds(metadata):
     if gmm_t and len(gmm_t) >= 2:
         return float(gmm_t[0]), float(gmm_t[1]), 'gmm'
 
-    return 0.10, 0.40, 'fixed'
+    return 0.10, 0.29, 'fixed'
 
 
 def _build_svm_factors(pipeline, feature_keys):
@@ -166,7 +183,7 @@ class PredictMortalitePatientView(APIView):
         except Exception as e:
             return Response({"error": f"Erreur de prédiction: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # ── Calibration isotonique ──────────────────────────────────────────
+        # ── Calibration isotonique (stockée pour info, non utilisée pour le score) ──
         iso_path = MODEL_DIRECTORY / 'iso_calibrator.joblib'
         proba_calibrated = proba
         if iso_path.exists():
@@ -175,21 +192,23 @@ class PredictMortalitePatientView(APIView):
                 proba_calibrated = float(iso.predict([proba])[0])
             except Exception as e:
                 import logging; logging.getLogger(__name__).warning(f"Isotonic calibration failed: {e}")
-                proba_calibrated = proba
 
+        # Score et zones basés sur probabilite_deces (CalibratedClassifierCV — Platt scaling)
+        # Le calibrateur isotonique produit un plateau dégénéré (2 niveaux seulement)
+        # et écrase la discrimination individuelle — on utilise donc proba directement.
         base_rate = 0.199
-        score = round(proba_calibrated * 100, 1)
-        risque_relatif = round(proba_calibrated / base_rate, 1) if base_rate > 0 else None
+        score = round(proba * 100, 1)
+        risque_relatif = round(proba / base_rate, 1) if base_rate > 0 else None
 
         # Zones cliniques — priorité : calibration_thresholds > gmm_thresholds > défaut
         T1, T2, threshold_method = _resolve_thresholds(metadata)
         mort_rates_sim = metadata.get('iso_mortality_rates',
                          metadata.get('gmm_mortality_rates',
-                         {'Faible': 3.8, 'Modéré': 22.9, 'Élevé': 49.0}))
+                         {'Faible': 3.8, 'Modéré': 15.6, 'Élevé': 46.5}))
 
-        if proba_calibrated < T1:
+        if proba < T1:
             niveau = 'Faible'
-        elif proba_calibrated < T2:
+        elif proba < T2:
             niveau = 'Modéré'
         else:
             niveau = 'Élevé'
@@ -210,7 +229,7 @@ class PredictMortalitePatientView(APIView):
             "patient_id_plateforme": patient.id_patient or f"PAT-{patient.pk:06d}",
             "patient_name": f"{patient.prenom or ''} {patient.nom or ''}".strip(),
             "probabilite_deces": round(proba, 4),
-            "probabilite_calibree": round(proba_calibrated, 4),
+            "probabilite_calibree": round(proba, 4),
             "score_risque": score,
             "niveau_risque": niveau,
             "risque_relatif": risque_relatif,
@@ -287,7 +306,7 @@ class PredictMortalitePatientView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # ── Calibration isotonique ──────────────────────────────────────────
+        # ── Calibration isotonique (stockée pour info, non utilisée pour le score) ──
         iso_path = MODEL_DIRECTORY / 'iso_calibrator.joblib'
         proba_calibrated = proba
         if iso_path.exists():
@@ -296,27 +315,29 @@ class PredictMortalitePatientView(APIView):
                 proba_calibrated = float(iso.predict([proba])[0])
             except Exception as e:
                 import logging; logging.getLogger(__name__).warning(f"Isotonic calibration failed: {e}")
-                proba_calibrated = proba
 
+        # Score et zones basés sur probabilite_deces (CalibratedClassifierCV — Platt scaling)
+        # Le calibrateur isotonique produit un plateau dégénéré (2 niveaux seulement)
+        # et écrase la discrimination individuelle — on utilise donc proba directement.
         base_rate = 0.199
-        score = round(proba_calibrated * 100, 1)
-        risque_relatif = round(proba_calibrated / base_rate, 1) if base_rate > 0 else None
+        score = round(proba * 100, 1)
+        risque_relatif = round(proba / base_rate, 1) if base_rate > 0 else None
 
         # Zones cliniques — priorité : calibration_thresholds > gmm_thresholds > défaut
         T1, T2, threshold_method = _resolve_thresholds(metadata)
         mort_rates = metadata.get('iso_mortality_rates',
                      metadata.get('gmm_mortality_rates',
-                     {'Faible': 3.8, 'Modéré': 22.9, 'Élevé': 49.0}))
+                     {'Faible': 3.8, 'Modéré': 15.6, 'Élevé': 46.5}))
 
-        if proba_calibrated < T1:
+        if proba < T1:
             niveau = 'Faible'
             recommendation = f"Zone Faible — mortalité observée : {mort_rates.get('Faible', 3.8)} % (cohorte HD-478). Le modèle ne détecte pas de signal de risque élevé. Suivi standard recommandé."
-        elif proba_calibrated < T2:
+        elif proba < T2:
             niveau = 'Modéré'
-            recommendation = f"Zone Modérée — mortalité observée : {mort_rates.get('Modéré', 22.9)} % (cohorte HD-478). Signal de risque intermédiaire détecté. Surveillance renforcée et réévaluation clinique recommandées."
+            recommendation = f"Zone Modérée — mortalité observée : {mort_rates.get('Modéré', 15.6)} % (cohorte HD-478). Signal de risque intermédiaire détecté. Surveillance renforcée et réévaluation clinique recommandées."
         else:
             niveau = 'Élevé'
-            recommendation = f"Zone Élevée — mortalité observée : {mort_rates.get('Élevé', 49.0)} % (cohorte HD-478). Risque majeur détecté. Prise en charge prioritaire et discussion multidisciplinaire urgente."
+            recommendation = f"Zone Élevée — mortalité observée : {mort_rates.get('Élevé', 46.5)} % (cohorte HD-478). Risque majeur détecté. Prise en charge prioritaire et discussion multidisciplinaire urgente."
 
         factors = _build_svm_factors(pipeline, feature_keys)
 
@@ -337,7 +358,7 @@ class PredictMortalitePatientView(APIView):
             "patient_id_plateforme": patient.id_patient or f"PAT-{patient.pk:06d}",
             "patient_name": f"{patient.prenom or ''} {patient.nom or ''}".strip(),
             "probabilite_deces": round(proba, 4),
-            "probabilite_calibree": round(proba_calibrated, 4),
+            "probabilite_calibree": round(proba, 4),
             "score_risque": score,
             "niveau_risque": niveau,
             "risque_relatif": risque_relatif,

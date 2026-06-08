@@ -18,11 +18,13 @@ import MinimizeRoundedIcon from '@mui/icons-material/MinimizeRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import api from '../../services/api/axios';
 import { AuthContext } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const AUTOSAVE_DELAY_MS = 800;
 
 function NotesFab() {
   const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState('');
@@ -61,13 +63,13 @@ function NotesFab() {
       setStatus('saved');
       setLastSavedAt(new Date());
     } catch (error) {
-      setErrorMessage('Impossible de charger les notes personnelles.');
+      setErrorMessage(t('notesLoadError'));
       setStatus('error');
     } finally {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   const persistNotes = useCallback(async (nextNotes) => {
     if (!isAuthenticated) {
@@ -83,9 +85,9 @@ function NotesFab() {
       setLastSavedAt(new Date());
     } catch (error) {
       setStatus('error');
-      setErrorMessage('Sauvegarde auto indisponible. Vos derniers changements ne sont pas encore enregistres.');
+      setErrorMessage(t('notesAutoSaveError'));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     fetchNotes();
@@ -128,23 +130,23 @@ function NotesFab() {
 
   const statusChip = useMemo(() => {
     if (status === 'saving' || status === 'pending') {
-      return <Chip size="small" label="Sauvegarde..." sx={{ bgcolor: '#ffe2ea', color: '#8a2a48', fontWeight: 600 }} />;
+      return <Chip size="small" label={t('notesSaving')} sx={{ bgcolor: '#ffe2ea', color: '#8a2a48', fontWeight: 600 }} />;
     }
     if (status === 'saved') {
-      return <Chip size="small" label="Sauvegarde" sx={{ bgcolor: '#ffd3e2', color: '#7a2440', fontWeight: 600 }} />;
+      return <Chip size="small" label={t('notesSaved')} sx={{ bgcolor: '#ffd3e2', color: '#7a2440', fontWeight: 600 }} />;
     }
     if (status === 'error') {
-      return <Chip size="small" label="Erreur" sx={{ bgcolor: '#ffcad6', color: '#8e1f3f', fontWeight: 600 }} />;
+      return <Chip size="small" label={t('notesError')} sx={{ bgcolor: '#ffcad6', color: '#8e1f3f', fontWeight: 600 }} />;
     }
-    return <Chip size="small" label="Pret" sx={{ bgcolor: '#fdebf1', color: '#8a2a48', fontWeight: 600 }} />;
-  }, [status]);
+    return <Chip size="small" label={t('notesReady')} sx={{ bgcolor: '#fdebf1', color: '#8a2a48', fontWeight: 600 }} />;
+  }, [status, t]);
 
   const lastSavedLabel = useMemo(() => {
     if (!lastSavedAt) {
-      return 'Pas encore de sauvegarde';
+      return t('notesNoSave');
     }
-    return `Derniere sauvegarde: ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }, [lastSavedAt]);
+    return `${t('notesLastSaved')} ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }, [lastSavedAt, t]);
 
   const publicPaths = ['/', '/login', '/unauthorized'];
   const isOnPublicPage = publicPaths.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
@@ -155,10 +157,10 @@ function NotesFab() {
 
   return (
     <>
-      <Tooltip title="Carnet personnel" arrow placement="left">
+      <Tooltip title={t('notesOpen')} arrow placement="left">
         <Fab
           color="secondary"
-          aria-label="Ouvrir le carnet personnel"
+          aria-label={t('notesOpen')}
           onClick={() => setOpen((current) => !current)}
           sx={{
             position: 'fixed',
@@ -222,13 +224,13 @@ function NotesFab() {
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 800, fontStyle: 'italic', lineHeight: 1.15, color: '#b03f69' }}>
-              Carnet numerique
+              {t('notesTitle')}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-              <IconButton onClick={() => setOpen(false)} sx={{ color: '#b03f69' }} aria-label="Reduire le carnet" size="small">
+              <IconButton onClick={() => setOpen(false)} sx={{ color: '#b03f69' }} aria-label={t('notesMinimize')} size="small">
                 <MinimizeRoundedIcon fontSize="small" />
               </IconButton>
-              <IconButton onClick={() => setOpen(false)} sx={{ color: '#b03f69' }} aria-label="Fermer le carnet" size="small">
+              <IconButton onClick={() => setOpen(false)} sx={{ color: '#b03f69' }} aria-label={t('notesClose')} size="small">
                 <CloseRoundedIcon fontSize="small" />
               </IconButton>
             </Box>
@@ -237,7 +239,7 @@ function NotesFab() {
           <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
             {statusChip}
             {loading ? (
-              <Typography variant="caption" color="text.secondary">Chargement...</Typography>
+              <Typography variant="caption" color="text.secondary">{t('notesLoading')}</Typography>
             ) : (
               <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{lastSavedLabel}</Typography>
             )}
@@ -250,7 +252,7 @@ function NotesFab() {
               fullWidth
               minRows={12}
               maxRows={20}
-              placeholder="Ecrivez vos rappels, observations ou idees importantes..."
+              placeholder={t('notesPlaceholder')}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               disabled={loading}
@@ -282,7 +284,7 @@ function NotesFab() {
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {notes.length} caracteres
+                {notes.length} {t('notesCharCount')}
               </Typography>
               <Button
                 size="small"
@@ -297,7 +299,7 @@ function NotesFab() {
                   },
                 }}
               >
-                Effacer
+                {t('notesClear')}
               </Button>
             </Box>
 

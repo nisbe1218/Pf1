@@ -1,0 +1,90 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: rapport_pfe.aux
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+The style file: plainnat.bst
+I found no \bibdata command---while reading file rapport_pfe.aux
+Warning--I didn't find a database entry for "registre_rein_2022"
+Warning--I didn't find a database entry for "kdigo2015"
+Warning--I didn't find a database entry for "dopps2022"
+Warning--I didn't find a database entry for "collins_tripod_2015"
+Warning--I didn't find a database entry for "who2021digital"
+Warning--I didn't find a database entry for "hemodialysis_cdss_2019"
+Warning--I didn't find a database entry for "brenner_kidney_2020"
+Warning--I didn't find a database entry for "berner2007cdss"
+Warning--I didn't find a database entry for "shortliffe1974mycin"
+Warning--I didn't find a database entry for "miller1982internist"
+Warning--I didn't find a database entry for "bright2012"
+Warning--I didn't find a database entry for "llm_clinical_nlp_2023"
+Warning--I didn't find a database entry for "rag_lewis_2020"
+Warning--I didn't find a database entry for "couchoud2009"
+Warning--I didn't find a database entry for "wick2019"
+Warning--I didn't find a database entry for "kaesler2020"
+Warning--I didn't find a database entry for "zhu2021"
+Warning--I didn't find a database entry for "nasr2022"
+Warning--I didn't find a database entry for "albumin_dialysis_2018"
+Warning--I didn't find a database entry for "charlson1987"
+Warning--I didn't find a database entry for "beddhu2000charlson"
+Warning--I didn't find a database entry for "pisoni2002vascular"
+Warning--I didn't find a database entry for "shemin2001residual"
+Warning--I didn't find a database entry for "usrds2022"
+Warning--I didn't find a database entry for "khan2008score"
+Warning--I didn't find a database entry for "diaz2020dialrisk"
+Warning--I didn't find a database entry for "montassir2021morocco"
+Warning--I didn't find a database entry for "aatif2020morocco"
+Warning--I didn't find a database entry for "kdigo_mineral_2017"
+Warning--I didn't find a database entry for "levey_mdrd_2006"
+Warning--I didn't find a database entry for "waikar2011sodium"
+Warning--I didn't find a database entry for "cortes_vapnik_1995"
+Warning--I didn't find a database entry for "platt1999"
+Warning--I didn't find a database entry for "breiman_rf_2001"
+Warning--I didn't find a database entry for "geurts_et_2006"
+Warning--I didn't find a database entry for "friedman_gb_2001"
+Warning--I didn't find a database entry for "freund_adaboost_1997"
+Warning--I didn't find a database entry for "chen_xgboost_2016"
+Warning--I didn't find a database entry for "ke_lightgbm_2017"
+Warning--I didn't find a database entry for "prokhorenkova_catboost_2018"
+Warning--I didn't find a database entry for "zadrozny_isotonic_2002"
+Warning--I didn't find a database entry for "hanley1982auc"
+You've used 0 entries,
+            2773 wiz_defined-function locations,
+            633 strings with 5484 characters,
+and the built_in function-call counts, 33 in all, are:
+= -- 0
+> -- 0
+< -- 0
++ -- 0
+- -- 0
+* -- 2
+:= -- 10
+add.period$ -- 0
+call.type$ -- 0
+change.case$ -- 0
+chr.to.int$ -- 0
+cite$ -- 0
+duplicate$ -- 0
+empty$ -- 1
+format.name$ -- 0
+if$ -- 1
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 0
+newline$ -- 8
+num.names$ -- 0
+pop$ -- 0
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 1
+stack$ -- 0
+substring$ -- 0
+swap$ -- 0
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 0
+width$ -- 0
+write$ -- 7
+(There was 1 error message)

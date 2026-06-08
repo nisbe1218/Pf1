@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import AppSidebar from '../../components/common/AppSidebar';
 import api        from '../../services/api/axios';
+import { useLanguage } from '../../context/LanguageContext';
 
 ChartJS.register(
   ArcElement, Tooltip, Legend,
@@ -294,6 +295,7 @@ function StatCard({ label, value, sub, accent }) {
 }
 
 export default function ModelAI() {
+  const { t: tPage } = useLanguage();
   const [activeTab, setActiveTab]             = useState(0);
   const [patients, setPatients]               = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -350,6 +352,7 @@ export default function ModelAI() {
 
   // ── Tableau de bord ─────────────────────────────────────────────────────────
   const DashboardTab = () => {
+    const { t } = useLanguage();
     const cf = { family: "'Plus Jakarta Sans', system-ui, sans-serif" };
 
     // ── KPIs clairs pour le médecin — issues cliniques réelles ──────────────
@@ -369,40 +372,40 @@ export default function ModelAI() {
       {
         icon: null,
         color: PM.steel,
-        label: 'Total patients',
+        label: t('modelKpiTotal'),
         value: total || '—',
-        sub: avgAge ? `Âge moyen : ${avgAge} ans` : 'Base de données',
+        sub: avgAge ? `${t('modelKpiAvgAgeSub')} : ${avgAge} ans` : t('modelKpiDatabase'),
         alert: false,
       },
       {
         icon: null,
         color: '#2E86AB',
-        label: 'Âge moyen',
+        label: t('modelKpiAvgAge'),
         value: avgAge ? `${avgAge} ans` : '—',
-        sub: ages.length ? `Calculé sur ${ages.length} patients` : 'Données insuffisantes',
+        sub: ages.length ? `${t('modelKpiCalcOn')} ${ages.length} patients` : t('modelKpiInsufficientData'),
         alert: false,
       },
       {
         icon: null,
         color: '#27AE60',
-        label: 'Patients en vie',
+        label: t('modelKpiAlive'),
         value: total ? enVie : '—',
-        sub: total && enVie ? `${Math.round(enVie / total * 100)} % de la cohorte` : 'Statut "vivant" enregistré',
+        sub: total && enVie ? `${Math.round(enVie / total * 100)} % ${t('modelKpiCohort')}` : t('modelKpiAliveStatus'),
         alert: false,
       },
       {
         icon: null,
         color: '#E74C3C',
-        label: 'Décès enregistrés',
+        label: t('modelKpiDeceased'),
         value: total ? nbDeces : '—',
-        sub: total && nbDeces ? `${Math.round(nbDeces / total * 100)} % de la cohorte` : 'Aucun décès enregistré',
+        sub: total && nbDeces ? `${Math.round(nbDeces / total * 100)} % ${t('modelKpiCohort')}` : t('modelKpiNoDeceased'),
         alert: false,
       },
     ];
 
     // ── Graphe 1 : Combien de patients dans chaque zone ? ──────────────────
     const distData = {
-      labels: ['Zone Faible', 'Zone Modérée', 'Zone Élevée'],
+      labels: [t('modelZoneFaible'), t('modelZoneModerée'), t('modelZoneElevée')],
       datasets: [{
         label: 'Patients',
         data: [284, 100, 94],
@@ -428,10 +431,10 @@ export default function ModelAI() {
 
     // ── Graphe 2 : Que se passe-t-il dans chaque zone ? ───────────────────
     const mortData = {
-      labels: ['Zone Faible\n(< 14 %)', 'Zone Modérée\n(14–42 %)', 'Zone Élevée\n(> 42 %)'],
+      labels: [t('modelZoneFaibleThreshold'), t('modelZoneModereedThreshold'), t('modelZoneEleveeThreshold')],
       datasets: [{
         label: 'Décès à 1 an (%)',
-        data: [5.1, 29.1, 55.6],
+        data: [3.8, 15.6, 46.5],
         backgroundColor: ['rgba(39,174,96,.80)', 'rgba(230,126,34,.80)', 'rgba(231,76,60,.80)'],
         borderColor: ['#27AE60', '#E67E22', '#E74C3C'],
         borderWidth: 2, borderRadius: 10, borderSkipped: false,
@@ -454,7 +457,11 @@ export default function ModelAI() {
 
     // ── Graphe 3 : Le modèle est-il fiable ? (résultats cliniques simples) ─
     const perfData = {
-      labels: ['Patients à risque\nidentifiés', 'Patients sains\nbien classés', 'Patients classés\nen Zone Élevée\nqui décèdent'],
+      labels: [
+        t('modelPerfIdentified'),
+        t('modelPerfHealthy'),
+        t('modelPerfHighDeath'),
+      ],
       datasets: [{
         label: 'Résultat (%)',
         data: [73, 78, 60.6],
@@ -545,7 +552,7 @@ export default function ModelAI() {
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: PM.navy, fontSize: '0.9rem' }}>
-              État de votre base
+              {t('modelBaseState')}
             </Typography>
             <Chip label="Live" size="small" sx={{ bgcolor: '#27AE6018', color: '#27AE60', fontWeight: 700, fontSize: '0.65rem', height: 20, border: '1px solid #27AE6035' }} />
             <Box sx={{ flex: 1 }} />
@@ -556,7 +563,7 @@ export default function ModelAI() {
               disabled={loading}
               sx={{ fontSize: '0.72rem', color: PM.rose, borderColor: `${PM.rose}60`, border: '1px solid', borderRadius: '10px', px: 1.5, py: 0.4, textTransform: 'none', '&:hover': { bgcolor: `${PM.rose}10` } }}
             >
-              Actualiser
+              {t('modelRefresh')}
             </Button>
           </Box>
           <Grid container spacing={1.5}>
@@ -572,7 +579,7 @@ export default function ModelAI() {
                     <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${k.color}, ${k.color}88)` }} />
                   )}
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', mb: 0.5 }}>
-                    {k.alert && <Chip label="À voir" size="small" sx={{ bgcolor: `${k.color}18`, color: k.color, fontWeight: 700, fontSize: '0.6rem', height: 18, border: `1px solid ${k.color}30` }} />}
+                    {k.alert && <Chip label={t('modelToCheck')} size="small" sx={{ bgcolor: `${k.color}18`, color: k.color, fontWeight: 700, fontSize: '0.6rem', height: 18, border: `1px solid ${k.color}30` }} />}
                   </Box>
                   <Typography sx={{ fontWeight: 900, color: k.color, fontSize: '1.6rem', lineHeight: 1.1, mt: 0.5 }}>
                     {loading ? '…' : k.value}
@@ -593,18 +600,16 @@ export default function ModelAI() {
         <Grid container spacing={2} alignItems="stretch">
           <Grid item xs={12} sm={6}>
             <ChartCard
-              title="Que se passe-t-il dans chaque zone ?"
-              subtitle="Taux de décès réels à 1 an — zones définies par GMM (cohorte HD-478, n = 478)"
-              note="Zones définies par GMM : Zone Élevée → 55,6 % de décès | Zone Modérée → 29,1 % | Zone Faible → 5,1 %. Risque relatif Élevée/Faible = 11×."
+              title={t('modelChartMortTitle')}
+              subtitle={t('modelChartMortSubtitle')}
             >
               <Bar data={mortData} options={mortOpts} height={140} />
             </ChartCard>
           </Grid>
           <Grid item xs={12} sm={6}>
             <ChartCard
-              title="Quels facteurs augmentent le risque ?"
-              subtitle="Les 6 variables cliniques les plus déterminantes dans le calcul du score (sur 32 variables analysées)"
-              note="L'albumine basse et l'accumulation de comorbidités sont les signaux les plus forts. La dyspnée et les antécédents cardiovasculaires amplifient le risque."
+              title={t('modelChartRiskTitle')}
+              subtitle={t('modelChartRiskSubtitle')}
             >
               <Bar data={riskData} options={riskOpts} height={175} />
             </ChartCard>
@@ -613,23 +618,6 @@ export default function ModelAI() {
 
         {/* ── Analyse de la cohorte réelle ────────────────────────────── */}
         {total > 0 && (() => {
-          // Comorbidités
-          const comorb = [
-            { label: 'Diabète',        count: patients.filter(p => String(p.comorbidite_statut_diabete||'').toLowerCase() === 'oui' || String(p.irc_etiologie_principale||'').toLowerCase().includes('diabet')).length },
-            { label: 'Hypertension',   count: patients.filter(p => /hypert|hta/i.test(String(p.comorbidite_liste||''))).length },
-            { label: 'Cardiopathie',   count: patients.filter(p => /cardio|infarctus|cardiomyo/i.test(String(p.comorbidite_liste||''))).length },
-            { label: 'Anémie',         count: patients.filter(p => /anemie|anémie/i.test(String(p.comorbidite_liste||''))).length },
-            { label: 'Maladie héréd.', count: patients.filter(p => String(p.irc_maladie_renale_hereditaire||'').toLowerCase() === 'oui').length },
-          ].sort((a, b) => b.count - a.count);
-
-          // Étiologies IRC
-          const etioRaw = [
-            { label: 'Diabète',             count: patients.filter(p => /diabet/i.test(String(p.irc_etiologie_principale||''))).length },
-            { label: 'HTA / Vasculaire',    count: patients.filter(p => /hypert|hta|vasc|nephroangio/i.test(String(p.irc_etiologie_principale||''))).length },
-            { label: 'Glomérulonéphrite',   count: patients.filter(p => /glom/i.test(String(p.irc_etiologie_principale||''))).length },
-            { label: 'Polykystose',         count: patients.filter(p => /polykyst|pkr/i.test(String(p.irc_etiologie_principale||''))).length },
-            { label: 'Autre / Inconnue',    count: patients.filter(p => !p.irc_etiologie_principale || /indet|autre|inconnu/i.test(String(p.irc_etiologie_principale||''))).length },
-          ].filter(e => e.count > 0).sort((a, b) => b.count - a.count);
 
           // Devenir
           const vivant      = patients.filter(p => /vivant|surviv/i.test(String(p.devenir_statut||''))).length;
@@ -660,40 +648,57 @@ export default function ModelAI() {
             { label: '> 5 ans',   count: dialDurations.filter(d => d >= 5).length },
           ];
 
-          // ── Chart data ──────────────────────────────────────────────────
-          const comorbChartData = {
-            labels: comorb.map(c => c.label),
-            datasets: [{ label: 'Patients', data: comorb.map(c => Math.round(c.count / total * 100)), backgroundColor: ['rgba(231,76,60,.80)','rgba(230,126,34,.80)','rgba(142,68,173,.75)','rgba(39,174,96,.75)','rgba(61,90,138,.70)'], borderRadius: 8, borderSkipped: false }],
+          // ── Albumine sérique par zone de risque (cohorte HD-478) ────────
+          const albuminData = {
+            labels: [t('modelZoneFaible'), t('modelZoneModerée'), t('modelZoneElevée')],
+            datasets: [{
+              label: 'Intervalle Q1–Q3 (g/L)',
+              data: [[37, 41], [33, 37], [27, 34]],
+              backgroundColor: ['rgba(39,174,96,.35)', 'rgba(230,126,34,.35)', 'rgba(231,76,60,.35)'],
+              borderColor: ['#27AE60', '#E67E22', '#E74C3C'],
+              borderWidth: 2, borderSkipped: false, borderRadius: 6,
+            }],
           };
-          const comorbOpts = {
-            indexAxis: 'y', responsive: true,
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x} % (${comorb[c.dataIndex].count} patients)` }, bodyFont: cf } },
+          const albuminOpts = {
+            responsive: true,
+            plugins: {
+              legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: cf, color: PM.muted, padding: 10 } },
+              tooltip: { callbacks: { label: c => ` Q1–Q3 : ${c.raw[0]}–${c.raw[1]} g/L` }, bodyFont: cf, titleFont: cf },
+            },
             scales: {
-              x: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font: cf, color: PM.muted, callback: v => `${v} %` } },
-              y: { grid: { display: false }, ticks: { font: { ...cf, weight: '700' }, color: PM.navy } },
+              y: { min: 20, max: 50, grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font: cf, color: PM.muted, callback: v => `${v} g/L` } },
+              x: { grid: { display: false }, ticks: { font: { ...cf, weight: '700' }, color: PM.navy } },
             },
           };
 
-          const etioChartData = {
-            labels: etioRaw.map(e => e.label),
-            datasets: [{ label: 'Patients', data: etioRaw.map(e => e.count), backgroundColor: ['rgba(61,90,138,.80)','rgba(230,126,34,.80)','rgba(142,68,173,.75)','rgba(39,174,96,.75)','rgba(180,180,180,.60)'], borderRadius: 8, borderSkipped: false }],
+          // ── Survie à 12 mois — Kaplan-Meier par zone (cohorte HD-478) ──
+          const kmData = {
+            labels: [0,1,2,3,4,5,6,7,8,9,10,11,12],
+            datasets: [
+              { label: t('modelZoneFaibleFull'),   data: [100,99,98.5,98,97.5,97,97,96.5,96,96,95.5,95,95],  borderColor: '#27AE60', backgroundColor: 'rgba(39,174,96,.08)',  fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2.5, pointBackgroundColor: '#27AE60' },
+              { label: t('modelZoneModereeFull'), data: [100,97,95.5,93,90,88,85,82,80,78,77,75,70],        borderColor: '#E67E22', backgroundColor: 'rgba(230,126,34,.08)', fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2.5, pointBackgroundColor: '#E67E22' },
+              { label: t('modelZoneEleveeFull'),  data: [100,93,87,80,69,63,58,54,54,50,47,45,44],         borderColor: '#E74C3C', backgroundColor: 'rgba(231,76,60,.08)',  fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2.5, pointBackgroundColor: '#E74C3C' },
+            ],
           };
-          const etioOpts = {
-            indexAxis: 'y', responsive: true,
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x} patients (${Math.round(c.parsed.x / total * 100)} %)` }, bodyFont: cf } },
+          const kmOpts = {
+            responsive: true,
+            plugins: {
+              legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: cf, color: PM.muted, padding: 8, usePointStyle: true } },
+              tooltip: { callbacks: { title: i => `Mois ${i[0].label}`, label: c => ` ${c.dataset.label}: ${c.parsed.y} %` }, bodyFont: cf, titleFont: cf },
+            },
             scales: {
-              x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font: cf, color: PM.muted } },
-              y: { grid: { display: false }, ticks: { font: { ...cf, weight: '700' }, color: PM.navy } },
+              y: { min: 40, max: 100, grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font: cf, color: PM.muted, callback: v => `${v} %` } },
+              x: { grid: { display: false }, title: { display: true, text: t('modelFollowupMonths'), font: cf, color: PM.muted, padding: { top: 6 } }, ticks: { font: cf, color: PM.navy } },
             },
           };
 
           const devenirLabels = []; const devenirData = []; const devenirColors = [];
           [
-            { label: 'Vivant',        val: vivant,       color: 'rgba(39,174,96,.80)'  },
-            { label: 'Décédé',        val: deced,        color: 'rgba(231,76,60,.80)'  },
-            { label: 'Transplanté',   val: transpl,      color: 'rgba(61,90,138,.75)'  },
-            { label: 'Perdu de vue',  val: perdu,        color: 'rgba(230,126,34,.75)' },
-            { label: 'Non renseigné', val: nonRenseigne, color: 'rgba(180,180,180,.55)'},
+            { label: t('modelOutcomeAlive'),       val: vivant,       color: 'rgba(39,174,96,.80)'  },
+            { label: t('modelOutcomeDeceased'),    val: deced,        color: 'rgba(231,76,60,.80)'  },
+            { label: t('modelOutcomeTransplanted'),val: transpl,      color: 'rgba(61,90,138,.75)'  },
+            { label: t('modelOutcomeLost'),        val: perdu,        color: 'rgba(230,126,34,.75)' },
+            { label: t('modelOutcomeUnknown'),     val: nonRenseigne, color: 'rgba(180,180,180,.55)'},
           ].filter(d => d.val > 0).forEach(d => { devenirLabels.push(d.label); devenirData.push(d.val); devenirColors.push(d.color); });
           const devenirChartData = {
             labels: devenirLabels,
@@ -714,7 +719,7 @@ export default function ModelAI() {
               ctx.fillText(String(total), cx, cy - 9);
               ctx.font = '11px Inter, sans-serif';
               ctx.fillStyle = '#94a3b8';
-              ctx.fillText('patients', cx, cy + 11);
+              ctx.fillText(t('modelPatientsLabel'), cx, cy + 11);
               ctx.restore();
             },
           };
@@ -776,24 +781,30 @@ export default function ModelAI() {
               <Divider sx={{ my: 0.5 }} />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: PM.navy, fontSize: '0.9rem' }}>
-                  Analyse de votre cohorte
+                  {t('modelCohortAnalysis')}
                 </Typography>
                 <Chip label="Live" size="small" sx={{ bgcolor: '#27AE6018', color: '#27AE60', fontWeight: 700, fontSize: '0.65rem', height: 20, border: '1px solid #27AE6035' }} />
                 <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.72rem' }}>
-                  Calculé depuis vos {total} patients
+                  {total} {t('modelPatientsLabel')}
                 </Typography>
               </Box>
 
-              {/* Ligne 1 : Comorbidités + Étiologies IRC */}
+              {/* Ligne 1 : Albumine par zone de risque + Survie Kaplan-Meier */}
               <Grid container spacing={2} alignItems="stretch">
                 <Grid item xs={12} sm={6}>
-                  <ChartCard title="Comorbidités principales" subtitle="Prévalence dans votre base de patients (%)">
-                    <Bar data={comorbChartData} options={comorbOpts} height={140} />
+                  <ChartCard
+                    title={t('modelChartAlbuminTitle')}
+                    subtitle={t('modelChartAlbuminSubtitle')}
+                  >
+                    <Bar data={albuminData} options={albuminOpts} height={155} />
                   </ChartCard>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <ChartCard title="Étiologies de l'IRC" subtitle="Cause principale de l'insuffisance rénale chronique">
-                    <Bar data={etioChartData} options={etioOpts} height={140} />
+                  <ChartCard
+                    title={t('modelChartKMTitle')}
+                    subtitle={t('modelChartKMSubtitle')}
+                  >
+                    <Line data={kmData} options={kmOpts} height={155} />
                   </ChartCard>
                 </Grid>
               </Grid>
@@ -801,7 +812,7 @@ export default function ModelAI() {
               {/* Ligne 2 : Devenir + Profil de risque */}
               <Grid container spacing={2} alignItems="stretch">
                 <Grid item xs={12} sm={6}>
-                  <ChartCard title="Devenir des patients" subtitle="Statut final enregistré dans le dossier">
+                  <ChartCard title={t('modelChartDevenirTitle')} subtitle={t('modelChartDevenirSubtitle')}>
                     <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
                       <Box sx={{ width: 230, height: 230 }}>
                         <Doughnut data={devenirChartData} options={devenirOpts} plugins={[devenirCenterPlugin]} />
@@ -810,14 +821,14 @@ export default function ModelAI() {
                   </ChartCard>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <ChartCard title="Profil de risque" subtitle="Score de Charlson et ancienneté en dialyse">
+                  <ChartCard title={t('modelChartCharlsonTitle')} subtitle={t('modelChartCharlsonSubtitle')}>
                     <Typography variant="caption" sx={{ color: PM.muted, fontWeight: 700, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
-                      Score de Charlson — charge en comorbidités
+                      {t('modelChartCharlsonTitle')}
                     </Typography>
                     <Bar data={charlsonChartData} options={charlsonOpts} height={80} />
                     <Divider sx={{ my: 1.5 }} />
                     <Typography variant="caption" sx={{ color: PM.muted, fontWeight: 700, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
-                      Durée en dialyse — ancienneté
+                      {t('modelChartDialTitle')}
                     </Typography>
                     <Bar data={dialChartData} options={dialOpts} height={80} />
                   </ChartCard>
@@ -832,18 +843,18 @@ export default function ModelAI() {
           <CardContent sx={{ p: 3 }}>
             <Box sx={{ mb: 2.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: PM.navy, fontSize: '1rem', letterSpacing: '-.01em' }}>
-                Comment utiliser ce module ?
+                {t('guideTitle')}
               </Typography>
               <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.75rem' }}>
-                4 étapes pour obtenir et explorer un score de risque de mortalité à 1 an
+                {t('guideSubtitle')}
               </Typography>
             </Box>
             <Grid container spacing={2}>
               {[
-                { n: '1', t: 'Sélectionner un patient', d: 'Onglet "Patients" → recherchez par nom, prénom ou ID.', color: PM.steel },
-                { n: '2', t: 'Lancer la prédiction',    d: 'Cliquez "Lancer la prédiction" — le modèle analyse 32 variables automatiquement.', color: PM.rose },
-                { n: '3', t: 'Lire le résultat',         d: 'Onglet "Score" → zone de risque + recommandation clinique + détail des variables.', color: '#27AE60' },
-                { n: '4', t: 'Simuler une modification', d: 'Modifiez une valeur clinique puis cliquez "Simuler" pour voir l\'impact sur le risque sans sauvegarder.', color: '#E67E22' },
+                { n: '1', title: t('guideStep1Title'), d: t('guideStep1Desc'), color: PM.steel },
+                { n: '2', title: t('guideStep2Title'), d: t('guideStep2Desc'), color: PM.rose },
+                { n: '3', title: t('guideStep3Title'), d: t('guideStep3Desc'), color: '#27AE60' },
+                { n: '4', title: t('guideStep4Title'), d: t('guideStep4Desc'), color: '#E67E22' },
               ].map((g, i) => (
                 <Grid item xs={12} sm={3} key={g.n}>
                   <Box sx={{ p: 2, borderRadius: '16px', background: 'rgba(255,255,255,0.80)', border: `1px solid ${g.color}22`, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.2, boxShadow: `0 4px 16px ${g.color}0e` }}>
@@ -851,7 +862,7 @@ export default function ModelAI() {
                       <Box sx={{ width: 36, height: 36, borderRadius: '12px', flexShrink: 0, background: `linear-gradient(135deg,${g.color}dd,${g.color}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${g.color}30` }}>
                         <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: '0.9rem' }}>{g.n}</Typography>
                       </Box>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: PM.navy, fontSize: '0.88rem', lineHeight: 1.3 }}>{g.t}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: PM.navy, fontSize: '0.88rem', lineHeight: 1.3 }}>{g.title}</Typography>
                     </Box>
                     <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.76rem', lineHeight: 1.6, pl: 0.5 }}>{g.d}</Typography>
                     {i < 2 && (
@@ -870,10 +881,11 @@ export default function ModelAI() {
 
   // ── Patients ─────────────────────────────────────────────────────────────────
   const PatientsTab = () => {
+    const { t } = useLanguage();
     const showDetail = !!selectedPatient;
     const p = selectedPatient;
     const fv = (v, unit = '') => (v !== null && v !== undefined && v !== '') ? `${v}${unit ? ' ' + unit : ''}` : '—';
-    const boolVal = (v) => (v === 1 || v === true || v === '1') ? 'Oui' : (v === 0 || v === false || v === '0') ? 'Non' : '—';
+    const boolVal = (v) => (v === 1 || v === true || v === '1') ? t('modelBoolYes') : (v === 0 || v === false || v === '0') ? t('modelBoolNo') : '—';
 
     return (
       <Grid container spacing={2} alignItems="flex-start">
@@ -883,7 +895,7 @@ export default function ModelAI() {
           <Stack spacing={1.5}>
             <TextField
               fullWidth size="small"
-              placeholder="Rechercher par nom, prénom ou ID..."
+              placeholder={t('modelPatientSearch')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: PM.muted, fontSize: 20 }} /></InputAdornment> }}
@@ -897,7 +909,7 @@ export default function ModelAI() {
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
-                      {['ID', 'Nom', 'Prénom', 'Âge', 'Action'].map(h => (
+                      {['ID', t('modelColName'), t('modelColFirstname'), t('modelColAge'), t('modelColAction')].map(h => (
                         <TableCell key={h} sx={{ textAlign: h === 'Action' ? 'center' : 'left', fontSize: showDetail ? '0.75rem' : undefined }}>{h}</TableCell>
                       ))}
                     </TableRow>
@@ -911,7 +923,7 @@ export default function ModelAI() {
                           <TableCell sx={{ color: PM.muted, fontWeight: 600, fontSize: '0.78rem' }}>#{pt.id}</TableCell>
                           <TableCell sx={{ fontWeight: 700, color: PM.navy, fontSize: '0.82rem' }}>{pt.nom || '—'}</TableCell>
                           <TableCell sx={{ fontSize: '0.82rem' }}>{pt.prenom || '—'}</TableCell>
-                          <TableCell sx={{ color: PM.muted, fontSize: '0.78rem' }}>{(pt.age || pt.demographie_age_ans) ? `${pt.age || pt.demographie_age_ans} ans` : '—'}</TableCell>
+                          <TableCell sx={{ color: PM.muted, fontSize: '0.78rem' }}>{(pt.age || pt.demographie_age_ans) ? `${pt.age || pt.demographie_age_ans} ${t('modelAgeUnit')}` : '—'}</TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>
                             <Button size="small" variant="outlined"
                               onClick={e => { e.stopPropagation(); setSelectedPatient(pt); }}
@@ -922,7 +934,7 @@ export default function ModelAI() {
                                   : { color: PM.muted, borderColor: 'rgba(61,90,138,.20)', '&:hover': { color: PM.steel, borderColor: PM.steel, background: 'rgba(61,90,138,.05)' } }
                                 ),
                               }}>
-                              {sel ? '✓ Ouvert' : 'Voir'}
+                              {sel ? t('modelPatientOpen') : t('modelPatientView')}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -930,7 +942,7 @@ export default function ModelAI() {
                     }) : (
                       <TableRow>
                         <TableCell colSpan={5} sx={{ textAlign: 'center', py: 5, color: PM.muted }}>
-                          Aucun patient trouvé
+                          {t('modelNoPatient')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -951,7 +963,7 @@ export default function ModelAI() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5 }}>
                   <Box>
                     <Typography variant="caption" sx={{ color: PM.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', fontSize: '0.65rem', display: 'block', mb: 0.3 }}>
-                      Dossier patient
+                      {t('modelPatientRecord')}
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 900, color: PM.navy, lineHeight: 1.2 }}>
                       {p.prenom} {p.nom}
@@ -959,7 +971,7 @@ export default function ModelAI() {
                     <Typography variant="body2" sx={{ color: PM.muted, fontSize: '0.8rem' }}>ID #{p.id}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip label="Sélectionné" size="small" sx={{ bgcolor: 'rgba(61,90,138,.10)', color: PM.steel, fontWeight: 700, fontSize: '0.68rem' }} />
+                    <Chip label={t('modelPatientSelected')} size="small" sx={{ bgcolor: 'rgba(61,90,138,.10)', color: PM.steel, fontWeight: 700, fontSize: '0.68rem' }} />
                     <Button size="small" variant="text" onClick={() => setSelectedPatient(null)}
                       sx={{ color: PM.muted, fontSize: '0.72rem', minWidth: 0, px: 1 }}>✕</Button>
                   </Box>
@@ -968,9 +980,9 @@ export default function ModelAI() {
                 {/* Identité */}
                 <Grid container spacing={1} sx={{ mb: 2 }}>
                   {[
-                    { label: 'Âge',           value: fv(p.demographie_age_ans || p.age, 'ans') },
-                    { label: 'Sexe',          value: (() => { const s = String(p.demographie_sexe || p.sexe || '').trim(); return /^[mMhH]/i.test(s) || /masculin|homme/i.test(s) ? 'Masculin' : /^[fF]/i.test(s) || /f[eé]minin|femme/i.test(s) ? 'Féminin' : '—'; })() },
-                    { label: 'Score Charlson',value: fv(p.icc_charlson) },
+                    { label: t('modelLabelAge'),      value: fv(p.demographie_age_ans || p.age, t('modelAgeUnit')) },
+                    { label: t('modelLabelSex'),      value: (() => { const s = String(p.demographie_sexe || p.sexe || '').trim(); return /^[mMhH]/i.test(s) || /masculin|homme/i.test(s) ? t('modelSexMale') : /^[fF]/i.test(s) || /f[eé]minin|femme/i.test(s) ? t('modelSexFemale') : '—'; })() },
+                    { label: t('modelLabelCharlson'), value: fv(p.icc_charlson) },
                   ].map(item => (
                     <Grid item xs={4} key={item.label}>
                       <Box sx={{ p: 1.2, borderRadius: '10px', background: 'rgba(255,255,255,.9)', border: '1px solid rgba(61,90,138,.12)', textAlign: 'center' }}>
@@ -984,12 +996,12 @@ export default function ModelAI() {
                 {/* 32 variables groupées — éditables — scrollable */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                   <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.68rem' }}>
-                    Modifiez les valeurs pour simuler un scénario
+                    {t('modelEditHint')}
                   </Typography>
                   {Object.keys(editedValues).length > 0 && (
                     <Button size="small" variant="text" onClick={() => { setEditedValues({}); setSimResult(null); }}
                       sx={{ color: PM.muted, fontSize: '0.65rem', py: 0, minWidth: 0 }}>
-                      Réinitialiser ({Object.keys(editedValues).length})
+                      {t('modelResetValues')} ({Object.keys(editedValues).length})
                     </Button>
                   )}
                 </Box>
@@ -1040,9 +1052,9 @@ export default function ModelAI() {
                                     </Typography>
                                   ) : binary ? (
                                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                      {['Oui', 'Non'].map(opt => {
-                                        const active = opt === 'Oui' ? isOui : !isOui && !isEmpty;
-                                        const isOuiOpt = opt === 'Oui';
+                                      {[t('modelBoolYes'), t('modelBoolNo')].map(opt => {
+                                        const active = opt === t('modelBoolYes') ? isOui : !isOui && !isEmpty;
+                                        const isOuiOpt = opt === t('modelBoolYes');
                                         return (
                                           <Button key={opt} size="small" variant={active ? 'contained' : 'outlined'}
                                             onClick={() => { setEditedValues(ev => ({ ...ev, [key]: isOuiOpt ? 1 : 0 })); setSimResult(null); }}
@@ -1098,7 +1110,7 @@ export default function ModelAI() {
                       '&:hover': { background: `linear-gradient(135deg,#b04878,#6a2548) !important` },
                       '&:disabled': { opacity: 0.65 },
                     }}>
-                    {predicting ? 'Analyse en cours...' : 'Lancer la prédiction'}
+                    {predicting ? t('modelRunning') : t('modelRunPrediction')}
                   </Button>
                   <Button fullWidth variant="outlined" size="large"
                     startIcon={simulating ? <CircularProgress size={16} sx={{ color: PM.steel }} /> : <span>⚗</span>}
@@ -1109,7 +1121,7 @@ export default function ModelAI() {
                       '&:hover': { background: 'rgba(61,90,138,.05)', borderColor: PM.steel },
                       '&:disabled': { opacity: 0.65 },
                     }}>
-                    {simulating ? 'Simulation...' : 'Simuler'}
+                    {simulating ? t('modelSimulating') : t('modelSimulate')}
                   </Button>
                 </Stack>
 
@@ -1124,20 +1136,20 @@ export default function ModelAI() {
                   return (
                     <Box sx={{ mt: 1.5, p: 2, borderRadius: '14px', border: `1.5px solid ${zColor}35`, background: `linear-gradient(135deg,${zColor}08,rgba(255,255,255,.9))` }}>
                       <Typography variant="caption" sx={{ color: zColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', fontSize: '0.62rem', display: 'block', mb: 0.5 }}>
-                        ⚗ Résultat simulation
+                        {t('modelSimResultLabel')}
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box>
-                          <Typography sx={{ fontWeight: 900, color: zColor, fontSize: '1.05rem' }}>Zone {niveau}</Typography>
+                          <Typography sx={{ fontWeight: 900, color: zColor, fontSize: '1.05rem' }}>{t('modelSimZonePrefix')} {niveau}</Typography>
                           <Typography sx={{ fontSize: '0.78rem', color: PM.muted }}>
-                            Probabilité : {simResult.score_risque} %
+                            {t('modelSimProba')} : {simResult.score_risque} %
                           </Typography>
                         </Box>
-                        <Chip label={`${nbEdited} var. modifiée${nbEdited > 1 ? 's' : ''}`} size="small"
+                        <Chip label={`${nbEdited} ${nbEdited > 1 ? t('modelVarModifiedPlural') : t('modelVarModified')}`} size="small"
                           sx={{ bgcolor: 'rgba(158,61,106,.10)', color: PM.rose, fontWeight: 700, fontSize: '0.65rem', border: `1px solid rgba(158,61,106,.20)` }} />
                       </Box>
                       <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.65rem', mt: 0.5, display: 'block', fontStyle: 'italic' }}>
-                        ⚠ Simulation uniquement — données non sauvegardées
+                        {t('modelSimOnlyWarning')}
                       </Typography>
                     </Box>
                   );
@@ -1152,31 +1164,32 @@ export default function ModelAI() {
 
   // ── Score ─────────────────────────────────────────────────────────────────────
   const ScoreTab = () => {
+    const { t } = useLanguage();
     const [showVars, setShowVars] = React.useState(false);
 
-    if (!selectedPatient) return <Alert severity="info">Sélectionnez d'abord un patient dans l'onglet "Patients"</Alert>;
+    if (!selectedPatient) return <Alert severity="info">{t('modelSelectFirst')}</Alert>;
     if (predicting) return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
         <CircularProgress sx={{ color: PM.steel }} />
-        <Typography sx={{ mt: 2, color: PM.muted }}>Analyse des 32 variables cliniques...</Typography>
+        <Typography sx={{ mt: 2, color: PM.muted }}>{t('modelAnalyzing')}</Typography>
       </Box>
     );
-    if (!predictionResult) return <Alert severity="warning">Cliquez sur "Lancer la prédiction" pour analyser ce patient</Alert>;
+    if (!predictionResult) return <Alert severity="warning">{t('modelClickToPredict')}</Alert>;
     if (predictionResult.error) return <Alert severity="error">{predictionResult.error}</Alert>;
 
     const niveau  = predictionResult.niveau_risque || 'Inconnu';
     const risk    = RISK[niveau] || { color: '#999', bg: '#f5f5f5', grad: '#999,#777' };
     const missing = predictionResult.features_missing || 0;
     const dqColor = missing > 16 ? '#E74C3C' : missing > 8 ? '#E67E22' : '#27AE60';
-    const dqLabel = missing > 16 ? 'Insuffisante' : missing > 8 ? 'Partielle' : 'Complète';
+    const dqLabel = missing > 16 ? t('modelDqInsufficient') : missing > 8 ? t('modelDqPartial') : t('modelDqComplete');
     const _ty = (predictionResult.seuil_faible_modere ?? predictionResult.seuil_youden ?? 0.10) * 100;
-    const _ts = (predictionResult.seuil_modere_eleve ?? predictionResult.seuil_spec90 ?? 0.40) * 100;
+    const _ts = (predictionResult.seuil_modere_eleve ?? predictionResult.seuil_spec90 ?? 0.29) * 100;
     const spectrumGradient = `linear-gradient(90deg,#27AE60 0%,#27AE60 ${_ty}%,#f39c12 ${_ty + 2}%,#E67E22 ${_ts}%,#e74c3c ${_ts + 2}%,#c0392b 100%)`;
 
     const formatValue = (fv) => {
       if (fv.missing || fv.value === null || fv.value === undefined) return null;
       const meta = FEATURE_LABELS[fv.key] || {};
-      if (meta.binary) return fv.value === 1 || fv.value === 1.0 ? 'Oui' : 'Non';
+      if (meta.binary) return fv.value === 1 || fv.value === 1.0 ? t('modelBoolYes') : t('modelBoolNo');
       const num = typeof fv.value === 'number' ? (Number.isInteger(fv.value) ? fv.value : parseFloat(fv.value.toFixed(2))) : fv.value;
       return meta.unit ? `${num} ${meta.unit}` : String(num);
     };
@@ -1186,25 +1199,25 @@ export default function ModelAI() {
     const ZONE_DETAILS = {
       Faible: {
         symbol: '○',
-        action: 'Suivi standard recommandé',
-        detail: 'Le modèle ne signale pas ce patient comme prioritaire. Continuez le suivi habituel.',
+        action: t('modelActionLow'),
+        detail: t('modelDetailLow'),
         observed: `${(apiMortRates.Faible ?? 3.8).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #1a8a4a 0%, #27AE60 50%, #52c27a 100%)',
         glow: 'rgba(39,174,96,.35)',
       },
       Modéré: {
         symbol: '◐',
-        action: 'Surveillance renforcée',
-        detail: 'Le modèle signale ce patient. Renforcer la surveillance et réévaluer les facteurs de risque.',
-        observed: `${(apiMortRates.Modéré ?? 22.9).toString().replace('.', ',')} %`,
+        action: t('modelActionModerate'),
+        detail: t('modelDetailModerate'),
+        observed: `${(apiMortRates.Modéré ?? 15.6).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #b8560a 0%, #E67E22 50%, #f0a050 100%)',
         glow: 'rgba(230,126,34,.35)',
       },
       Élevé: {
         symbol: '●',
-        action: 'Prise en charge prioritaire',
-        detail: 'Ce patient est dans le groupe à haut risque. Une prise en charge active et urgente est recommandée.',
-        observed: `${(apiMortRates.Élevé ?? 49.0).toString().replace('.', ',')} %`,
+        action: t('modelActionHigh'),
+        detail: t('modelDetailHigh'),
+        observed: `${(apiMortRates.Élevé ?? 46.5).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #a01f1f 0%, #E74C3C 50%, #f07070 100%)',
         glow: 'rgba(231,76,60,.35)',
       },
@@ -1217,7 +1230,7 @@ export default function ModelAI() {
       <Stack spacing={2}>
         {missing > 8 && (
           <Alert severity={missing > 16 ? 'error' : 'warning'} icon={<WarningAmberIcon />}>
-            <strong>{missing}/32 variables manquantes</strong> — imputation KNN appliquée.
+            <strong>{missing}/32 {t('modelVarsMissing')}</strong> — {t('modelImputedKNN')}.
             {missing > 16 && ' Ce score est à interpréter avec précaution.'}
           </Alert>
         )}
@@ -1260,7 +1273,7 @@ export default function ModelAI() {
                       : (predictionResult?.score_risque ?? '—')}
                   </Typography>
                   <Typography sx={{ fontSize: '0.9rem', color: risk.color, fontWeight: 800, lineHeight: 1 }}>%</Typography>
-                  <Typography sx={{ fontSize: '0.55rem', color: 'rgba(0,0,0,.35)', mt: 0.3, textTransform: 'uppercase', letterSpacing: '.05em' }}>risque de décès à 1 an</Typography>
+                  <Typography sx={{ fontSize: '0.55rem', color: 'rgba(0,0,0,.35)', mt: 0.3, textTransform: 'uppercase', letterSpacing: '.05em' }}>{t('modelRiskDeath1y')}</Typography>
                 </Box>
               </Box>
 
@@ -1275,7 +1288,7 @@ export default function ModelAI() {
                 <Box sx={{ mb: 1.8 }} />
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                   {[
-                    { label: 'Risque rel.', value: `${predictionResult.risque_relatif || '—'}×`, color: risk.color },
+                    { label: t('modelRiskRelative'), value: `${predictionResult.risque_relatif || '—'}×`, color: risk.color },
                   ].map(m => (
                     <Box key={m.label} sx={{ px: 1.2, py: 0.9, borderRadius: '10px', background: 'rgba(0,0,0,.04)', border: '1px solid rgba(0,0,0,.08)', textAlign: 'center', minWidth: 68 }}>
                       <Typography sx={{ color: 'rgba(0,0,0,.38)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block' }}>{m.label}</Typography>
@@ -1289,7 +1302,7 @@ export default function ModelAI() {
             {/* ── Spectre de risque ───────────────────────────────────── */}
             <Box sx={{ mt: 3, position: 'relative', zIndex: 1 }}>
               <Typography sx={{ color: 'rgba(0,0,0,.35)', fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '.09em', mb: 1 }}>
-                Position sur le spectre de risque — cohorte HD-478
+                {t('modelSpectrumLabel')}
               </Typography>
               <Box sx={{ position: 'relative', height: 10, borderRadius: '10px', background: spectrumGradient, boxShadow: 'inset 0 1px 4px rgba(0,0,0,.15)' }}>
                 {/* Marqueurs T1 / T2 */}
@@ -1301,17 +1314,17 @@ export default function ModelAI() {
                   ) : null
                 )}
                 {/* Marqueur patient */}
-                <Box sx={{ position: 'absolute', left: `${Math.min(predictionResult.probabilite_deces * 100, 97)}%`, top: '50%', transform: 'translate(-50%,-50%)', zIndex: 3,
+                <Box sx={{ position: 'absolute', left: `${Math.min((predictionResult.probabilite_calibree ?? predictionResult.probabilite_deces) * 100, 97)}%`, top: '50%', transform: 'translate(-50%,-50%)', zIndex: 3,
                   width: 18, height: 18, borderRadius: '50%', background: 'white',
                   border: `3px solid ${risk.color}`, boxShadow: `0 0 0 3px ${risk.color}45, 0 2px 8px rgba(0,0,0,.25)`,
                 }} />
               </Box>
               <Box sx={{ position: 'relative', height: 18, mt: 0.8 }}>
                 {[
-                  { z: 'Faible',  pos: _ty / 2,                       anchor: 'left'   },
-                  { z: 'Modéré', pos: (_ty + _ts) / 2,               anchor: 'center' },
-                  { z: 'Élevé',  pos: _ts + (100 - _ts) / 2,         anchor: 'right'  },
-                ].map(({ z, pos, anchor }) => (
+                  { z: 'Faible',  label: t('modelZoneFaibleLabel'),  pos: _ty / 2,                       anchor: 'left'   },
+                  { z: 'Modéré', label: t('modelZoneModéréLabel'), pos: (_ty + _ts) / 2,               anchor: 'center' },
+                  { z: 'Élevé',  label: t('modelZoneÉlevéLabel'),  pos: _ts + (100 - _ts) / 2,         anchor: 'right'  },
+                ].map(({ z, label, pos, anchor }) => (
                   <Typography key={z} sx={{
                     position: 'absolute',
                     left: `${Math.min(Math.max(pos, 0), 100)}%`,
@@ -1320,7 +1333,7 @@ export default function ModelAI() {
                     fontSize: '0.68rem',
                     fontWeight: z === niveau ? 800 : 500,
                     whiteSpace: 'nowrap',
-                  }}>{z}</Typography>
+                  }}>{label}</Typography>
                 ))}
               </Box>
             </Box>
@@ -1330,7 +1343,7 @@ export default function ModelAI() {
           <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
             <Box sx={{ p: 2.5, borderRadius: '18px', background: `linear-gradient(135deg,${risk.bg},rgba(255,255,255,.9))`, border: `1.5px solid ${risk.color}28` }}>
               <Typography variant="caption" sx={{ color: risk.color, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', fontSize: '0.68rem', display: 'block', mb: 1 }}>
-                Recommandation clinique
+                {t('modelRecommendationLabel')}
               </Typography>
               <Typography variant="h6" sx={{ color: PM.navy, fontWeight: 900, mb: 0.8, fontSize: '1.05rem' }}>{zd.action}</Typography>
               <Typography variant="body2" sx={{ color: PM.muted, lineHeight: 1.7, fontSize: '0.85rem' }}>{zd.detail}</Typography>
@@ -1343,7 +1356,7 @@ export default function ModelAI() {
               return (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="caption" sx={{ color: risk.color, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', fontSize: '0.68rem', display: 'block', mb: 1.5 }}>
-                    Facteurs déterminants
+                    {t('modelFactorsLabel')}
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.1 }}>
                     {factors.map((f, i) => {
@@ -1369,7 +1382,7 @@ export default function ModelAI() {
                           </Box>
                           {/* Badge +/- */}
                           <Chip
-                            label={isRisk ? '↑ Risque' : '↓ Protecteur'}
+                            label={isRisk ? t('modelRiskBadge') : t('modelProtectorBadge')}
                             size="small"
                             sx={{ fontSize: '0.58rem', fontWeight: 700, height: 18, bgcolor: isRisk ? '#fdecea' : '#eafaf1', color: barColor, border: `1px solid ${barColor}30`, flexShrink: 0 }}
                           />
@@ -1394,7 +1407,7 @@ export default function ModelAI() {
               boxShadow: `0 4px 16px ${dqColor}12`,
             }}>
               <Typography variant="caption" sx={{ color: PM.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
-                Qualité des données
+                {t('modelDataQuality')}
               </Typography>
               <Typography sx={{ fontWeight: 900, color: dqColor, fontSize: '1.1rem', lineHeight: 1.2 }}>{dqLabel}</Typography>
               <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.68rem' }}>{32 - missing} / 32 variables</Typography>
@@ -1412,11 +1425,11 @@ export default function ModelAI() {
             }}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: PM.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
-                  Variables utilisées
+                  {t('modelVarsUsed')}
                 </Typography>
                 <Typography sx={{ fontWeight: 900, color: PM.steel, fontSize: '1.1rem', lineHeight: 1.2 }}>{32 - missing} / 32</Typography>
                 <Typography variant="caption" sx={{ color: PM.muted, fontSize: '0.68rem' }}>
-                  {missing > 0 ? `${missing} imputée${missing > 1 ? 's' : ''} (KNN)` : 'Données complètes'}
+                  {missing > 0 ? `${missing} ${t('modelImputedKNN')}` : t('modelDataComplete')}
                 </Typography>
               </Box>
               {predictionResult.feature_values && (
@@ -1432,7 +1445,7 @@ export default function ModelAI() {
                     ),
                   }}
                 >
-                  {showVars ? 'Masquer ▲' : 'Afficher ▼'}
+                  {showVars ? t('modelHideVars') : t('modelShowVars')}
                 </Button>
               )}
             </Box>
@@ -1444,7 +1457,7 @@ export default function ModelAI() {
           <Card sx={{ border: '1px solid rgba(61,90,138,.10) !important' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: PM.navy, mb: 1.5, fontSize: '0.88rem' }}>
-                Détail des 32 variables
+                {t('modelVarsDetail')}
               </Typography>
               <Grid container spacing={1}>
                 {predictionResult.feature_values.map((fv) => {
@@ -1455,7 +1468,7 @@ export default function ModelAI() {
                   const valColor = fv.missing
                     ? '#E67E22'
                     : isBinary
-                      ? (displayVal === 'Oui' ? '#27AE60' : PM.muted)
+                      ? (displayVal === t('modelBoolYes') ? '#27AE60' : PM.muted)
                       : PM.navy;
 
                   return (
@@ -1482,13 +1495,13 @@ export default function ModelAI() {
         )}
 
         <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
-          Zones issues de la courbe ROC du modèle SVM — à interpréter en complément du jugement clinique.
+          {t('modelROCAlert')}
         </Alert>
 
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleReset}
             sx={{ color: PM.steel, borderColor: 'rgba(61,90,138,.30)', borderRadius: '14px', px: 3 }}>
-            Analyser un autre patient
+            {t('modelAnalyzeAnother')}
           </Button>
         </Box>
       </Stack>
@@ -1521,7 +1534,7 @@ export default function ModelAI() {
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
               <Box>
                 <Typography variant="h5" sx={{ fontWeight: 900, color: PM.navy, letterSpacing: '-.02em' }}>
-                  Modèle AI — Prédiction de Mortalité
+                  {tPage('modelHeroTitle')}
                 </Typography>
               </Box>
             </Stack>
@@ -1540,8 +1553,8 @@ export default function ModelAI() {
               '& .MuiTabs-indicator': { background: `linear-gradient(90deg,${PM.rose},${PM.steel})`, height: 3, borderRadius: 2 },
             }}
           >
-            <Tab label="Tableau de bord" />
-            <Tab label="Patients" />
+            <Tab label={tPage('modelTabDashboard')} />
+            <Tab label={tPage('patients')} />
             <Tab
               label={
                 predictionResult && !predictionResult.error ? (

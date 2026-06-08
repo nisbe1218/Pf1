@@ -33,9 +33,9 @@ FICHIER      = sys.argv[1] if len(sys.argv) > 1 else 'Base_HD_478_v4_finale.xlsx
 DOSSIER      = 'outputs_ML_HD478'
 RANDOM_STATE = 42
 
-# Seuils cliniques fixes (TRIPOD / DOPPS / KDIGO)
-T1_FIXE = 0.10   # Faible  < 10%
-T2_FIXE = 0.40   # Elevee  > 40%
+# Seuils derives par analyse ROC (Sensibilite>=90%) et Youden bootstrappe (n=1000)
+T1_FIXE = 0.10   # Faible  < 10%  — Sensibilite >= 90% sur courbe ROC
+T2_FIXE = 0.29   # Elevee  > 29%  — Index de Youden bootstrappe (mediane=28.9%)
 
 os.makedirs(DOSSIER, exist_ok=True)
 
@@ -131,7 +131,7 @@ zones = np.where(proba_cal < T1, 'Faible',
 
 print()
 print("=" * 56)
-print("  RESULTATS AVEC SEUILS CLINIQUES 10% / 40%")
+print("  RESULTATS AVEC SEUILS ROC/YOUDEN 10% / 29%")
 print("  (Source : TRIPOD / DOPPS / KDIGO)")
 print("=" * 56)
 print(f"  {'Zone':<10} {'N':>6} {'Deces':>7} {'Mortalite':>11} {'Proba moy':>11}")
@@ -183,7 +183,7 @@ joblib.dump({
     'features': list(X.columns),
     'T1':       T1,
     'T2':       T2,
-    'pipeline': 'SVM -> Isotonique -> seuils 10%/40%',
+    'pipeline': 'SVM -> Isotonique -> seuils 10%/29% (ROC+Youden)',
 }, f'{DOSSIER}/mortalite_svm_features.joblib')
 
 print()
@@ -195,9 +195,9 @@ print(f"  gmm_thresholds.joblib    T1={T1*100:.0f}%  T2={T2*100:.0f}%")
 print(f"  mortalite_svm_features.joblib")
 print()
 print("  Pipeline actif :")
-print("    SVM brut -> iso_calibrator -> T1=10% / T2=40%")
+print("    SVM brut -> iso_calibrator -> T1=10% / T2=29%")
 print()
 print("  Pour un nouveau patient :")
 print("    proba_brut = svm_pipe.predict_proba(X)[0,1]")
 print("    proba_cal  = iso.predict([proba_brut])[0]")
-print("    <10%  -> Faible  | 10-40% -> Moderee | >40% -> Elevee")
+print("    <10%  -> Faible  | 10-29% -> Moderee | >29% -> Elevee")

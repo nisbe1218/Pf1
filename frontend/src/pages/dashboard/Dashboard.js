@@ -39,11 +39,11 @@ import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsAc
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
-const roleLabels = {
-  super_admin: 'Super Administrateur',
-  chef_service: 'Chef de Service',
-  professeur: 'Professeur',
-  resident: 'Résident',
+const ROLE_LABEL_KEYS = {
+  super_admin: 'roleSuperAdmin',
+  chef_service: 'roleChefService',
+  professeur: 'roleProfesseur',
+  resident: 'roleResident',
 };
 
 const roleDescriptions = {
@@ -85,6 +85,9 @@ const emptyForm = {
 function Dashboard() {
   const { user, refreshProfile } = useContext(AuthContext);
   const { t } = useLanguage();
+  const roleLabels = Object.fromEntries(
+    Object.entries(ROLE_LABEL_KEYS).map(([k, v]) => [k, t(v)])
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const [roles, setRoles] = useState([]);
@@ -399,7 +402,7 @@ function Dashboard() {
               {/* Gauche — texte */}
               <Box>
                 <Typography variant="body1" sx={{ mb: 1.5, color: 'rgba(255,255,255,0.90)', fontWeight: 400, fontSize: '1rem' }}>
-                  Bienvenue,{' '}
+                  {t('dashboardWelcome')},{' '}
                   <Box component="span" sx={{ fontWeight: 800, color: '#fff' }}>
                     {roleLabels[user?.role] || 'Utilisateur'}
                   </Box>
@@ -418,13 +421,13 @@ function Dashboard() {
               {/* Droite — stats inline (admin/chef uniquement) */}
               {isAdminScope && <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
                 {[
-                  { label: 'Actifs',        value: stats.activeUsers,     filterKey: 'active'       },
-                  { label: 'Inactifs',      value: stats.inactiveUsers,   filterKey: 'inactive'     },
-                  { label: 'Super Admins',  value: stats.adminsCount,     filterKey: 'super_admin'  },
-                  { label: 'Chefs Service', value: stats.chefsCount,      filterKey: 'chef_service' },
-                  { label: 'Professeurs',   value: stats.professorsCount, filterKey: 'professeur'   },
-                  { label: 'Résidents',     value: stats.residentsCount,  filterKey: 'resident'     },
-                  { label: 'Rôles',         value: stats.rolesCount,      filterKey: null           },
+                  { label: t('dashboardActiveAccounts'),  value: stats.activeUsers,     filterKey: 'active'       },
+                  { label: t('dashboardInactiveAccounts'),value: stats.inactiveUsers,   filterKey: 'inactive'     },
+                  { label: t('dashboardSuperAdmins'),     value: stats.adminsCount,     filterKey: 'super_admin'  },
+                  { label: t('dashboardChiefService'),    value: stats.chefsCount,      filterKey: 'chef_service' },
+                  { label: t('dashboardProfessors'),      value: stats.professorsCount, filterKey: 'professeur'   },
+                  { label: t('dashboardResidents'),       value: stats.residentsCount,  filterKey: 'resident'     },
+                  { label: t('dashboardRolesLoaded'),     value: stats.rolesCount,      filterKey: null           },
                 ].map(({ label, value, filterKey }) => {
                   const isActive = filterKey && activeFilter === filterKey;
                   return (
@@ -498,15 +501,15 @@ function Dashboard() {
                     <Divider sx={{ my: 0.5 }} />
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
                       <Box sx={{ minWidth: 110 }}>
-                        <Typography variant="caption" color="text.secondary">Nom</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('dashboardUserLastName')}</Typography>
                         <Typography variant="body1" fontWeight={600}>{user?.nom || '-'}</Typography>
                       </Box>
                       <Box sx={{ minWidth: 110 }}>
-                        <Typography variant="caption" color="text.secondary">Prénom</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('dashboardUserFirstName')}</Typography>
                         <Typography variant="body1" fontWeight={600}>{user?.prenom || '-'}</Typography>
                       </Box>
                       <Box sx={{ minWidth: 180 }}>
-                        <Typography variant="caption" color="text.secondary">Rôle</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('role')}</Typography>
                         <Typography variant="body1" fontWeight={600}>{roleLabels[user?.role] || '-'}</Typography>
                       </Box>
                     </Stack>
@@ -523,11 +526,11 @@ function Dashboard() {
               <Box sx={{ height: 10, background: `linear-gradient(90deg, #0D4D63 0%, #1A8FA8 55%, #D47A8E 100%)` }} />
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" fontWeight={800} sx={{ color: DASHBOARD_THEME.deepNavy, mb: 2 }}>
-                  Activité récente
+                  {t('recentActivity')}
                 </Typography>
                 {recentActivity.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography variant="body2" color="text.secondary">Aucune activité enregistrée pour le moment.</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('dashboardNoActivity')}</Typography>
                   </Box>
                 ) : (
                   <Stack spacing={1.5}>
@@ -546,7 +549,7 @@ function Dashboard() {
                       // Navigation target
                       const navTarget = actionType.includes('PATIENT') ? '/patients'
                         : actionType.includes('PREDICTION') ? '/modele-ai'
-                        : actionType.includes('PREPROCESSING') ? '/patients?tab=preprocessing'
+                        : actionType.includes('PREPROCESSING') ? '/patients?tab=gestion'
                         : null;
 
                       return (
@@ -652,7 +655,7 @@ function Dashboard() {
                         size="small"
                         placeholder="+212 6 12 34 56 78"
                         inputMode="tel"
-                        helperText="Numéro du contact principal du compte."
+                        helperText={t('dashboardPhoneHelper')}
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
@@ -664,7 +667,7 @@ function Dashboard() {
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <TextField
-                        label="Nom"
+                        label={t('dashboardUserLastName')}
                         name="nom"
                         value={form.nom}
                         onChange={handleChange}
@@ -675,7 +678,7 @@ function Dashboard() {
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <TextField
-                        label="Prénom"
+                        label={t('dashboardUserFirstName')}
                         name="prenom"
                         value={form.prenom}
                         onChange={handleChange}
@@ -687,7 +690,7 @@ function Dashboard() {
                     <Grid item xs={12} md={6}>
                       <TextField
                         select
-                        label="Rôle"
+                        label={t('role')}
                         name="role_id"
                         value={form.role_id}
                         onChange={handleChange}
@@ -706,7 +709,7 @@ function Dashboard() {
                     <Grid item xs={12} md={6}>
                       <TextField
                         select
-                        label="Statut"
+                        label={t('dashboardUserStatus')}
                         name="is_active"
                         value={form.is_active ? 'true' : 'false'}
                         onChange={(event) => setForm((current) => ({
@@ -716,28 +719,27 @@ function Dashboard() {
                         fullWidth
                         size="small"
                       >
-                        <MenuItem value="true">Actif</MenuItem>
-                        <MenuItem value="false">Inactif</MenuItem>
+                        <MenuItem value="true">{t('dashboardUserActive')}</MenuItem>
+                        <MenuItem value="false">{t('dashboardUserInactive')}</MenuItem>
                       </TextField>
                     </Grid>
                   </Grid>
 
                   {form.id && (
                     <TextField
-                      label="Mot de passe de validation"
+                      label={t('dashboardSaveConfirmationPassword')}
                       type="password"
                       value={adminPassword}
                       onChange={(event) => setAdminPassword(event.target.value)}
                       fullWidth
                       required
                       size="small"
-                      helperText={t('dashboardSaveConfirmationPassword')}
                     />
                   )}
 
                   {!form.id && (
                     <TextField
-                      label="Mot de passe du nouveau compte"
+                      label={t('dashboardCreatePassword')}
                       type="password"
                       name="password"
                       value={form.password}
@@ -745,20 +747,19 @@ function Dashboard() {
                       fullWidth
                       required
                       size="small"
-                      helperText="Ce mot de passe sera utilisé par l’utilisateur créé."
                     />
                   )}
 
                   {form.id && (
                     <TextField
-                      label="Nouveau mot de passe"
+                      label={t('dashboardNewPassword')}
                       type="password"
                       name="password"
                       value={form.password}
                       onChange={handleChange}
                       fullWidth
                       size="small"
-                      helperText="Laisser vide pour conserver le mot de passe actuel."
+                      helperText={t('dashboardPasswordKeepHint')}
                     />
                   )}
 
@@ -780,15 +781,15 @@ function Dashboard() {
                   <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" spacing={2.25} sx={{ mb: 2.25 }}>
                     <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
                       <Typography variant="h6" fontWeight={800} sx={{ color: DASHBOARD_THEME.deepNavy }}>
-                        Comptes gérés
+                        {t('dashboardManagedAccounts')}
                       </Typography>
                       {activeFilter && (
                         <Chip
                           size="small"
                           label={{
-                            active: 'Actifs', inactive: 'Inactifs',
-                            super_admin: 'Super Admins', chef_service: 'Chefs Service',
-                            professeur: 'Professeurs', resident: 'Résidents',
+                            active: t('dashboardActiveAccounts'), inactive: t('dashboardInactiveAccounts'),
+                            super_admin: t('dashboardSuperAdmins'), chef_service: t('dashboardChiefService'),
+                            professeur: t('dashboardProfessors'), resident: t('dashboardResidents'),
                           }[activeFilter]}
                           onDelete={() => setActiveFilter(null)}
                           sx={{ fontWeight: 700, bgcolor: DASHBOARD_THEME.medicalBlue, color: '#fff', '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.8)' } }}
@@ -812,14 +813,14 @@ function Dashboard() {
                             },
                           }}
                         >
-                          {showManagementPanel ? 'Masquer' : 'Afficher'}
+                          {showManagementPanel ? t('dashboardHide') : t('dashboardShow')}
                         </Button>
                       )}
                     </Stack>
                     <TextField
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Rechercher un utilisateur..."
+                      placeholder={t('patientsSearchPlaceholder')}
                       size="small"
                       sx={{ width: { xs: '100%', sm: 360 }, bgcolor: 'white', borderRadius: 2 }}
                     />
@@ -866,7 +867,7 @@ function Dashboard() {
                             </Stack>
 
                             <Stack direction="row" spacing={1} alignItems="center">
-                              <Chip label={managedUser.is_active ? 'Actif' : 'Inactif'} color={managedUser.is_active ? 'success' : 'error'} size="small" />
+                              <Chip label={managedUser.is_active ? t('dashboardUserActive') : t('dashboardUserInactive')} color={managedUser.is_active ? 'success' : 'error'} size="small" />
                             </Stack>
 
                             <Stack spacing={0.75}>
@@ -875,7 +876,7 @@ function Dashboard() {
                             </Stack>
 
                             <Stack spacing={0.75}>
-                              <Typography variant="caption" color="text.secondary">Rôle</Typography>
+                              <Typography variant="caption" color="text.secondary">{t('role')}</Typography>
                               <Typography variant="body2">{managedUser.role?.label || managedUser.role?.nom || '-'}</Typography>
                             </Stack>
                           </Stack>
@@ -925,19 +926,19 @@ function Dashboard() {
       </Box>
 
       <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>Confirmer la suppression</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>{t('dashboardDeleteTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="warning">
               {deleteTargetUser
-                ? `Voulez-vous vraiment supprimer le compte ${deleteTargetUser.email} ?`
-                : 'Voulez-vous vraiment supprimer ce compte ?'}
+                ? `${t('dashboardDeleteQuestion')} ${deleteTargetUser.email} ?`
+                : t('dashboardDeleteGeneric')}
             </Alert>
             <Typography variant="body2" color="text.secondary">
-              Si oui, saisis le mot de passe de ton propre compte pour valider l’opération.
+              {t('dashboardDeleteHint')}
             </Typography>
             <TextField
-              label="Mot de passe de validation"
+              label={t('dashboardDeletePasswordLabel')}
               type="password"
               value={deletePassword}
               onChange={(event) => setDeletePassword(event.target.value)}
@@ -949,10 +950,10 @@ function Dashboard() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button onClick={closeDeleteDialog} variant="outlined" disabled={saving}>
-            Annuler
+            {t('cancel')}
           </Button>
           <Button onClick={confirmDeleteUser} variant="contained" color="error" disabled={saving}>
-            {saving ? 'Suppression...' : 'Supprimer'}
+            {saving ? t('dashboardDeletingButton') : t('dashboardDeleteButton')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1223,8 +1223,10 @@ def ensure_required_identity_fields(payload):
     if nom_value is None or str(nom_value).strip() == '':
         payload['nom'] = 'Import_Automatique'
 
+    _BOOL_VALUES = {'oui', 'non', 'yes', 'no', 'true', 'false', '1', '0'}
     prenom_value = payload.get('prenom')
-    if prenom_value is None or str(prenom_value).strip() == '':
+    prenom_str = str(prenom_value).strip().lower() if prenom_value is not None else ''
+    if not prenom_str or prenom_str in _BOOL_VALUES:
         payload['prenom'] = f"Patient_{payload.get('id_patient', '000')}"
 
     payload['extra_data'] = extra_data
@@ -6131,7 +6133,8 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
                     'count': len(existing_renames),
                     'details': {
                         'columns': [
-                            {'from': source, 'to': target}
+                            {'from': source, 'to': target,
+                             'justification': f"Colonne '{source}' renommée en '{target}' pour correspondre à la nomenclature attendue."}
                             for source, target in existing_renames.items()
                         ],
                     },
@@ -6170,7 +6173,10 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             trimmed_count += 1
             total_cells_changed += cells_changed
-            trimmed_details.append({'column': resolved, 'cells_changed': cells_changed, 'justification': _get_justification(resolved)})
+            _trim_justif = _get_justification(resolved) or (
+                f"Espaces parasites détectés dans '{resolved}' — {cells_changed} cellule(s) normalisée(s) (suppression des espaces en début/fin de chaîne)."
+            )
+            trimmed_details.append({'column': resolved, 'cells_changed': cells_changed, 'justification': _trim_justif})
         if trimmed_count:
             applied_actions.append({
                 'action': 'trim_whitespace',
@@ -6240,11 +6246,21 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             mapping_count += 1
             total_cells_changed += cells_changed
+            _vm_llm = _get_justification(resolved)
+            if not _vm_llm:
+                _vm_examples = ', '.join(
+                    f'"{k}"→"{v}"' for k, v in list(flat_mapping.items())[:2]
+                )
+                _vm_llm = (
+                    f"{len(flat_mapping)} valeur(s) normalisée(s) dans '{resolved}'"
+                    + (f" (ex : {_vm_examples})" if _vm_examples else '')
+                    + f" — {cells_changed} cellule(s) modifiée(s)."
+                )
             mapping_details.append({
                 'column': resolved,
                 'cells_changed': cells_changed,
                 'mapping': mapping,
-                'justification': _get_justification(resolved),
+                'justification': _vm_llm,
             })
         if mapping_count:
             applied_actions.append({
@@ -6280,11 +6296,20 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             cast_count += 1
             total_cells_changed += cells_changed
+            _type_labels = {
+                'numeric': 'numérique (float)', 'number': 'numérique (float)', 'float': 'numérique (float)',
+                'decimal': 'numérique (float)', 'integer': 'entier (int)', 'int': 'entier (int)',
+                'date': 'date', 'datetime': 'date', 'string': 'texte', 'text': 'texte',
+            }
+            _cast_justif = _get_justification(resolved) or (
+                f"Colonne '{resolved}' stockée avec un type incorrect — convertie en {_type_labels.get(target, target)}"
+                f" pour permettre l'analyse numérique ({cells_changed} cellule(s) affectée(s))."
+            )
             cast_details.append({
                 'column': resolved,
                 'target_type': str(target_type),
                 'cells_changed': cells_changed,
-                'justification': _get_justification(resolved),
+                'justification': _cast_justif,
             })
         if cast_count:
             applied_actions.append({
@@ -6325,13 +6350,19 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             conv_count += 1
             total_cells_changed += cells_changed
+            _uc_from = spec.get('from_unit', '?')
+            _uc_to = spec.get('to_unit', '?')
+            _uc_justif = _get_justification(resolved) or (
+                f"Unité mixte détectée dans '{resolved}' : valeurs en {_uc_from} converties en {_uc_to}"
+                f" (facteur ×{factor}) — {cells_changed} cellule(s) recalculée(s)."
+            )
             conv_details.append({
                 'column': resolved,
-                'from_unit': spec.get('from_unit', '?'),
-                'to_unit': spec.get('to_unit', '?'),
+                'from_unit': _uc_from,
+                'to_unit': _uc_to,
                 'factor': factor,
                 'cells_changed': cells_changed,
-                'justification': _get_justification(resolved),
+                'justification': _uc_justif,
             })
         if conv_count:
             applied_actions.append({
@@ -6371,12 +6402,16 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             parsed_count += 1
             total_cells_changed += cells_changed
+            _date_justif = _get_justification(resolved) or (
+                f"Dates dans '{resolved}' stockées en texte — converties au format date standard"
+                f" ({non_null_parsed}/{non_null_source} valeurs parsées avec succès)."
+            )
             parsed_details.append({
                 'column': resolved,
                 'cells_changed': cells_changed,
                 'parsed_values': non_null_parsed,
                 'source_values': non_null_source,
-                'justification': _get_justification(resolved),
+                'justification': _date_justif,
             })
         if parsed_count:
             applied_actions.append({
@@ -6427,11 +6462,27 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             filled_count += 1
             total_cells_changed += cells_changed
+            _fill_llm = _get_justification(resolved)
+            if not _fill_llm:
+                _strat = strategy_spec.get('strategy') if isinstance(strategy_spec, dict) else str(strategy_spec or 'auto')
+                _strat_labels = {
+                    'median': 'la médiane de la colonne',
+                    'mean': 'la moyenne de la colonne',
+                    'mode': 'la valeur la plus fréquente (mode)',
+                    'knn': 'KNN (k=5 patients similaires)',
+                    'ffill': 'propagation avant (ffill)',
+                    'bfill': 'propagation arrière (bfill)',
+                    'constant': f"la constante '{strategy_spec.get('value') if isinstance(strategy_spec, dict) else strategy_spec}'",
+                }
+                _fill_llm = (
+                    f"Valeurs manquantes dans '{resolved}' estimées par {_strat_labels.get(_strat, _strat)}"
+                    f" — {cells_changed} cellule(s) comblée(s)."
+                )
             fill_details.append({
                 'column': resolved,
                 'strategy': strategy_spec,
                 'cells_changed': cells_changed,
-                'justification': _get_justification(resolved),
+                'justification': _fill_llm,
             })
         if filled_count:
             applied_actions.append({
@@ -6457,11 +6508,15 @@ def _apply_llm_correction_plan(dataframe, llm_analysis):
             cells_changed = _count_series_changes(before_series, corrected[resolved])
             default_count += 1
             total_cells_changed += cells_changed
+            _dv_justif = _get_justification(resolved) or (
+                f"Valeurs nulles dans '{resolved}' remplacées par la valeur par défaut '{default_value}'"
+                f" — {cells_changed} cellule(s) comblée(s)."
+            )
             default_details.append({
                 'column': resolved,
                 'default_value': default_value,
                 'cells_changed': cells_changed,
-                'justification': _get_justification(resolved),
+                'justification': _dv_justif,
             })
         if default_count:
             applied_actions.append({
@@ -8234,6 +8289,25 @@ class PatientPreprocessValidationDetailView(APIView):
         issues = report.get('issues', []) or report.get('all_issues', [])
         cross_issues = (report.get('dataset_profile') or {}).get('cross_column_issues', [])
 
+        # Compute cell-level diff between original and corrected rows
+        modifications = []
+        original_rows = session.get('original_rows') or []
+        corrected_rows = session.get('corrected_rows') or []
+        if original_rows and corrected_rows and vr.source != 'original':
+            for row_idx, (orig, corr) in enumerate(zip(original_rows, corrected_rows)):
+                for col in columns:
+                    ov = orig.get(col)
+                    cv = corr.get(col)
+                    ov_str = '' if ov is None else str(ov).strip()
+                    cv_str = '' if cv is None else str(cv).strip()
+                    if ov_str != cv_str:
+                        modifications.append({
+                            'row': row_idx + 1,
+                            'column': col,
+                            'original': ov_str if ov_str != '' else None,
+                            'corrected': cv_str if cv_str != '' else None,
+                        })
+
         return Response({
             'id': vr.id,
             'session_id': vr.session_id,
@@ -8250,6 +8324,8 @@ class PatientPreprocessValidationDetailView(APIView):
             'issues_count': len(issues),
             'cross_column_issues': cross_issues[:10],
             'comment': vr.comment,
+            'modifications': modifications,
+            'modifications_count': len(modifications),
         })
 
     def post(self, request, validation_id):
@@ -8389,6 +8465,49 @@ class PatientImportExcelView(APIView):
             dataframe = dataframe.loc[
                 :, ~dataframe.columns.astype(str).str.match(r'^(Unnamed|unnamed)(:.*)?$')
             ]
+
+        # ── Role-based import gate ────────────────────────────────────────────
+        _role_name = str(getattr(getattr(request.user, 'role', None), 'nom', '') or '')
+        _can_self_import = _role_name in ('super_admin', 'chef_service')
+
+        if not _can_self_import:
+            from .models import PreprocessValidationRequest
+            _columns = list(dataframe.columns)
+            _rows = dataframe.astype(object).where(pd.notnull(dataframe), None).to_dict(orient='records')
+            _session_id = uuid.uuid4().hex
+            _session = {
+                'id': _session_id,
+                'status': 'completed',
+                'source_file_name': source_file_name,
+                'columns': _columns,
+                'corrected_rows': _rows,
+                'original_rows': _rows,
+                'report': {'summary': {'rows': len(_rows), 'columns': len(_columns), 'quality_score': None}},
+            }
+            _save_preprocess_session(_session)
+            _vr = PreprocessValidationRequest.objects.create(
+                session_id=_session_id,
+                source='direct_import',
+                source_file_name=source_file_name,
+                submitted_by=request.user,
+                rows_count=len(_rows),
+                columns_count=len(_columns),
+                quality_score=None,
+            )
+            AuditLog.objects.create(
+                utilisateur=request.user,
+                action=f"IMPORT_PENDING_VALIDATION: {source_file_name} ({len(_rows)} lignes) soumis pour validation",
+                entite='PreprocessValidation',
+                entite_id=_vr.id,
+                adresse_ip=request.META.get('REMOTE_ADDR'),
+            )
+            return Response({
+                'mode': 'pending_validation',
+                'validation_id': _vr.id,
+                'patients_created': 0,
+                'rows_count': len(_rows),
+                'source_file_name': source_file_name,
+            }, status=status.HTTP_201_CREATED)
 
         headers = list(dataframe.columns)
         template = upsert_template_from_headers(headers, worksheet, source_file_name, create_fields=False)

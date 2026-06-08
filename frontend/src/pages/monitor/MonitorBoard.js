@@ -848,9 +848,9 @@ function MonitorBoard() {
                           const pp = patientPrediction;
                           const niv = pp.niveau_risque || 'Inconnu';
                           const rc = niv === 'Elevé' || niv === 'Élevé' ? '#E74C3C' : niv === 'Modéré' ? '#E67E22' : '#27AE60';
-                          const proba = pp.probabilite_deces || 0;
+                          const proba = pp.probabilite_calibree ?? pp.probabilite_deces ?? 0;
                           const _ty = (pp.seuil_faible_modere ?? pp.seuil_youden ?? 0.10) * 100;
-                          const _ts = (pp.seuil_modere_eleve ?? pp.seuil_spec90 ?? 0.40) * 100;
+                          const _ts = (pp.seuil_modere_eleve ?? pp.seuil_spec90 ?? 0.29) * 100;
                           const grad = `linear-gradient(90deg,#27AE60 0%,#27AE60 ${_ty}%,#f39c12 ${_ty+2}%,#E67E22 ${_ts}%,#e74c3c ${_ts+2}%,#c0392b 100%)`;
                           return (
                             <Stack spacing={1.5}>

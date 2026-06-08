@@ -45,6 +45,7 @@
 
 %--- Figures & Tables ---
 \usepackage{graphicx}
+\graphicspath{{./}{./screen/}}
 \usepackage{float}
 \usepackage{booktabs}
 \usepackage{tabularx}
@@ -97,6 +98,46 @@
 \usepackage{enumitem}
 \usepackage{pifont}
 \usepackage{adjustbox}
+
+%--- Title Formatting (platform color scheme) ---
+\usepackage{titlesec}
+
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{primarydark}}
+  {\small\bfseries\color{primary!70}\MakeUppercase{\chaptername}\ \thechapter\enskip{\color{softrose}\rule[-2pt]{1.5pt}{14pt}}}
+  {4pt}
+  {\LARGE\color{primarydark}}
+  [\vspace{4pt}{\color{primary!40}\rule{\textwidth}{1.5pt}}]
+\titlespacing*{\chapter}{0pt}{20pt}{18pt}
+
+\titleformat{name=\chapter,numberless}[display]
+  {\normalfont\bfseries\color{primarydark}}
+  {}
+  {0pt}
+  {\LARGE\color{primarydark}}
+  [\vspace{4pt}{\color{primary!40}\rule{\textwidth}{1.5pt}}]
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{primary}}
+  {{\color{accent}\thesection}\enspace}
+  {0pt}
+  {}
+  [\vspace{-2pt}{\color{primary!25}\rule{\textwidth}{0.6pt}}]
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{primarydark}}
+  {{\color{accent}\thesubsection}\enspace}
+  {0pt}
+  {}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries\color{accent}}
+  {{\thesubsubsection}\enspace}
+  {0pt}
+  {}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins,breakable}
 
@@ -120,10 +161,24 @@
 
 %--- Configuration command (wrapping monospace) ---
 \newcommand{\config}[1]{%
-  \par\vspace{2pt}%
-  \noindent\textbf{Configuration:}\;\begin{minipage}[t]{\dimexpr\linewidth-4cm}%
-    \ttfamily\footnotesize\raggedright #1%
-  \end{minipage}\vspace{2pt}\par%
+  \vspace{6pt}%
+  \noindent\begin{tcolorbox}[
+    enhanced, breakable,
+    colback=platbg,
+    colframe=primary!50,
+    boxrule=0.6pt,
+    arc=5pt,
+    left=10pt, right=8pt, top=4pt, bottom=5pt,
+    toptitle=3pt, bottomtitle=3pt,
+    fontupper=\ttfamily\footnotesize\color{navydark},
+    title={\footnotesize\bfseries Configuration},
+    coltitle=white,
+    colbacktitle=primary,
+    titlerule=0pt
+  ]
+  #1
+  \end{tcolorbox}%
+  \vspace{4pt}%
 }
 
 %--- Custom Boxes ---
@@ -210,35 +265,37 @@
 %============================================================
 \begin{titlepage}
 \begin{center}
-\IfFileExists{HAIM.png}{\includegraphics[width=3.5cm]{HAIM.png}}{\framebox[3.5cm][c]{\small HAIM}}\hfill
-\IfFileExists{FMPDF.png}{\includegraphics[width=3.5cm]{FMPDF.png}}{\framebox[3.5cm][c]{\small FMPDF}}\\[0.5cm]
-{\small Euromed University of Fez — École d'Ingénierie Digitale et d'Intelligence Artificielle (EIDIA)}\\
-{\small En partenariat avec : Université Sidi Mohamed Ben Abdallah}\\
-{\small Faculté de Médecine, de Pharmacie et de Dentisterie de Fès — HAIM}\\[1cm]
-\rule{\linewidth}{1pt}\\[0.5cm]
-{\Large\bfseries Final Year Project (PFE) Report}\\[0.4cm]
-\rule{\linewidth}{1pt}\\[1cm]
 
-{\LARGE\bfseries\color{teal}
-AI NéphroCare: An Intelligent Clinical Decision\\[0.3cm]
-Support Platform for One-Year Mortality\\[0.3cm]
-Prediction in Hemodialysis Patients}\\[1.2cm]
+% UEMF logo + school name
+\IfFileExists{UEMF.png}{%
+  \includegraphics[width=0.72\linewidth,keepaspectratio]{UEMF.png}%
+}{\framebox[5cm][c]{\textbf{G UEMF}}}\\[0.8cm]
 
-{\large Presented by:}\\[0.2cm]
-{\Large\bfseries Nisrine Benbellaj}\\[0.8cm]
+{\LARGE\bfseries\color{teal} EUROMED UNIVERSITY OF FES}\\[0.25cm]
+{\large\color{teal}\textit{Euromed School of Digital Engineering and Artificial Intelligence}}\\[1cm]
 
-{\large Academic Supervisor:}\\[0.2cm]
-{\large Ms. Sara Bakkali}\\[0.4cm]
-{\large Technical Supervisor:}\\[0.2cm]
-{\large Mr. Zakaria Alami}\\[1.2cm]
+{\large\bfseries Academic year 2025--2026}\\[0.25cm]
+{\large\bfseries State engineering cycle in big data analytics}\\[0.8cm]
 
-\begin{tabular}{ll}
-\textbf{Academic year:} & 2025--2026\\
-\textbf{Program:}       & Big Data Analytics — EIDIA\\
-\textbf{Host center:}   & HAIM, CHU Hassan II Fès\\
-\end{tabular}\\[1.5cm]
+\rule{0.55\linewidth}{1pt}\\[0.4cm]
+{\LARGE End of studies Project}\\[0.4cm]
+\rule{0.55\linewidth}{1pt}\\[0.8cm]
 
-\rule{\linewidth}{0.5pt}
+\fbox{\parbox{0.82\linewidth}{\centering\vspace{4pt}
+  Design and Development of an Intelligent Platform for Clinical Risk Analysis and
+  Prediction in Nephrology Using Big Data and Machine Learning Techniques.%
+\vspace{4pt}}}\\[1.2cm]
+
+\begin{tabular}{p{0.42\linewidth}p{0.42\linewidth}}
+  \textbf{Presented by :} & \textbf{Supervised by:}\\[0.4cm]
+  BEN-ALI Nisrine         & Prof. Sara Bakkali\\[0.8cm]
+                          & \textbf{Defended in} \dotfill\\[0.8cm]
+  \textbf{Jury Members:}  & \textbf{Company supervisor:}\\[0.4cm]
+                          & Mr Zakaria Alami Merrouni\\[0.8cm]
+                          & \textbf{Hosting Company:}\\[0.2cm]
+                          & HAIM-FMPDF\\
+\end{tabular}
+
 \end{center}
 \end{titlepage}
 
@@ -273,13 +330,13 @@ I would like to thank the entire academic staff of \textbf{EIDIA (École d'Ingé
 
 Special thanks go to \textbf{Mrs. Loubna Ourabah}, Head of the Big Data Analytics program at EIDIA, for her continuous guidance and valuable support throughout my studies.
 
-I am also sincerely grateful to my academic supervisor, \textbf{Ms. Sara Bakkali}, for her encouragement, insightful feedback, and constant support during the development of this final year project.
+I am also sincerely grateful to my academic supervisor, \textbf{Mrs. Sara Bakkali}, for her encouragement, insightful feedback, and constant support during the development of this final year project.
 
 I would like to extend my gratitude to the \textbf{Sidi Mohamed Ben Abdallah University — Health Artificial Intelligence and Modeling Center (HAIM)}, Faculty of Medicine, Pharmacy and Dentistry of Fès (FMPDF), for providing an enriching research environment and access to clinical data from CHU Hassan II de Fès.
 
 My deep appreciation goes to the nephrology team at \textbf{CHU Hassan II de Fès}, and in particular to the physicians and clinical staff who made the HD-478 cohort data available. Without their meticulous data collection spanning 2020--2024, no predictive model would have been possible.
 
-Finally, I express my deepest appreciation to \textbf{Mr. Zakaria Alami} for his technical guidance, support, and mentorship throughout the completion of this project.
+Finally, I express my deepest appreciation to \textbf{Mr. Zakaria Alami Merrouni} for his technical guidance, support, and mentorship throughout the completion of this project.
 
 I also thank the jury members for their time and thoughtful evaluation of this work, and my fellow students and friends for the intellectual exchanges and mutual support throughout this journey.
 
@@ -288,23 +345,25 @@ I also thank the jury members for their time and thoughtful evaluation of this w
 %============================================================
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
+{\singlespacing
+\noindent\textbf{Keywords:} Hemodialysis, Mortality Prediction, Machine Learning, Support Vector Machine, Clinical Decision Support System, Feature Engineering, LLM Preprocessing, RAG, Django, React.
 
-\textbf{Keywords:} Hemodialysis, Mortality Prediction, Machine Learning, Support Vector Machine, Clinical Decision Support System, Feature Engineering, LLM Preprocessing, RAG, Django, React.
+\vspace{0.25cm}
 
-\vspace{0.4cm}
+Chronic kidney disease (CKD) affects over 850 million people worldwide \cite{jager2019ckd}, with a significant fraction requiring renal replacement therapy through hemodialysis. One-year mortality rates in this population remain alarmingly high, driven by comorbidity burden, cardiovascular events, and nutritional decline. Clinicians currently lack integrated, data-driven tools capable of stratifying individual mortality risk at the point of care.
 
-Chronic kidney disease (CKD) affects over 850 million people worldwide, with a significant fraction requiring renal replacement therapy through hemodialysis. One-year mortality rates in this population remain alarmingly high (15--25\%) \cite{registre_rein_2022, kdigo2015}, driven by comorbidity burden, cardiovascular events, and nutritional decline. Clinicians currently lack integrated, data-driven tools capable of stratifying individual mortality risk at the point of care.
+\vspace{0.2cm}
 
-This report presents \textbf{AI NéphroCare}, a full-stack clinical decision support platform developed for the Nephrology Department at CHU Hassan II de Fès, Morocco. The platform integrates three main components: (1) a structured patient data management module supporting over 160 clinical fields across 11 medical sections; (2) an AI-powered data preprocessing pipeline combining a Large Language Model (LLM, Ollama qwen2.5:14b) with Retrieval-Augmented Generation (RAG, ChromaDB) for intelligent data cleaning and validation; and (3) a machine learning prediction engine trained on the HD-478 cohort (478 hemodialysis patients, 95 deaths within one year, 2020–2024).
+This report presents \textbf{AI NéphroCare}, a full-stack clinical decision support platform developed at the \textbf{HAIM Center} (Health Artificial Intelligence \& Modeling Center, Faculty of Medicine, Pharmacy and Dentistry of Fes -- Sidi Mohamed Ben Abdellah University). The platform integrates three main components: (1) a structured patient data management module supporting over 160 clinical fields across 11 medical sections; (2) an AI-powered preprocessing pipeline combining a Large Language Model (LLM, Ollama qwen2.5:14b) with Retrieval-Augmented Generation (RAG, ChromaDB) for intelligent data cleaning and validation; and (3) a machine learning prediction engine trained on the HD-478 cohort (478 hemodialysis patients, 95 deaths within one year, CHU Hassan II of Fes, 2020--2024).
 
-Nine machine learning algorithms were systematically evaluated — including Logistic Regression, Support Vector Machine (SVM), Random Forest, Extra Trees, Gradient Boosting, AdaBoost, XGBoost, LightGBM, and CatBoost — using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via isotonic regression (10-fold OOF) and mapped to three evidence-based clinical risk zones \cite{kdigo2015,dopps2022,collins_tripod_2015}:
-\begin{itemize}[noitemsep]
-  \item \textbf{Low Risk:} predicted probability $< 10\%$ (3.8\% observed mortality)
-  \item \textbf{Moderate Risk:} predicted probability between 10\% and 40\% (22.9\% observed mortality)
-  \item \textbf{High Risk:} predicted probability $\geq 40\%$ (49.0\% observed mortality)
-\end{itemize}
+\vspace{0.2cm}
+
+Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%), validated by the nephrology team at CHU Hassan II of Fes: \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
+
+\vspace{0.2cm}
 
 The platform is implemented using Django REST Framework, React 18, PostgreSQL 16, Redis, Celery, and Docker Compose, with role-based access control (RBAC) across four user profiles.
+}
 
 %============================================================
 %  RÉSUMÉ (French)
@@ -319,9 +378,9 @@ The platform is implemented using Django REST Framework, React 18, PostgreSQL 16
 
 La maladie rénale chronique (MRC) touche plus de 850 millions de personnes dans le monde, dont une proportion significative dépend de l'hémodialyse comme thérapie de remplacement rénal. La mortalité à un an dans cette population reste élevée (15–25\%), principalement due à la charge en comorbidités, aux événements cardiovasculaires et à la dénutrition. Les cliniciens manquent d'outils intégrés et fondés sur les données pour stratifier le risque de mortalité individuel au lit du patient.
 
-Ce rapport présente \textbf{AI NéphroCare}, une plateforme d'aide à la décision clinique développée pour le Service de Néphrologie du CHU Hassan II de Fès, Maroc. Elle intègre : (1) un module de gestion structurée des dossiers patients couvrant plus de 160 champs cliniques en 11 sections ; (2) un pipeline de prétraitement IA combinant un modèle de langage (LLM, Ollama qwen2.5:14b) et une génération augmentée par récupération (RAG, ChromaDB) ; et (3) un moteur de prédiction ML entraîné sur la cohorte HD-478 (478 patients, 95 décès à 1 an, 2020–2024).
+Ce rapport présente \textbf{AI NéphroCare}, une plateforme d'aide à la décision clinique développée au sein du \textbf{Centre HAIM} (Health Artificial Intelligence \& Modeling Center, FMPDF -- Université Sidi Mohamed Ben Abdellah), en collaboration avec le Service de Néphrologie du CHU Hassan II de Fès. Elle intègre : (1) un module de gestion structurée des dossiers patients couvrant plus de 160 champs cliniques en 11 sections ; (2) un pipeline de prétraitement IA combinant un modèle de langage (LLM, Ollama qwen2.5:14b) et une génération augmentée par récupération (RAG, ChromaDB) ; et (3) un moteur de prédiction ML entraîné sur la cohorte HD-478 (478 patients, 95 décès à 1 an, CHU Hassan II de Fès, 2020--2024).
 
-Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8262, PR-AUC = 0,4887, F1 = 0,5667, Brier = 0,1265). Les probabilités brutes sont calibrées par régression isotonique (10-fold OOF) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--40\%, Élevée $\geq40\%$) sur la base des recommandations TRIPOD/DOPPS/KDIGO. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
+Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8262, PR-AUC = 0,4887, F1 = 0,5667, Brier = 0,1265). Les probabilités brutes sont calibrées par Platt scaling (\texttt{CalibratedClassifierCV}, sigmoïde 5-fold) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--29\%, Élevée $\geq29\%$) dont les seuils ont été dérivés par analyse de la courbe ROC (T1 = 10\%, Sensibilité $\geq$ 90\%) et indice de Youden bootstrappé (T2 = 29\%, $n=1000$, médiane = 28,9\%), validés cliniquement par l'équipe de néphrologie du CHU Hassan II de Fès. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
 
 \selectlanguage{english}
 
@@ -390,7 +449,7 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 
 \subsection{Digital Transformation in Healthcare Systems}
 
-The global healthcare sector is undergoing a profound digital transformation, driven by the exponential growth of medical data, the democratization of cloud computing, and the maturation of artificial intelligence (AI) technologies. Electronic Health Records (EHR) have become the standard in most developed countries, generating terabytes of structured and unstructured clinical data daily. According to the World Health Organization (WHO), the global digital health market is projected to reach \$660 billion by 2025, reflecting the scale of investment in health IT worldwide \cite{who2021digital}.
+The global healthcare sector is undergoing a profound digital transformation, driven by the exponential growth of medical data, the democratization of cloud computing, and the maturation of artificial intelligence (AI) technologies. Electronic Health Records (EHR) have become the standard in most developed countries, generating terabytes of structured and unstructured clinical data daily. According to the WHO Global Strategy on Digital Health 2020--2025, health systems must accelerate digital transformation to improve health outcomes and service delivery \cite{who2021digital}.
 
 In low- and middle-income countries (LMICs), including Morocco, this transition is accelerating. The Moroccan Ministry of Health's national digital health strategy (2020--2025) prioritizes the deployment of integrated hospital information systems, telemedicine platforms, and AI-based decision support tools in university hospitals. CHU Hassan II de Fès, as one of the country's largest tertiary care centers, serves as a pilot site for several of these initiatives.
 
@@ -412,7 +471,7 @@ Data-driven CDSS offer several advantages over traditional rule-based systems:
   \item \textbf{Explainability}: Modern interpretability tools (SHAP, feature importance) make model reasoning accessible to clinicians.
 \end{itemize}
 
-The integration of CDSS in nephrology has shown particular promise. Studies have demonstrated that early identification of high-risk dialysis patients can lead to timely interventions — nutritional support, cardiovascular optimization, transplant listing — that reduce mortality by 15--30\% \cite{hemodialysis_cdss_2019}.
+The integration of CDSS in nephrology has shown particular promise. Early identification of high-risk dialysis patients enables timely interventions — nutritional support, cardiovascular optimization, transplant listing — that can significantly improve clinical outcomes \cite{bright2012, hemodialysis_cdss_2019}.
 
 \section{Host Organization}\label{sec:hostorg}
 
@@ -648,44 +707,45 @@ A substantial body of literature has investigated ML approaches to mortality pre
 
 \begin{table}[H]
 \centering
-\caption{Selected ML studies on hemodialysis mortality prediction}
+\caption{Selected ML studies predicting \textbf{1-year all-cause mortality} in hemodialysis patients. All studies share the same clinical endpoint, enabling direct AUC comparison.}
 \label{tab:lit_review}
 \begin{tabular}{lllcl}
 \toprule
 \textbf{Study} & \textbf{Cohort} & \textbf{Model} & \textbf{AUC} & \textbf{Outcome} \\
 \midrule
-Couchoud et al. \cite{couchoud2009} & REIN (France) & LR & 0.72 & 1-year mortality \\
-Wick et al. \cite{wick2019} & USRDS & RF + GBM & 0.81 & 1-year mortality \\
-Kaesler et al. \cite{kaesler2020} & German HD & LSTM & 0.78 & 90-day mortality \\
-Zhu et al. \cite{zhu2021} & Chinese cohort & XGBoost & 0.83 & 1-year mortality \\
-Nasr et al. \cite{nasr2022} & Egyptian HD & SVM & 0.79 & 6-month mortality \\
-\textbf{This work} & HD-478 (Fès) & SVM Linear & \textbf{0.826} & 1-year mortality \\
+Sheng et al. \cite{sheng2020} & Chinese HD ($n=5{,}351$) & XGBoost & 0.83 & 1-year mortality \\
+Garc\'ia-Montemayor et al. \cite{garcia2021} & Spanish HD ($n=1{,}336$) & RF & 0.73 & 1-year mortality \\
+\textbf{This work} & HD-478 (Fès, Morocco) & SVM Linear & \textbf{0.826} & 1-year mortality \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Several trends emerge from this literature: (1) ensemble methods (RF, GBM, XGBoost) generally outperform linear models on large datasets but may overfit on small cohorts; (2) linear models like SVM and LR offer superior interpretability and are preferred in clinical settings; (3) the importance of calibration is increasingly recognized — a model with high AUC but poorly calibrated probabilities is of limited clinical use.
+All three studies share the same clinical endpoint (1-year all-cause mortality), enabling direct AUC comparison. Several trends emerge: (1) ensemble methods (XGBoost, RF) achieve AUC 0.73--0.83 on large, well-resourced cohorts ($n > 500$); (2) linear models like SVM offer comparable discrimination with stronger interpretability, which is clinically preferred; (3) this work achieves AUC \textbf{0.826} on a Moroccan cohort of 478 patients, very close to the best reported XGBoost results obtained on cohorts ten times larger.
+
+The marginal gap (0.826 vs.\ 0.83) is explained by two structural factors. First, \textbf{cohort size}: with $n = 478$, estimation of the decision boundary carries more variance than with $n = 5{,}351$ (Sheng et al.) or $n = 1{,}336$ (Garc\'ia-Montemayor et al.); larger samples provide a statistical advantage independent of model choice. Second, \textbf{variable availability}: large Asian and European registries routinely collect extended laboratory panels — intact PTH series, ferritin trajectories, longitudinal Kt/V, full medication histories — that are not systematically documented in the Moroccan clinical records used here, limiting the feature set.
+
+Despite these constraints, several factors explain why the SVM Linear remains competitive. (a) \textbf{Model--data fit}: SVM with a linear kernel is known to generalise robustly on small, high-dimensional clinical datasets, where ensemble methods risk overfitting to noise; the regularisation parameter $C$ controls this trade-off explicitly. (b) \textbf{Data quality}: the RAG-LLM preprocessing pipeline substantially reduced transcription errors and missing values in the HD-478 dataset, improving signal quality beyond what raw record counts suggest. (c) \textbf{Domain alignment}: the model was trained exclusively on a locally representative Moroccan cohort, eliminating the domain shift that typically degrades performance when models trained on foreign populations are applied to North African patients with different comorbidity profiles and clinical trajectories.
 
 \section{Feature Engineering in Medical Data}\label{sec:feateng}
 
 Feature engineering — the process of creating informative input representations from raw clinical data — is often the single most impactful step in a medical ML pipeline. In the HD mortality prediction literature, the most consistently important features are:
 
 \begin{itemize}
-  \item \textbf{Serum albumin}: A low albumin ($<35$ g/L) is the most robust single predictor of HD mortality across all published studies, reflecting the synergistic effects of malnutrition and chronic inflammation \cite{albumin_dialysis_2018}.
-  \item \textbf{Charlson Comorbidity Index (CCI)}: Validated in HD populations \cite{charlson1987}; each unit increase is associated with a 10--15\% increased mortality risk \cite{beddhu2000charlson}.
+  \item \textbf{Serum albumin}: Low serum albumin ($<3.5$ g/dL) is among the strongest independent predictors of all-cause mortality in HD patients, reflecting the cumulative effects of malnutrition and chronic inflammation \cite{albumin_dialysis_2018}.
+  \item \textbf{Charlson Comorbidity Index (CCI)}: Validated in dialysis populations \cite{beddhu2000charlson}; higher comorbidity burden is independently associated with reduced survival, with a strong dose-response relationship observed across CCI categories \cite{beddhu2000charlson}.
   \item \textbf{Vascular access type}: Arteriovenous fistula (AVF) use is a strong protective factor; tunneled catheters are associated with 2--3$\times$ higher infection and mortality risk \cite{pisoni2002vascular}.
   \item \textbf{Residual renal function}: Even small amounts of residual diuresis ($>$100 mL/24h) are associated with significantly lower cardiovascular mortality \cite{shemin2001residual}.
-  \item \textbf{Interaction features}: Non-linear combinations (e.g., age $\times$ CCI, albumin $\times$ hospitalizations) capture patient fragility beyond what individual variables convey \cite{wick2019}.
+  \item \textbf{Interaction features}: Non-linear combinations (e.g., age $\times$ CCI, albumin $\times$ hospitalizations) capture patient fragility beyond what individual variables convey \cite{zhu2021, albumin_dialysis_2018}.
 \end{itemize}
 
 \section{Existing Dialysis Prediction Models}\label{sec:existing}
 
 Several commercial and academic tools exist for HD risk prediction:
 \begin{itemize}
-  \item \textbf{USRDS Predictive Model} (USA) \cite{usrds2022}: Logistic regression on registry data; AUC $\approx 0.72$; not validated outside the US.
-  \item \textbf{REIN Score} (France) \cite{registre_rein_2022}: Risk score derived from the French ESRD registry; validated in European populations; requires 8 input variables.
-  \item \textbf{Khan Score} \cite{khan2008score}: CCI-derived; simple but underperforms with AUC $\approx 0.68$ in most external validations.
-  \item \textbf{DIAL-risk} (Spain) \cite{diaz2020dialrisk}: Random Forest on Spanish HD registry; AUC = 0.80; proprietary, not deployable locally.
+  \item \textbf{USRDS} (USA) \cite{usrds2022}: Large national ESRD registry providing epidemiological benchmarks for HD incidence and mortality; registry data have been used to develop risk stratification tools, but the annual data report itself is not a deployable predictive model validated outside the US.
+  \item \textbf{Couchoud/REIN Score} (France) \cite{couchoud2009}: Clinical score derived from the French REIN registry predicting 6-month prognosis in elderly patients initiating dialysis; not validated in non-elderly or non-European populations.
+  \item \textbf{Khan Score} \cite{khan2008score}: Comorbidity-based survival model developed for renal replacement therapy patients; simple scoring system with modest discrimination in external validations.
+  \item \textbf{DOPPS Risk Model} \cite{dopps2022}: Multinational observational analysis (DOPPS) identifying key mortality predictors in HD populations; descriptive rather than a deployable predictive tool.
 \end{itemize}
 
 None of these tools are validated in Moroccan or North African HD populations, nor do they integrate with a clinical data management platform.
@@ -698,7 +758,7 @@ Although several Moroccan studies have explored the clinical characteristics and
 \subsection{Limitations of Existing Systems}
 
 \begin{enumerate}
-  \item \textbf{External validity}: Most published models are trained on large Western registries (USRDS, REIN) with demographic and etiological profiles significantly different from Moroccan patients (higher proportion of young diabetic patients, lower transplantation rates, different socioeconomic determinants).
+  \item \textbf{External validity}: Most published models are trained on large Western or East-Asian registries — e.g., Sheng et al.\ \cite{sheng2020} ($n = 5{,}351$, China) or Garc\'ia-Montemayor et al.\ \cite{garcia2021} ($n = 1{,}336$, Spain) — with demographic and etiological profiles significantly different from Moroccan patients (higher proportion of young diabetic patients, lower transplantation rates, different socioeconomic determinants).
   \item \textbf{Deployment gap}: Published models rarely translate into operational clinical tools. The gap between a trained model and a deployed clinical application involves authentication, data management, UI design, and regulatory compliance — aspects largely absent from academic ML papers.
   \item \textbf{Data quality}: Most studies assume clean, complete datasets. In practice, clinical data requires extensive preprocessing before ML models can be applied.
   \item \textbf{Interpretability}: Black-box models (deep neural networks) may achieve high AUC but cannot explain their predictions to clinicians, limiting trust and adoption.
@@ -1007,7 +1067,7 @@ Django was chosen for its mature ORM, built-in admin interface, and the DRF exte
 
 \subsection{Frontend: React}
 
-React's component-based architecture maps naturally to the modular clinical interface requirements. The Context API provides lightweight state management for authentication and language preferences without the overhead of Redux.
+React's component-based architecture maps naturally to the modular clinical interface requirements. The Context API provides lightweight state management for authentication (\texttt{AuthContext}) and language preferences (\texttt{LanguageContext}) without the overhead of Redux. The \texttt{LanguageContext} implements a full bilingual system (Français / English): all UI strings are looked up from a static translation table keyed by language code (\texttt{fr}/\texttt{en}), and the active language is persisted to \texttt{localStorage} so the user's preference survives page reloads.
 
 \subsection{Database: PostgreSQL}
 
@@ -1793,7 +1853,7 @@ The 24 raw clinical features are extracted from Patient ORM objects by the funct
 \subsection{Derived Risk Indicators}
 \label{sec:interaction_features}
 
-These interaction features were constructed based on clinical evidence from the nephrology literature regarding combined risk factors in hemodialysis mortality \cite{beddhu2000charlson,albumin_dialysis_2018,kdigo2015,dopps2022}.
+These interaction features were constructed based on clinical evidence from the nephrology literature regarding combined risk factors in hemodialysis mortality \cite{beddhu2000charlson,albumin_dialysis_2018,kdigo2015,waikar2011sodium,dopps2022}.
 
 Eight interaction features are computed to capture non-linear risk combinations:
 
@@ -1851,8 +1911,8 @@ The ML layer comprises four components:
 \begin{enumerate}
   \item \textbf{Feature extractor} (\texttt{feature\_mapping.py}): Produces a 32-dimensional feature vector from a Patient ORM object
   \item \textbf{SVM pipeline} (\texttt{mortalite\_svm.joblib}): KNN imputer + Yeo-Johnson transformer + linear SVC
-  \item \textbf{Isotonic calibrator} (\texttt{iso\_calibrator.joblib}): Maps $p_{\text{raw}}$ to calibrated probability $\hat{p}_{\text{cal}}$
-  \item \textbf{Risk zone classifier}: Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<40\%$), Élevée ($\hat{p}\geq40\%$) — TRIPOD/DOPPS/KDIGO
+  \item \textbf{Platt-scaled probability} (\texttt{CalibratedClassifierCV}, 5-fold sigmoid): Maps the SVM margin score to a calibrated probability $\hat{p}$
+  \item \textbf{Risk zone classifier}: Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<29\%$), Élevée ($\hat{p}\geq29\%$) — seuils dérivés par ROC/Youden bootstrappé
 \end{enumerate}
 
 \section{Models Evaluated}\label{sec:models}
@@ -1983,7 +2043,7 @@ Before any model can be trained or used for inference, raw patient feature vecto
 \subsection{Missing Value Imputation (KNN)}
 \label{sec:knn_imputation}
 
-Missing values in the 32-feature vector are imputed using \textbf{K-Nearest Neighbors imputation}~\cite{troyanskaya2001missing}. For a sample $\mathbf{x}$ with missing feature $j$, the imputed value is:
+Missing values in the 32-feature vector are imputed using \textbf{K-Nearest Neighbors imputation} \cite{troyanskaya2001missing}. For a sample $\mathbf{x}$ with missing feature $j$, the imputed value is:
 \begin{equation}
 \hat{x}_j = \frac{1}{k} \sum_{i \in \mathcal{N}_k(\mathbf{x})} x_{ij}
 \label{eq:knn_impute}
@@ -2003,7 +2063,7 @@ Ordinal encoding is preferred over one-hot encoding for the linear SVM because: 
 
 \subsection{Power Transformation and Standardization}
 
-Clinical features typically exhibit strong positive skewness (e.g., creatinine, ferritin, proteinuria). Before SVM training, each feature is transformed using the \textbf{Yeo-Johnson power transformation}~\cite{yeo_johnson_2000} to reduce this skewness, followed by z-score standardization.
+Clinical features typically exhibit strong positive skewness (e.g., creatinine, ferritin, proteinuria). Before SVM training, each feature is transformed using the \textbf{Yeo-Johnson power transformation} \cite{yeo_johnson_2000} to reduce this skewness, followed by z-score standardization.
 
 The Yeo-Johnson transformation is defined as:
 
@@ -2104,10 +2164,10 @@ After retraining on the LLM-preprocessed platform database, the deployed SVM rea
   width=13cm, height=9cm,
   ylabel={Score},
   xlabel={Model},
-  symbolic x coords={LR,SVM,RF,ET,GB,ADB,XGB,LGBM,CB,Ens.},
+  symbolic x coords={LR,SVM,RF,ET,GB,ADB,XGB,LGBM,CB,Ens},
   xtick=data,
   xticklabel style={rotate=30,anchor=east,font=\footnotesize},
-  ymin=0.40, ymax=0.90,
+  ymin=0.40, ymax=0.95,
   ymajorgrids=true,
   legend pos=north west,
   legend style={font=\small},
@@ -2119,11 +2179,11 @@ After retraining on the LLM-preprocessed platform database, the deployed SVM rea
 ]
 \addplot[fill=teal!60,draw=teal!90!black] coordinates {
   (LR,0.791) (SVM,0.826) (RF,0.812) (ET,0.804) (GB,0.818)
-  (ADB,0.795) (XGB,0.821) (LGBM,0.819) (CB,0.817) (Ens.,0.824)
+  (ADB,0.795) (XGB,0.821) (LGBM,0.819) (CB,0.817) (Ens,0.824)
 };
 \addplot[fill=softrose!80,draw=softrose!90!black] coordinates {
   (LR,0.441) (SVM,0.489) (RF,0.462) (ET,0.453) (GB,0.471)
-  (ADB,0.445) (XGB,0.478) (LGBM,0.474) (CB,0.469) (Ens.,0.483)
+  (ADB,0.445) (XGB,0.478) (LGBM,0.474) (CB,0.469) (Ens,0.483)
 };
 \legend{AUC-ROC, PR-AUC}
 \end{axis}
@@ -2379,46 +2439,52 @@ For a clinical AI tool intended for real hospital deployment, model simplicity i
 \section{Probability Calibration and Risk Zones}
 \label{sec:calibration}
 
-\subsection{Isotonic Calibration}
+\subsection{Probability Calibration — Platt Scaling}
 
-The raw SVM output $p_{\text{raw}}$ is a margin-based score that does not directly represent an observed mortality rate. An \textbf{isotonic regression calibrator} \cite{zadrozny_isotonic_2002} maps it to a calibrated probability:
+The raw LinearSVC output is a signed margin score that does not directly represent an observed mortality rate. Calibrated probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: fitting a logistic regression $\sigma(A\,f + B)$ on the signed margin $f_i$ via 5-fold cross-validation, implemented through \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}:
 
 \begin{equation}
-\hat{p}_{\text{cal}} = \text{IsotonicRegression}(p_{\text{raw}})
-\label{eq:isotonic}
+\hat{p} = \sigma\!\left(A\cdot f_{\text{SVM}} + B\right) = \frac{1}{1 + e^{-(A f_{\text{SVM}} + B)}}
+\label{eq:platt}
 \end{equation}
 
-The calibrator is trained via \textbf{10-fold out-of-fold (OOF)} cross-validation on the HD-478 cohort to avoid leakage, then refitted on all OOF probabilities and saved as \texttt{iso\_calibrator.joblib}. Calibration quality is measured by the \textbf{Brier Score}:
+An isotonic regression calibrator \cite{zadrozny_isotonic_2002} (\texttt{iso\_calibrator.joblib}) was also trained on 10-fold OOF probabilities. However, on the HD-478 cohort (478 patients), the isotonic calibrator produced a \textbf{degenerate plateau}: the vast majority of patients were mapped to a single value ($\hat{p}_{\text{iso}} = 0.189$), regardless of their individual SVM score. This complete loss of discrimination (only 2 distinct output levels over the entire cohort) makes the isotonic layer clinically unusable for individual risk scoring. The Platt-scaled probability $\hat{p}$ is therefore used directly for both the displayed risk score and zone classification. Calibration quality is measured by the \textbf{Brier Score}:
 
 \begin{equation}
-\text{BS} = \frac{1}{N}\sum_{i=1}^N (\hat{p}_{\text{cal},i} - y_i)^2 = 0.1265
+\text{BS} = \frac{1}{N}\sum_{i=1}^N (\hat{p}_{i} - y_i)^2 = 0.1265
 \label{eq:brier}
 \end{equation}
-confirming that $\hat{p}_{\text{cal}}$ closely tracks observed mortality rates.
+confirming that $\hat{p}$ tracks observed mortality rates at the cohort level.
 
 \subsection{Risk Zone Classification}
 
-The three risk zones were defined by combining evidence from three sources: (1) the \textbf{TRIPOD} statement \cite{collins_tripod_2015} on transparent clinical prediction model reporting, which recommends aligning thresholds with clinically actionable risk differences; (2) the \textbf{DOPPS} registry data \cite{dopps2022}, which documents mortality patterns in international hemodialysis cohorts; and (3) the \textbf{KDIGO} clinical practice guidelines \cite{kdigo2015}, which stratify CKD progression risk using specific biomarker thresholds. The $10\%$ lower threshold separates patients whose predicted mortality probability is close to the population baseline from those at meaningfully elevated risk. The $40\%$ upper threshold identifies patients whose mortality probability is more than double the cohort mean (19.9\%), justifying urgent clinical intervention. These thresholds were also operationally validated with the CHU Hassan II nephrology team, who confirmed their utility for daily triage decisions.
+The two classification thresholds $T_1$ and $T_2$ were derived from the HD-478 Platt-calibrated probability distribution using two complementary ROC-based criteria, implemented via bootstrap resampling ($n = 1000$ iterations) for robustness.
 
 \medskip
-\noindent\textbf{Threshold selection rationale.} During development, a data-driven approach was explored to derive thresholds directly from the structure of the HD-478 calibrated probability distribution. A \textbf{Gaussian Mixture Model (GMM)} with three components was fitted on the 478 out-of-fold calibrated probabilities. The role of the GMM here is to automatically identify three natural patient subgroups — low, moderate, and high risk — by modelling the probability distribution as a mixture of three Gaussian curves. Once the components are ordered by ascending risk, $T_1$ and $T_2$ are extracted as the points where adjacent Gaussian densities intersect, i.e., the probability values beyond which it becomes statistically more likely for a patient to belong to the next risk group. On the HD-478 cohort, this procedure yielded $T_1^{\text{GMM}} = 4.6\%$ and $T_2^{\text{GMM}} = 26.0\%$. These values reflect the actual clustering of mortality probabilities in this specific Moroccan cohort: the majority of patients are concentrated in a very low probability range, pushing $T_1$ down to $4.6\%$. While this is internally coherent with the HD-478 distribution, it is precisely what makes these thresholds non-transferable — a different cohort with a higher baseline mortality would produce entirely different GMM boundaries. For this reason, the GMM thresholds were computed but ultimately discarded in favour of the fixed clinical thresholds $T_1 = 10\%$ and $T_2 = 40\%$ from TRIPOD/DOPPS/KDIGO guidelines, which are grounded in clinically meaningful absolute mortality levels and remain valid across different hemodialysis centers and patient populations.
+\noindent\textbf{T1 — Sensitivity $\geq$ 90\% criterion.} The lower threshold $T_1$ was set to the smallest probability value at which the model achieves a sensitivity of at least 90\% on the HD-478 cohort. This ensures that at most 10\% of deaths are missed when classifying patients below $T_1$ as low-risk. On the HD-478 distribution, this criterion yields $T_1 = 10\%$ (observed sensitivity = 91.5\%, meaning only 8.5\% of deaths fall below this threshold).
 
-$\hat{p}_{\text{cal}}$ is mapped to three clinical zones using fixed thresholds from evidence-based nephrology guidelines (TRIPOD \cite{collins_tripod_2015} / DOPPS \cite{dopps2022} / KDIGO \cite{kdigo2015}):
+\medskip
+\noindent\textbf{T2 — Bootstrapped Youden index.} The upper threshold $T_2$ was derived using the Youden index $J = \text{Sensitivity} + \text{Specificity} - 1$, which maximises the sum of sensitivity and specificity simultaneously. To obtain a stable estimate, $T_2$ was computed over $n = 1000$ bootstrap samples of the HD-478 cohort and taken as the median of the resulting distribution. This procedure yielded $T_2 = 29\%$ (bootstrap median = 28.9\%, 95\% CI: [10\%–33.3\%]).
+
+\medskip
+\noindent\textbf{Clinical validation.} Both thresholds were reviewed and confirmed by the nephrology team at CHU Hassan II de Fès, who validated their utility for daily triage decisions. The resulting zones produce a strongly monotone mortality gradient on the HD-478 cohort (3.8\% $\to$ 15.6\% $\to$ 46.5\%), confirming their clinical discriminative power.
+
+$\hat{p}$ is mapped to three clinical zones using these data-driven thresholds:
 \begin{equation}
 \text{zone} =
 \begin{cases}
-\textbf{Low}      & \hat{p}_{\text{cal}} < 0.10 \\[2pt]
-\textbf{Moderate} & 0.10 \leq \hat{p}_{\text{cal}} < 0.40 \\[2pt]
-\textbf{High}     & \hat{p}_{\text{cal}} \geq 0.40
+\textbf{Low}      & \hat{p} < 0.10 \\[2pt]
+\textbf{Moderate} & 0.10 \leq \hat{p} < 0.29 \\[2pt]
+\textbf{High}     & \hat{p} \geq 0.29
 \end{cases}
 \label{eq:risk_zones}
 \end{equation}
 
-The relative risk is: $\text{RR} = \hat{p}_{\text{cal}} \;/\; 0.199$ (base rate = 19.9\% cohort mortality).
+The relative risk is: $\text{RR} = \hat{p} \;/\; 0.199$ (base rate = 19.9\% cohort mortality).
 
 \begin{table}[H]
 \centering
-\caption{Risk zone classification --- clinical thresholds (TRIPOD/DOPPS/KDIGO), HD-478 cohort}
+\caption{Risk zone classification --- thresholds derived by ROC/Youden bootstrap ($n=1000$), HD-478 cohort}
 \label{tab:risk_zones}
 \renewcommand{\arraystretch}{1.45}
 \begin{tabularx}{\textwidth}{>{\bfseries}p{2.2cm}
@@ -2436,19 +2502,19 @@ The relative risk is: $\text{RR} = \hat{p}_{\text{cal}} \;/\; 0.199$ (base rate 
   & $\times\,1.0$
   & Standard follow-up \\[2pt]
 \cellcolor{orange!18}\textcolor{orange!60!black}{Moderate}
-  & $10\% \leq \hat{p} < 40\%$
-  & 22.9\%
-  & $\times\,3.6$
+  & $10\% \leq \hat{p} < 29\%$
+  & 15.6\%
+  & $\times\,4.1$
   & Enhanced monitoring \\[2pt]
 \cellcolor{red!18}\textcolor{red!60!black}{High}
-  & $\hat{p} \geq 40\%$
-  & 49.0\%
-  & $\times\,7.8$
+  & $\hat{p} \geq 29\%$
+  & 46.5\%
+  & $\times\,12.2$
   & Urgent intervention \\
 \bottomrule
 \end{tabularx}
 \smallskip
-\noindent\footnotesize\textit{Mortality gradient: 3.8\% $\to$ 22.9\% $\to$ 49.0\% --- High/Low relative risk ratio: $\mathbf{\times\,12.9}$.}
+\noindent\footnotesize\textit{Mortality gradient: 3.8\% $\to$ 15.6\% $\to$ 46.5\% --- High/Low relative risk ratio: $\mathbf{\times\,12.2}$.}
 \end{table}
 
 \section{Prediction Workflow}
@@ -2509,7 +2575,7 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \node[pipe] (p5) at (0,-6.0)
   {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.01, linear)} $\longrightarrow$ $p_{\text{raw}}$};
 \node[pipe] (p6) at (0,-7.5)
-  {\textbf{6.}~Isotonic calibration --- $\hat{p}_{\text{cal}} = \text{IsotonicRegression}(p_{\text{raw}})$};
+  {\textbf{6.}~Platt scaling --- $\hat{p} = \sigma(A\cdot f_{\text{SVM}}+B)$ via \texttt{CalibratedClassifierCV}};
 
 %=== DECISION DIAMOND ===
 \node[diam] (zone) at (0,-9.3) {Risk Zone Classification};
@@ -2518,9 +2584,9 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \node[lowb]  (low)  at (-4.5,-11.4)
   {\textbf{LOW RISK}\\[4pt]\normalsize$\hat{p} < 10\%$};
 \node[modb]  (mod)  at ( 0.0,-11.4)
-  {\textbf{MODERATE RISK}\\[4pt]\normalsize$10\%\leq\hat{p}<40\%$};
+  {\textbf{MODERATE RISK}\\[4pt]\normalsize$10\%\leq\hat{p}<29\%$};
 \node[highb] (high) at ( 4.5,-11.4)
-  {\textbf{HIGH RISK}\\[4pt]\normalsize$\hat{p}\geq 40\%$};
+  {\textbf{HIGH RISK}\\[4pt]\normalsize$\hat{p}\geq 29\%$};
 
 %=== OUTPUT BOX ===
 \node[outb] (output) at (0,-13.8)
@@ -2597,7 +2663,7 @@ The SVM achieves \textbf{PR-AUC\,=\,0.489} and \textbf{F1\,=\,0.567}, the highes
 
 \subsection{Brier Score: Probability Calibration Quality}
 
-The \textbf{Brier Score} measures how far the predicted probabilities are from the actual outcomes:
+The \textbf{Brier Score} \cite{brier_1950} measures how far the predicted probabilities are from the actual outcomes:
 \begin{equation}
 \text{BS} = \frac{1}{N}\sum_{i=1}^{N}(\hat{p}_{\text{cal},i} - y_i)^2
 \label{eq:brier2}
@@ -2997,9 +3063,9 @@ The patient list endpoint (\texttt{GET /api/patients/}) returns a JSON object co
 The \texttt{POST /api/predictions/predict-patient/} endpoint assembles the patient's clinical features, runs them through the calibrated SVM pipeline, and returns a structured JSON response designed to be directly usable by clinicians:
 
 \begin{itemize}
-  \item \texttt{risk\_level} — categorical classification: \textit{Faible} ($<$10\,\%), \textit{Modéré} (10–40\,\%), or \textit{Élevé} ($\geq$40\,\%)
+  \item \texttt{risk\_level} — categorical classification: \textit{Faible} ($<$10\,\%), \textit{Modéré} (10–29\,\%), or \textit{Élevé} ($\geq$29\,\%)
   \item \texttt{score} — mortality risk expressed as a percentage (0–100)
-  \item \texttt{probability} — isotonically calibrated probability of 1-year mortality (0–1)
+  \item \texttt{probability} — Platt-scaled probability of 1-year mortality (0–1), output of \texttt{CalibratedClassifierCV}
   \item \texttt{factors} — ordered list of the most influential clinical features with their SVM weight and direction
   \item \texttt{recommendation} — auto-generated clinical text summarising the risk level and key factors
   \item \texttt{features\_used} — list of feature keys actually used in the prediction
@@ -3065,6 +3131,16 @@ Access to each section is controlled by the user's role (RBAC): navigation items
 \label{fig:sidebar}
 \end{figure}
 
+\paragraph{Carnet numérique (global floating notepad).}
+All authenticated pages include a \textbf{floating action button} (bottom-right corner) that opens a persistent personal notepad called \textit{Carnet numérique}. The notepad allows clinicians to write private reminders, observations, or annotations that are auto-saved at regular intervals and stored in their user profile (\texttt{personal\_notes} field). The panel displays the last save time and offers an \textbf{Effacer} button to clear the content.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{carnet.png}{\includegraphics[width=0.40\textwidth]{carnet.png}}{\framebox[0.40\textwidth][c]{\small[Screenshot: Carnet numérique floating notepad]}}
+\caption{Carnet numérique --- persistent personal notepad accessible from any authenticated page via a floating action button}
+\label{fig:carnet}
+\end{figure}
+
   \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard is the first authenticated page. Its content is entirely \textbf{role-dependent}: Super Admin and Chef de Service see an administrative dashboard focused on user governance, while Professeur and Résident see a clinical dashboard focused on their own activity.
 
 % ──────────────────────────────────────────────────────────────────────────────
@@ -3122,6 +3198,20 @@ The \textbf{double-authentication} on write operations prevents unauthorised mod
 
 \paragraph{Import validation workflow.}
 When a Résident or Professeur submits a preprocessed file for approval, the chef receives a \textbf{notification badge} in the sidebar. Clicking \textbf{"Aperçu"} opens a preview modal showing file name, submitter, row/column counts, quality score, and the first 15 rows. From the modal, the chef can \textbf{validate and integrate} (data inserted into the patient database) or close without action. A reject action is available via the detail endpoint with a mandatory reason.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{demande_soumission.png}{\includegraphics[width=0.85\textwidth]{demande_soumission.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Import submission request view]}}
+\caption{Import submission request --- clinician view showing file pending review with status indicator}
+\label{fig:demande_soumission}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{apercu_validation.png}{\includegraphics[width=0.85\textwidth]{apercu_validation.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Chef de service validation preview modal]}}
+\caption{Import validation preview --- chef de service reviews file metadata, row/column count, quality score and first rows before approving or rejecting}
+\label{fig:apercu_validation}
+\end{figure}
 
 % ──────────────────────────────────────────────────────────────────────────────
 \subsubsection*{Dashboard --- Professeur and Résident}
@@ -3375,7 +3465,7 @@ A success notification confirms the integration, and the system transitions auto
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Data Management --- patient table with column mapping]}
+\IfFileExists{data_mgmt_table.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_table.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Data Management --- patient table with column mapping]}}
 \caption{Data management interface --- searchable patient table with dynamic column support}
 \label{fig:data_mgmt}
 \end{figure}
@@ -3401,11 +3491,39 @@ The data management interface provides the following actions:
   \item \textbf{Export} button: download all visible data as .xlsx
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\IfFileExists{data_mgmt_filter.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_filter.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Data Management filter panel]}}
+\caption{Data management filter panel --- multi-field filtering with active filter indicators}
+\label{fig:data_mgmt_filter}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{data_mgmt_edit.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_edit.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Patient record edit form]}}
+\caption{Patient record edit form --- all 160+ clinical variables organized in collapsible sections}
+\label{fig:data_mgmt_edit}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{data_mgmt_dynamic_cols.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_dynamic_cols.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Dynamic columns visible in patient table]}}
+\caption{Dynamic column support --- institution-specific variables (stored in \texttt{extra\_data} JSONB) displayed as regular table columns}
+\label{fig:data_mgmt_dynamic_cols}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{data_mgmt_dynamic_form.png}{\includegraphics[width=0.72\textwidth]{data_mgmt_dynamic_form.png}}{\framebox[0.72\textwidth][c]{\small[Screenshot: Dynamic columns management panel]}}
+\caption{Dynamic columns management --- list of active dynamic columns imported from Excel/CSV with their source file tooltip and individual delete action}
+\label{fig:data_mgmt_dynamic_form}
+\end{figure}
+
 \subsubsection*{Tab 3 --- Analysis (Statistics)}
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Analysis tab --- statistical charts]}
+\IfFileExists{analysis_charts.png}{\includegraphics[width=0.85\textwidth]{analysis_charts.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Analysis tab --- statistical charts]}}
 \caption{Patient analysis interface --- epidemiological and clinical statistics charts}
 \label{fig:analysis_charts}
 \end{figure}
@@ -3418,7 +3536,7 @@ The analysis tab provides a set of interactive statistical charts generated auto
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: AI Model analysis dashboard]}
+\IfFileExists{ai_model_dashboard.png}{\includegraphics[width=0.85\textwidth]{ai_model_dashboard.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: AI Model analysis dashboard]}}
 \caption{AI Model analysis dashboard --- SVM performance metrics and risk zone overview}
 \label{fig:ai_dashboard}
 \end{figure}
@@ -3435,7 +3553,7 @@ The analysis dashboard provides a global overview of the AI model's performance 
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Patient list in AI Model --- with Predict button]}
+\IfFileExists{ai_patients_list.png}{\includegraphics[width=0.85\textwidth]{ai_patients_list.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Patient list in AI Model --- with Predict button]}}
 \caption{AI Model patient list --- each row shows patient summary and a Predict action button}
 \label{fig:ai_patients}
 \end{figure}
@@ -3455,7 +3573,7 @@ The Patients tab displays the full list of patients registered in the platform. 
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Prediction tab --- risk gauge, probability, top-5 factors, recommendation]}
+\IfFileExists{ai_prediction_tab.png}{\includegraphics[width=0.85\textwidth]{ai_prediction_tab.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Prediction tab --- risk gauge, probability, top-5 factors, recommendation]}}
 \caption{AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}
 \label{fig:ai_prediction}
 \end{figure}
@@ -3470,7 +3588,50 @@ The Prediction tab displays the complete mortality risk assessment for the selec
   \item \textbf{Patient information summary}: Key clinical indicators displayed alongside the prediction for context.
 \end{itemize}
 
-  \item[\textbf{Monitoring} (\texttt{/monitor})] Longitudinal patient tracking: biological evolution charts, dialysis quality trends, prediction history, and clinical audit trail.
+  \item[\textbf{Monitoring} (\texttt{/monitor})] The Patient Monitoring Board provides longitudinal follow-up of individual hemodialysis patients. The interface is split into two panels:
+
+\begin{itemize}
+  \item \textbf{Left panel — Patient list}: A searchable list of all patients in the database. The search bar accepts full-text queries across patient identifiers and names. Clicking a patient selects them and loads their complete monitoring view in the right panel.
+  \item \textbf{Right panel — Clinical timeline}: An interactive chronological timeline of all clinical events recorded for the selected patient, fetched from the audit log and prediction history. Events are categorized and color-coded by type:
+  \begin{itemize}
+    \item \textbf{Modifications} (patient data edits) — field-level old/new value diff, displayed as structured change entries
+    \item \textbf{Predictions} — each mortality risk prediction with its score, risk zone, relative risk, and top contributing factors
+    \item \textbf{Imports} — preprocessing file validations, approval or rejection events
+  \end{itemize}
+\end{itemize}
+
+For each prediction event in the timeline, the panel displays:
+\begin{itemize}
+  \item The calibrated probability and risk zone badge (Faible / Modérée / Élevée)
+  \item The relative risk multiplier ($\times$RR vs.\ cohort baseline)
+  \item The top-5 contributing clinical factors with their SVM weights
+  \item The clinical recommendation text associated with the predicted zone
+\end{itemize}
+
+The most recent prediction is also highlighted at the top of the right panel as a \textbf{latest prediction summary card}. Date/time values are localized according to the active platform language (\texttt{fr-FR} or \texttt{en-US}).
+
+\begin{figure}[H]
+\centering
+\IfFileExists{monitor_board.png}{\includegraphics[width=0.85\textwidth]{monitor_board.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Patient Monitoring Board]}}
+\caption{Patient monitoring board --- patient list (left), clinical timeline with prediction history and field-level audit trail (right)}
+\label{fig:monitor_board}
+\end{figure}
+
+  \item[\textbf{Profile} (\texttt{/profile})] The profile page allows each authenticated user to manage their personal settings. It is organized into three panels:
+
+\begin{itemize}
+  \item \textbf{User information panel}: Displays the user's avatar (initials-based), full name, role badge (color-coded by hierarchy level), email address, and telephone number.
+  \item \textbf{Password management}: A secure form allowing the user to change their password. The user must supply their current password for identity confirmation (\texttt{POST /api/auth/change-password/}), followed by the new password (minimum 8 characters) and a confirmation field. The form validates that the new password differs from the current one and that both new-password fields match before submitting.
+  \item \textbf{Language preference}: A bilingual toggle allowing the user to switch the entire platform interface between \textbf{Français} and \textbf{English}. The preference is persisted to \texttt{localStorage} (\texttt{app\_language} key) via the global \texttt{LanguageContext}, which provides translated labels for all UI strings throughout the application. On the next session, the preferred language is automatically restored.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{profile_page.png}{\includegraphics[width=0.85\textwidth]{profile_page.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Profile page --- user info, password change, language selector]}}
+\caption{Profile page --- user information panel, password change form, and bilingual language selector (Français / English)}
+\label{fig:profile_page}
+\end{figure}
+
 \end{description}
 
 \section{Data Visualization}\label{sec:dataviz}
@@ -3484,7 +3645,7 @@ The analysis tab of the Patient Management module provides six interactive chart
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Monthly dialysis trend line chart]}
+\IfFileExists{chart_monthly.png}{\includegraphics[width=0.85\textwidth]{chart_monthly.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Monthly dialysis trend line chart]}}
 \caption{Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}
 \label{fig:chart_monthly}
 \end{figure}
@@ -3495,7 +3656,7 @@ This line chart displays the number of patients who started hemodialysis treatme
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Sex distribution doughnut chart]}
+\IfFileExists{chart_sex.png}{\includegraphics[width=0.85\textwidth]{chart_sex.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Sex distribution doughnut chart]}}
 \caption{Sex distribution of the hemodialysis cohort with associated KPI indicators}
 \label{fig:chart_sex}
 \end{figure}
@@ -3506,7 +3667,7 @@ This doughnut chart shows the male/female distribution of the cohort, complement
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Age distribution grouped bar chart]}
+\IfFileExists{chart_age.png}{\includegraphics[width=0.85\textwidth]{chart_age.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Age distribution grouped bar chart]}}
 \caption{Age distribution of hemodialysis patients grouped by sex in 5-year age bands}
 \label{fig:chart_age}
 \end{figure}
@@ -3517,7 +3678,7 @@ A grouped bar chart displays the age distribution separately for male and female
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Complication types horizontal bar chart]}
+\IfFileExists{chart_complications.png}{\includegraphics[width=0.85\textwidth]{chart_complications.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Complication types horizontal bar chart]}}
 \caption{Frequency of documented complication types across the patient cohort}
 \label{fig:chart_complications}
 \end{figure}
@@ -3528,7 +3689,7 @@ A horizontal bar chart ranks all documented complication types by frequency of o
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: CKD etiology grouped bar chart]}
+\IfFileExists{chart_etiology.png}{\includegraphics[width=0.85\textwidth]{chart_etiology.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: CKD etiology grouped bar chart]}}
 \caption{Distribution of CKD etiologies stratified by inclusion status in the cohort}
 \label{fig:chart_etiology}
 \end{figure}
@@ -3539,7 +3700,7 @@ A grouped bar chart shows the distribution of chronic kidney disease etiologies 
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Comorbidity combinations horizontal bar chart]}
+\IfFileExists{chart_comorbidities.png}{\includegraphics[width=0.85\textwidth]{chart_comorbidities.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Comorbidity combinations horizontal bar chart]}}
 \caption{Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}
 \label{fig:chart_comorbidities}
 \end{figure}
@@ -3552,15 +3713,15 @@ The prediction result visualization is designed to communicate risk in a clinica
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Full prediction result panel]}
+\IfFileExists{prediction_display.png}{\includegraphics[width=0.85\textwidth]{prediction_display.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Full prediction result panel]}}
 \caption{Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}
 \label{fig:prediction_display}
 \end{figure}
 
 The prediction interface displays:
 \begin{itemize}
-  \item A \textbf{risk gauge} (SVG arc, green/orange/red) whose needle position corresponds to the calibrated probability $\hat{p}_{\text{cal}}$
-  \item The \textbf{calibrated probability} shown numerically (e.g., "47.1\% estimated 1-year mortality risk")
+  \item A \textbf{risk gauge} (SVG arc, green/orange/red) whose needle position corresponds to the Platt-scaled probability $\hat{p}$
+  \item The \textbf{mortality probability} shown numerically (e.g., "47.1\% estimated 1-year mortality risk")
   \item A \textbf{relative risk badge} comparing the patient's risk to the cohort baseline ($\times$ RR)
   \item A \textbf{top-5 contributing factors} panel, where each factor is displayed with its SVM feature weight as a horizontal bar, the actual patient value, and the direction of influence (risk-increasing or protective)
   \item A \textbf{clinical recommendation} text block, tailored to the risk zone, specifying recommended follow-up intensity and clinical actions
@@ -3570,12 +3731,83 @@ Additionally, the \textbf{AI Model analysis dashboard} (Tab 1) displays summary 
 
 \begin{figure}[H]
 \centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: AI model dashboard with cohort-level prediction charts]}
+\IfFileExists{ai_model_dashboard.png}{\includegraphics[width=0.85\textwidth]{ai_model_dashboard.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: AI model dashboard with cohort-level prediction charts]}}
 \caption{AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}
 \label{fig:ai_dashboard_charts}
 \end{figure}
 
 These cohort-level charts include the risk zone distribution (proportion of patients per zone), prediction history, and model performance metrics, providing clinical managers with an aggregated view of the AI system's outputs across the entire patient population.
+
+\subsection{AI Cohort Analysis Charts (AI Model --- Analysis Dashboard)}
+\label{sec:dataviz_ai_charts}
+
+The AI Model analysis dashboard includes a dedicated set of analytical charts providing deep insight into the cohort's risk stratification and the model's discriminative behavior. These charts are generated dynamically from all stored predictions via the cohort analytics endpoint.
+
+\subsubsection{Risk Zone Distribution}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_zones.png}{\includegraphics[width=0.75\textwidth]{ai_chart_zones.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: AI risk zone distribution chart]}}
+\caption{Cohort risk zone distribution --- proportion of patients classified as Faible, Modérée, and Élevée risk}
+\label{fig:ai_chart_zones}
+\end{figure}
+
+A doughnut/pie chart shows the proportion of the cohort falling into each risk zone (Faible / Modérée / Élevée). This high-level indicator enables the clinical team to assess the overall risk burden of their patient population at a glance.
+
+\subsubsection{Predicted Outcome Distribution}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_outcome.png}{\includegraphics[width=0.80\textwidth]{ai_chart_outcome.png}}{\framebox[0.80\textwidth][c]{\small[Screenshot: AI predicted outcome chart]}}
+\caption{Predicted one-year mortality outcome distribution across the hemodialysis cohort}
+\label{fig:ai_chart_outcome}
+\end{figure}
+
+This chart displays the distribution of predicted one-year mortality probabilities across the entire cohort, illustrating the range and concentration of risk scores and helping identify the proportion of patients requiring urgent clinical attention.
+
+\subsubsection{Kaplan-Meier Survival Estimate by Risk Zone}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_kaplan_meier.png}{\includegraphics[width=0.82\textwidth]{ai_chart_kaplan_meier.png}}{\framebox[0.82\textwidth][c]{\small[Screenshot: Kaplan-Meier survival curves by risk zone]}}
+\caption{Kaplan-Meier survival curves stratified by predicted risk zone --- Faible (green), Modérée (orange), Élevée (red)}
+\label{fig:ai_chart_kaplan_meier}
+\end{figure}
+
+Kaplan-Meier survival curves are plotted separately for each risk zone, illustrating the prognostic separation achieved by the model. The divergence between the three curves quantifies the clinical utility of the risk stratification: patients in the Élevée zone show substantially lower survival probability over the 12-month observation window.
+
+\subsubsection{Risk Factor Contribution Profile}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_factors.png}{\includegraphics[width=0.82\textwidth]{ai_chart_factors.png}}{\framebox[0.82\textwidth][c]{\small[Screenshot: Top risk factors bar chart]}}
+\caption{Top contributing risk factors --- mean SVM feature weights across the cohort, ranked by absolute importance}
+\label{fig:ai_chart_factors}
+\end{figure}
+
+A horizontal bar chart ranks the clinical variables by their mean absolute contribution to the SVM risk score across all predictions in the cohort. Variables shown in red increase mortality risk; those in green are protective. This aggregated view complements the per-patient factor panel.
+
+\subsubsection{Clinical Risk Profile Radar}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_risk_profile.png}{\includegraphics[width=0.72\textwidth]{ai_chart_risk_profile.png}}{\framebox[0.72\textwidth][c]{\small[Screenshot: Risk profile radar chart]}}
+\caption{Multi-dimensional clinical risk profile --- radar chart of normalized key indicators for Faible, Modérée, and Élevée zones}
+\label{fig:ai_chart_risk_profile}
+\end{figure}
+
+A radar (spider) chart overlays the mean clinical profile of patients in each risk zone across the six most discriminating variables (albumin, Charlson score, dialysis vintage, sodium, hemoglobin, and ultrafiltration). The shape divergence between risk zones reveals the characteristic clinical signature of each risk category.
+
+\subsubsection{Biological Indicators by Risk Zone}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{ai_chart_boxplots_zones.png}{\includegraphics[width=0.85\textwidth]{ai_chart_boxplots_zones.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Box plots of biological indicators by risk zone]}}
+\caption{Serum albumin distribution by risk zone --- interquartile range (Q1--Q3) for Zone Faible, Modérée, and Élevée}
+\label{fig:ai_chart_boxplots_zones}
+\end{figure}
+
+This chart displays the interquartile distribution (Q1--Q3) of serum albumin across the three risk zones. The progressive decrease in albumin levels from Zone Faible ($\sim$40 g/L) to Zone Élevée ($\sim$30 g/L) confirms hypoalbuminemia as a key biological marker of elevated mortality risk in hemodialysis patients.
 
 \section{User Workflows \& Sequence Diagrams}\label{sec:workflows}
 
@@ -3746,9 +3978,8 @@ The backend then derives the risk score as $\text{score} = p \times 100$ and ass
   \draw[msgfwd] (14.13,-6.4) arc(90:-270:0.2cm);
 
 \draw[msgret] (14,-7.3)  -- node[msglbl]{7. p\_raw $\in$ [0,1]} (7,-7.3);
-\draw[msgfwd] (7,-8.0)   -- node[msglbl]{8. iso\_calibrator.transform(p\_raw)} (14,-8.0);
-\draw[msgret] (14,-8.7)  -- node[msglbl]{9. p\_calib (calibrated probability)} (7,-8.7);
-\draw[msgfwd] (7,-9.4)   -- node[msglbl]{10. $\hat{p}<10\%$$\rightarrow$Faible,\ $10\%{\leq}\hat{p}<40\%$$\rightarrow$Modéré,\ $\hat{p}{\geq}40\%$$\rightarrow$Élevé} (7,-9.4);
+\draw[msgret] (14,-8.0)  -- node[msglbl]{8. $\hat{p}$ (Platt-scaled probability via CalibratedClassifierCV)} (7,-8.0);
+\draw[msgfwd] (7,-8.7)   -- node[msglbl]{9. $\hat{p}<10\%$$\rightarrow$Faible,\ $10\%{\leq}\hat{p}<29\%$$\rightarrow$Modéré,\ $\hat{p}{\geq}29\%$$\rightarrow$Élevé} (7,-8.7);
   \draw[msgfwd] (7.13,-9.2) arc(90:-270:0.25cm);
 \draw[msgfwd] (7,-10.1)  -- node[msglbl]{11. INSERT INTO audit\_auditlog} (10.5,-10.1);
 \draw[msgret] (10.5,-10.8) -- node[msglbl]{12. OK} (7,-10.8);
@@ -3801,15 +4032,6 @@ Functional testing covered the complete user journey from authentication through
   \item \textbf{RBAC}: Systematic verification that Résident accounts cannot access validation or administration endpoints, and that Chef de service accounts cannot access admin-only user management functions
   \item \textbf{Password confirmation}: Verification that account modifications (role change, password reset) correctly require entering the user's own password before saving
 \end{itemize}
-
-Figure~\ref{fig:test_results} provides a summary view of the functional test coverage, confirming that all critical user flows were validated across each role.
-
-\begin{figure}[H]
-\centering
-\framebox[0.85\textwidth][c]{\small[Screenshot: Test results or system in operation]}
-\caption{Functional test coverage overview --- key user flows verified across all four user roles}
-\label{fig:test_results}
-\end{figure}
 
 \subsection{API Tests}
 
@@ -3870,11 +4092,11 @@ The LLM preprocessing time of 1--2 minutes for 478 rows reflects the sequential 
 
 The three-zone risk stratification identifies:
 \begin{itemize}
-  \item \textbf{63 High-risk patients} (13.2\% of cohort) with 55.6\% observed mortality — enabling proactive, intensive clinical follow-up
-  \item \textbf{257 Low-risk patients} (53.8\%) with only 5.1\% mortality — safely allocated to standard follow-up, optimizing resource use
+  \item \textbf{144 High-risk patients} (30.1\% of cohort) with 46.5\% observed mortality — enabling proactive, intensive clinical follow-up
+  \item \textbf{212 Low-risk patients} (44.4\%) with only 3.8\% mortality — safely allocated to standard follow-up, optimizing resource use
 \end{itemize}
 
-The three-zone stratification — Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<40\%$), Élevée ($\hat{p}\geq40\%$) — with thresholds from TRIPOD/DOPPS/KDIGO guidelines was confirmed clinically meaningful by the nephrology team of CHU Hassan II for daily triage and resource allocation.
+The three-zone stratification — Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<29\%$), Élevée ($\hat{p}\geq29\%$) — with thresholds derived by ROC/Youden bootstrap analysis and validated by the nephrology team of CHU Hassan II, was confirmed clinically meaningful for daily triage and resource allocation.
 
 These results are consistent with the KDIGO 2012 clinical practice guidelines \cite{kdigo2015}, which emphasize the importance of risk stratification in CKD management to allocate clinical resources proportionally to patient need. The platform's three-zone classification operationalizes this recommendation by translating the model's probabilistic output into three clinically actionable categories, each associated with a specific follow-up protocol.
 
@@ -3948,6 +4170,12 @@ Bright TJ, Wong A, Dhurjati R, et al. (2012).
 \newblock Effect of clinical decision-support systems: a systematic review.
 \newblock \textit{Annals of Internal Medicine}, 157(1):29--43.
 
+\bibitem{jager2019ckd}
+Jager KJ, Kovesdy C, Langham R, Rosenberg M, Jha V, Zoccali C (2019).
+\newblock A single number for advocacy and communication---worldwide more than 850 million individuals have kidney diseases.
+\newblock \textit{Kidney International}, 96(5):1048--1050.
+\newblock PMID: 31655763. DOI: 10.1016/j.kint.2019.07.012.
+
 \bibitem{kdigo2015}
 KDIGO CKD Work Group (2013).
 \newblock KDIGO 2012 clinical practice guideline for the evaluation and management of chronic kidney disease.
@@ -3969,9 +4197,9 @@ Hasegawa T, Nakai S, Masakane I, et al. (2018).
 \newblock \textit{Clinical and Experimental Nephrology}, 22(1):204--213.
 
 \bibitem{llm_clinical_nlp_2023}
-Yang X, Chen A, PourNejatian N, et al. (2022).
-\newblock A large language model for electronic health records.
-\newblock \textit{npj Digital Medicine}, 5:194.
+Qwen Team, Alibaba Cloud (2024).
+\newblock Qwen2.5 Technical Report.
+\newblock \textit{arXiv preprint}, arXiv:2412.15115.
 
 \bibitem{rag_lewis_2020}
 Lewis P, Perez E, Piktus A, et al. (2020).
@@ -4073,11 +4301,6 @@ Wick JP, Turin TC, Faris PD, et al. (2019).
 \newblock A clinical risk prediction tool for 6-month mortality after dialysis initiation among older adults.
 \newblock \textit{American Journal of Kidney Diseases}, 74(2):167--176.
 
-\bibitem{kaesler2020}
-Kaesler N, Peters B, Wied S, et al. (2020).
-\newblock Predicting short-term risk of falls in patients with ESRD using machine learning: a longitudinal cohort study.
-\newblock \textit{Clinical Journal of the American Society of Nephrology}, 15(7):1016--1024.
-
 \bibitem{zhu2021}
 Zhu Y, Qi C, Shi R, et al. (2021).
 \newblock Machine learning-based prediction model for 1-year mortality in maintenance hemodialysis patients.
@@ -4087,6 +4310,18 @@ Zhu Y, Qi C, Shi R, et al. (2021).
 Nasr WE, Abdelhamid YA, Moustafa AA (2022).
 \newblock Predicting mortality in hemodialysis patients using support vector machine.
 \newblock \textit{Egyptian Journal of Internal Medicine}, 34:18.
+
+\bibitem{sheng2020}
+Sheng K, Yao X, Li J, He Y, Zhang P, Chen J (2020).
+\newblock Prognostic machine learning models for first-year mortality in incident hemodialysis patients: development and validation study.
+\newblock \textit{JMIR Medical Informatics}, 8(10):e20578.
+\newblock PMID: 33118948. DOI: 10.2196/20578.
+
+\bibitem{garcia2021}
+Garc\'ia-Montemayor V, Soriano S, Bu\'endia P, et al. (2021).
+\newblock Predicting mortality in hemodialysis patients using machine learning analysis.
+\newblock \textit{Clinical Kidney Journal}, 14(7):1874--1882.
+\newblock PMID: 34221370. DOI: 10.1093/ckj/sfab086.
 
 \bibitem{beddhu2000charlson}
 Beddhu S, Bruns FJ, Saul M, Seddon P, Zeidel ML (2000).
@@ -4113,11 +4348,6 @@ Khan IH, Catto GR, Edward N, Fleming LW, Henderson IS, MacLeod AM (1994).
 \newblock Influence of coexisting disease on survival on renal-replacement therapy.
 \newblock \textit{Lancet}, 343(8912):1511--1514.
 
-\bibitem{diaz2020dialrisk}
-Díez-Sanmartín C, Sarasa Cabezuelo A (2020).
-\newblock Use of artificial intelligence techniques to predict survival in kidney transplantation: a systematic review.
-\newblock \textit{Journal of Clinical Medicine}, 9(2):572.
-
 \bibitem{montassir2021morocco}
 Montassir D, Azzouzi L, Hamzaoui H, et al. (2021).
 \newblock Facteurs de risque de mortalité chez les patients hémodialysés chroniques au Maroc: étude rétrospective multicentrique.
@@ -4137,11 +4367,19 @@ Yu ASL, Chertow GM, Luyckx VA, Marsden PA, Skorecki K, Taal MW (2020).
 Collins GS, Reitsma JB, Altman DG, Moons KGM (2015).
 \newblock Transparent reporting of a multivariable prediction model for individual prognosis or diagnosis (TRIPOD): the TRIPOD statement.
 \newblock \textit{Annals of Internal Medicine}, 162(1):55--63.
+\newblock PMID: 25560714. DOI: 10.7326/M14-0697.
 
 \bibitem{dopps2022}
-Pisoni RL, Zepel L, Port FK, Robinson BM (2015).
-\newblock Trends in US vascular access use, patient preferences, and related practices: an update from the US DOPPS practice monitor with international comparisons.
-\newblock \textit{American Journal of Kidney Diseases}, 65(6):905--915.
+Robinson BM, Zhang J, Morgenstern H, Bradbury BD, Ng LJ, McCullough KP, Gillespie BW, Hakim R, Rayner H, Fort J, Akizawa T, Tentori F, Pisoni RL (2014).
+\newblock Worldwide, mortality risk is high soon after initiation of hemodialysis.
+\newblock \textit{Kidney International}, 85(1):158--165.
+\newblock PMID: 23978267. DOI: 10.1038/ki.2013.327.
+
+\bibitem{waikar2011sodium}
+Waikar SS, Curhan GC, Brunelli SM (2011).
+\newblock Mortality associated with low serum sodium concentration in maintenance hemodialysis.
+\newblock \textit{American Journal of Medicine}, 124(1):77--84.
+\newblock PMID: 21187188. PMC: PMC3040578. DOI: 10.1016/j.amjmed.2010.11.005.
 
 \bibitem{bishop2006prml}
 Bishop CM (2006).
@@ -4152,6 +4390,7 @@ Bishop CM (2006).
 Troyanskaya O, Cantor M, Sherlock G, et al. (2001).
 \newblock Missing value estimation methods for DNA microarrays.
 \newblock \textit{Bioinformatics}, 17(6):520--525.
+\newblock PMID: 11395428. DOI: 10.1093/bioinformatics/17.6.520.
 
 \bibitem{hanley1982auc}
 Hanley JA, McNeil BJ (1982).
