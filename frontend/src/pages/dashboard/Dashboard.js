@@ -421,14 +421,14 @@ function Dashboard() {
               {/* Droite — stats inline (admin/chef uniquement) */}
               {isAdminScope && <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
                 {[
-                  { label: t('dashboardActiveAccounts'),  value: stats.activeUsers,     filterKey: 'active'       },
-                  { label: t('dashboardInactiveAccounts'),value: stats.inactiveUsers,   filterKey: 'inactive'     },
-                  { label: t('dashboardSuperAdmins'),     value: stats.adminsCount,     filterKey: 'super_admin'  },
-                  { label: t('dashboardChiefService'),    value: stats.chefsCount,      filterKey: 'chef_service' },
-                  { label: t('dashboardProfessors'),      value: stats.professorsCount, filterKey: 'professeur'   },
-                  { label: t('dashboardResidents'),       value: stats.residentsCount,  filterKey: 'resident'     },
-                  { label: t('dashboardRolesLoaded'),     value: stats.rolesCount,      filterKey: null           },
-                ].map(({ label, value, filterKey }) => {
+                  { label: t('dashboardActiveAccounts'),  value: stats.activeUsers,     filterKey: 'active',       roles: null },
+                  { label: t('dashboardInactiveAccounts'),value: stats.inactiveUsers,   filterKey: 'inactive',     roles: null },
+                  { label: t('dashboardSuperAdmins'),     value: stats.adminsCount,     filterKey: 'super_admin',  roles: ['super_admin'] },
+                  { label: t('dashboardChiefService'),    value: stats.chefsCount,      filterKey: 'chef_service', roles: null },
+                  { label: t('dashboardProfessors'),      value: stats.professorsCount, filterKey: 'professeur',   roles: null },
+                  { label: t('dashboardResidents'),       value: stats.residentsCount,  filterKey: 'resident',     roles: null },
+                  { label: t('dashboardRolesLoaded'),     value: stats.rolesCount,      filterKey: null,           roles: null },
+                ].filter(({ roles }) => !roles || roles.includes(user?.role)).map(({ label, value, filterKey }) => {
                   const isActive = filterKey && activeFilter === filterKey;
                   return (
                     <Box
