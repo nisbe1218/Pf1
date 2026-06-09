@@ -1,0 +1,94 @@
+@startuml SequencePredictionMortalite
+' Séquence 3 — Prédiction de Mortalité (SVM 32 features)
+' Basé sur : backend/predictions/predict_mortalite.py
+'             frontend/src/pages/model-ai/ModelAI.js
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam sequenceArrowThickness 1.5
+skinparam participantBorderColor #374151
+skinparam participantBackgroundColor #FFFFFF
+skinparam participantFontColor #0F172A
+skinparam noteBorderColor #D97706
+skinparam noteBackgroundColor #FEF9C3
+skinparam lifelineBorderColor #9CA3AF
+
+actor "Utilisateur\n(Prof / Admin / Chef)" as User
+participant "Frontend\n(ModelAI.js)" as FE #E8F4FD
+participant "Backend\n(PredictMortalitePatientView)" as BE #FEF3C7
+participant "SVM Model\n(mortalite_svm.joblib)" as SVM #DCFCE7
+database "PostgreSQL\n(Patient)" as DB #FFF7ED
+database "AuditLog" as Audit #FCE7F3
+
+== 1. Sélection du patient ==
+
+User -> FE : Choisir un patient dans la liste
+activate FE
+FE -> BE : GET /api/patients/{id}/
+activate BE
+BE -> DB : SELECT * FROM patient WHERE id = ?
+activate DB
+DB --> BE : Patient (162 champs + JSONFields)
+deactivate DB
+BE --> FE : Patient JSON complet
+deactivate BE
+
+FE -> FE : FeatureResolver — extraire 32 features\n(extra_data, _NUMERIC_MAP,\n _BINARY_MAP, _KEYWORD_MAP)
+note right of FE
+  32 features résolues :
+  dialyse (6) · biologie (6)
+  comorbidités (6) · clinique (8)
+  interactions (6)
+end note
+FE --> User : Afficher fiche patient + features pré-remplies
+
+== 2. Lancement de la prédiction ==
+
+User -> FE : Cliquer "Prédire la mortalité à 1 an"
+
+alt Mode consultation (données patient réelles)
+    FE -> BE : GET /api/predictions/patient/{id}/mortalite/
+else Mode simulation (features modifiées manuellement)
+    FE -> BE : POST /api/predictions/patient/{id}/mortalite/\n{ features: { albumine_basale: 42,\n  diabete: 1, seances_par_semaine: 3, ... } }
+end
+activate BE
+
+BE -> DB : SELECT * FROM patient WHERE id = ?
+activate DB
+DB --> BE : Patient
+deactivate DB
+
+BE -> BE : Extraire 32 features numériques\ndepuis les champs patient\n(ou features simulées du body)
+
+BE -> SVM : model.predict_proba(X)\nX = vecteur 32 features normalisé
+activate SVM
+note right of SVM
+  Modèle SVM Linéaire
+  Entraîné sur cohorte dialyse
+  Chargé depuis predictions/models/
+  mortalite_svm.joblib
+end note
+SVM --> BE : probabilite_deces (float 0–1)
+deactivate SVM
+
+BE -> BE : Calibrer probabilité\nCalculer score_risque\nDéterminer niveau_risque\n(faible / modéré / élevé)
+BE -> BE : Sélectionner top-5 factors\n(coefficients SVM pondérés)
+BE -> BE : Générer recommendation textuelle
+
+BE -> Audit : INSERT AuditLog\n{ action: "prediction_mortalite",\n  entite: "Patient", entite_id: id }
+activate Audit
+deactivate Audit
+
+BE --> FE : 200 OK\n{\n  probabilite_deces,\n  probabilite_calibree,\n  score_risque,\n  niveau_risque,\n  seuil_faible_modere,\n  seuil_modere_eleve,\n  recommendation,\n  auc_cv,\n  model_version,\n  factors: [{ label, weight }]\n}
+deactivate BE
+
+== 3. Affichage des résultats ==
+
+FE -> FE : Afficher gauge (doughnut chart)\nzones : vert / orange / rouge
+FE -> FE : Afficher top-5 facteurs\n(bar chart poids)
+FE -> FE : Afficher courbe Kaplan-Meier\n(survie par zone de risque)
+FE --> User : Résultats de prédiction\n+ recommandation clinique
+deactivate FE
+
+@enduml

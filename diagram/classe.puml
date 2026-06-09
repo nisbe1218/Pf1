@@ -1,12 +1,14 @@
-@startuml
+@startuml DiagrammeClasseUML
+' Diagramme de classes — basé sur l'implémentation réelle du projet
+' users/models.py · patients/models.py · audit/models.py · predictions/predict_mortalite.py
 top to bottom direction
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 skinparam packageStyle rectangle
 skinparam backgroundColor white
 skinparam linetype ortho
-skinparam ranksep 40
-skinparam nodesep 25
+skinparam ranksep 45
+skinparam nodesep 30
 
 skinparam class {
     BackgroundColor #FFFFFF
@@ -14,247 +16,200 @@ skinparam class {
     FontColor #0F172A
     ArrowColor #64748B
 }
-
 skinparam package {
     BorderColor #CBD5E1
     FontColor #0F172A
     BackgroundColor #F8FAFC
 }
 
-' ===== UTILISATEURS ET RÔLES =====
+' ===== SÉCURITÉ & ACCÈS =====
 package "Sécurité & Accès" #FCE7F3 {
-    abstract class Utilisateur {
-        - id : int
-        - nom : string
-        - prenom : string
-        - email : string
-        - motDePasse : string
-        + seConnecter() : bool
-        + consulterDroits() : void
-        + consulterJournalTraçabilité() : void
+    class Role {
+        +id : int
+        +nom : string
+        --
+        Valeurs : super_admin
+        chef_service · professeur
+        resident
     }
 
-    class JournalTraçabilité {
-        - id : int
-        - action : string
-        - cible : string
-        - dateAction : datetime
-        - details : string
-        + enregistrer() : void
-        + consulter() : void
+    class Utilisateur {
+        +id : int
+        +email : string
+        +nom : string
+        +prenom : string
+        +telephone : string
+        +personal_notes : text
+        +is_active : bool
+        +is_staff : bool
+        +date_creation : datetime
+        --
+        +set_password(raw) : void
+        +check_password(raw) : bool
+        +__str__() : string
     }
 
-    class SuperAdministrateur {
-        + gererUtilisateurs() : void
-        + consulterJournal() : void
-        + consulterDossiersPatients() : void
-        + consulterStatistiques() : void
+    class AuditLog {
+        +id : int
+        +action : text
+        +entite : string
+        +entite_id : int
+        +details : text
+        +adresse_ip : string
+        +date : datetime
+        --
+        +__str__() : string
     }
 
-    class ChefDeService {
-        + gererUtilisateurs() : void
-        + consulterJournal() : void
-        + importerDonneesExcel() : void
-        + nettoyerDonnees() : void
-        + validerDonnees() : void
-        + stockerDonnees() : void
-        + consulterDossiersPatients() : void
-        + suivrePatients() : void
-        + fairePredictions() : void
-        + comparerModeles() : void
-        + consulterStatistiques() : void
-    }
-
-    class Professeur {
-        + consulterDossiersPatients() : void
-        + suivrePatient() : void
-        + fairePredictions() : void
-        + comparerModeles() : void
-        + analyserStatistiques() : void
-    }
-
-    class Resident {
-        + consulterDossiersPatients() : void
-        + suivrePatient() : void
-        + fairePredictions() : void
-        + analyserStatistiques() : void
+    class HiddenAuditLog {
+        +id : int
+        +hidden_at : datetime
+        --
+        unique(user, audit_log)
     }
 }
 
 ' ===== DOSSIER PATIENT =====
-package "Dossier Patient" #DBEAFE {
+package "Dossier Patient" #FEF3C7 {
     class Patient {
-        - id : int
-        - nom : string
-        - prenom : string
-        - dateNaissance : date
-        - diagnosticPrincipal : string
-        - classificationClinique : enum(aigue, chronique)
-        + classerPatient() : void
-        + getHistoriqueMedical() : List<Consultation>
-        + getParametresCliniques() : List<DonneeMedicale>
+        +id : int
+        +id_patient : string
+        +id_enregistrement_source : string
+        +nom, prenom : string
+        +age : int
+        +sexe : enum(M/F/O)
+        +maladie : string
+        +date_naissance : date
+        +date_admission : date
+        +statut_inclusion : string
+        +statut_consentement : string
+        +icc_charlson : string
+        .. sections plates (162 champs) ..
+        +demographie_* (12 champs)
+        +irc_* (13 champs)
+        +comorbidite_* (3 champs)
+        +presentation_* (14 champs)
+        +biologie_* (21 champs)
+        +imagerie_* (12 champs)
+        +dialyse_* (21 champs)
+        +qualite_* (12 champs)
+        +complication_* (9 champs)
+        +traitement_* (2 champs)
+        +devenir_* (8 champs)
+        .. JSONFields miroirs ..
+        +demographie_data : JSONField
+        +irc_data : JSONField
+        +biologie_data : JSONField
+        +dialyse_data : JSONField
+        +devenir_data : JSONField
+        +extra_data : JSONField
+        +created_at, updated_at : datetime
+        --
+        +save() : void
+        +__str__() : string
     }
 
-    class DossierPatient {
-        - id : int
-        - dateCreation : date
-        - statut : enum(actif, archive)
-        + consulter() : void
-        + archiver() : void
+    class PatientFormTemplate {
+        +id : int
+        +name : string
+        +source_file_name : string
+        +sheet_name : string
+        +imported_at : datetime
+        --
+        +__str__() : string
     }
 
-    class Consultation {
-        - id : int
-        - dateConsultation : datetime
-        - notes : string
-        + ajouterDiagnostic() : void
-        + ajouterTraitement() : void
-        + modifier() : void
-    }
-
-    class Diagnostic {
-        - id : int
-        - description : string
-        - dateDiagnostic : date
-    }
-
-    class Traitement {
-        - id : int
-        - description : string
-        - dateDebut : date
-        - dateFin : date
-    }
-
-    class DonneeMedicale {
-        - id : int
-        - type : enum(biologique, clinique)
-        - valeur : float
-        - dateMesure : date
-        + nettoyer() : void
-        + valider() : bool
-    }
-}
-
-' ===== GESTION DES DONNÉES =====
-package "Gestion des données" #E0E7FF {
-    class ImportDonneesExcel {
-        - id : int
-        - fichierExcel : string
-        - dateImport : datetime
-        - etatImport : enum(en_attente, valide, rejete)
-        + importer() : void
-        + controlerFormat() : bool
-    }
-
-    class ValidationDonnees {
-        - id : int
-        - dateValidation : datetime
-        - statut : enum(validee, rejetee)
-        - commentaire : string
-        + valider() : bool
-        + rejeter() : void
-    }
-
-    class GestionDonnees {
-        + importerExcel() : void
-        + nettoyerDonnees() : void
-        + validerDonnees() : void
-        + stockerDonnees() : void
+    class PatientFormField {
+        +id : int
+        +key : string
+        +label : string
+        +field_type : enum(text_short, text_long,\n  single_choice, multiple_choice,\n  date, integer, decimal,\n  boolean, auto)
+        +order : int
+        +choices : JSONField
+        +source_hint : string
+        +is_required : bool
+        --
+        unique(template, key)
     }
 }
 
-' ===== CLASSIFICATION CLINIQUE =====
-package "Classification clinique" #FEF3C7 {
-    class MaladieAigue {
-        - id : int
-        - type : enum(ESRD, coagulation, insuffisance_aigue)
-        - gravite : enum(critique, intermediaire, stable)
-        + prioriser() : int
+' ===== PRÉTRAITEMENT =====
+package "Prétraitement & Validation" #DBEAFE {
+    class PreprocessValidationRequest {
+        +id : int
+        +session_id : string
+        +source : enum(corrected, original)
+        +source_file_name : string
+        +submitted_at : datetime
+        +status : enum(pending, approved, rejected)
+        +reviewed_at : datetime
+        +comment : text
+        +rows_count : int
+        +columns_count : int
+        +quality_score : float
+        --
+        +__str__() : string
     }
 
-    class MaladieChronique {
-        - id : int
-        - diagnostic : string
-        - scoreStabilite : enum(stable, instable, degradation)
-        + calculerScore() : string
-        + predireEvolution() : Prediction
+    class DynamicColumnRequest {
+        +id : int
+        +action : enum(add, delete)
+        +column_key : string
+        +column_label : string
+        +field_type : string
+        +submitted_at : datetime
+        +status : enum(pending, approved, rejected)
+        +reviewed_at : datetime
+        +comment : text
     }
 }
 
-' ===== IA ET ANALYSE =====
+' ===== ANALYSE & IA =====
 package "Analyse & IA" #DCFCE7 {
-    class Prediction {
-        - id : int
-        - typePrediction : enum(coagulation, mortalite_1an, progression)
-        - score : float
-        - facteursInfluents : string
-        - datePrediction : datetime
-        + calculerScore() : float
-        + afficherResultat() : void
-    }
-
-    class ModeleML {
-        - id : int
-        - nom : string
-        - typeModele : string
-        - version : string
-        + executerPrediction() : Prediction
-        + comparer() : void
-    }
-
-    class Statistiques {
-        - id : int
-        - typeAnalyse : string
-        - resultats : string
-        - dateAnalyse : datetime
-        + visualiserGlobal() : void
-        + comparerModeles() : void
-        + analyserTendances() : void
+    class PredictionMortalite {
+        ' Résultat retourné par predict_mortalite.py
+        +patient_id : int
+        +probabilite_deces : float
+        +probabilite_calibree : float
+        +score_risque : float
+        +niveau_risque : enum(faible, modere, eleve)
+        +seuil_faible_modere : float
+        +seuil_modere_eleve : float
+        +recommendation : string
+        +auc_cv : float
+        +model_version : string
+        +factors : list[dict]
+        --
+        +predict(patient) : dict
+        +load_model() : SVM
     }
 }
 
 ' ===== HÉRITAGE =====
-Utilisateur <|-- SuperAdministrateur
-Utilisateur <|-- ChefDeService
-Utilisateur <|-- Professeur
-Utilisateur <|-- Resident
+' (implémenté via Role FK, pas d'héritage Python)
 
 ' ===== RELATIONS =====
-Utilisateur "1" --> "0..*" JournalTraçabilité : consulte
-Utilisateur "1" --> "0..*" Consultation : effectue
-Utilisateur "1" --> "0..*" Prediction : produit
-Utilisateur "1" --> "0..*" Statistiques : consulte
+Role "1" *-- "0..*" Utilisateur : attribué à
 
-ChefDeService "1" --> "0..*" ImportDonneesExcel : réalise
-ChefDeService "1" --> "0..*" ValidationDonnees : valide
-ChefDeService "1" --> "0..*" GestionDonnees : gère
+Utilisateur "1" *-- "0..*" AuditLog : génère
+Utilisateur "1" *-- "0..*" HiddenAuditLog : masque
+AuditLog "1" *-- "0..*" HiddenAuditLog : masqué dans
 
-Patient "1" --> "1" DossierPatient : possède
-Patient "1" --> "0..*" Consultation : concerne
-Consultation "1" --> "0..*" Diagnostic : contient
-Consultation "1" --> "0..*" Traitement : contient
-Consultation "1" --> "0..*" DonneeMedicale : enregistre
-Patient "1" --> "0..*" DonneeMedicale : possède
+Utilisateur "1" *-- "0..*" PreprocessValidationRequest : soumet
+Utilisateur "1" *-- "0..*" PreprocessValidationRequest : révise
+Utilisateur "1" *-- "0..*" DynamicColumnRequest : soumet
+Utilisateur "1" *-- "0..*" DynamicColumnRequest : révise
 
-Patient "1" --> "0..1" MaladieAigue : section aiguë
-Patient "1" --> "0..1" MaladieChronique : section chronique
-Patient "1" --> "0..*" Prediction : concerne
+PatientFormTemplate "1" *-- "1..*" PatientFormField : définit
 
-Prediction "1" --> "1" ModeleML : utilise
-Prediction "0..*" --> "0..*" DonneeMedicale : exploite
-Statistiques "0..*" --> "1" ModeleML : compare
-Statistiques "0..*" --> "0..*" Prediction : synthétise
+Patient "1" --> "0..*" PredictionMortalite : prédiction produite pour
 
-GestionDonnees --> ImportDonneesExcel
-GestionDonnees --> ValidationDonnees
-GestionDonnees --> DonneeMedicale
-
-' Aide PlantUML à stabiliser l'agencement vertical
+' Aide à l'agencement
+Role -[hidden]right-> PatientFormTemplate
 Utilisateur -[hidden]down-> Patient
-Patient -[hidden]down-> MaladieAigue
-MaladieAigue -[hidden]down-> Prediction
-Prediction -[hidden]down-> JournalTraçabilité
-JournalTraçabilité -[hidden]down-> ImportDonneesExcel
-ImportDonneesExcel -[hidden]down-> ValidationDonnees
+Patient -[hidden]right-> PatientFormTemplate
+PatientFormTemplate -[hidden]down-> PreprocessValidationRequest
+PreprocessValidationRequest -[hidden]right-> DynamicColumnRequest
+PredictionMortalite -[hidden]left-> DynamicColumnRequest
 
 @enduml

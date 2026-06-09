@@ -1,42 +1,76 @@
-@startuml
+@startuml InterfaceGestionDonnees
+' Interface de gestion des données — composants frontend réels
+' Basé sur frontend/src/pages/patients/PatientsManagement.js
+' et frontend/src/pages/preprocessing/ValidationRequests.js
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam ranksep 30
+skinparam nodesep 20
 
-package "UI" {
-  [Sidebar/Navigation] as Sidebar
-  [Tableau principal (patients)] as Table
-  [Filtres & Recherche] as Filters
-  [Dialogues (Ajout/Édition/Import/Export)] as Dialogs
-  [Statistiques & Graphiques] as Stats
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontColor #0F172A
+}
+skinparam package {
+  BorderColor #9CA3AF
+  FontColor #0F172A
+}
+skinparam actor {
+  FontColor #0F172A
 }
 
-package "Backend" {
-  [API Backend] as API
-  [Schéma dynamique (JSON)] as Schema<Card
-  elevation={0}
-  sx={{
-    borderRadius: 5,
-    border: '1px solid rgba(15, 63, 81, 0.14)',
-    background: 'linear-gradient(165deg, rgba(255,255,255,0.98) 
-  [Extra Data] as ExtraData
+actor "Utilisateur\n(Admin / Chef)" as User
+actor "AuthContext\n(rôle JWT)" as Auth
+
+package "Page Patients — PatientsManagement.js" #E8F4FD {
+  component "Tableau patients\n(liste paginée)" as Table
+  component "Filtres & Recherche\n(nom, statut, section)" as Filters
+  component "Dialogues\n(Ajout / Édition / Suppression)" as Dialogs
+  component "Import Excel\n(upload + dispatch preprocess)" as Import
+  component "Validation insertion\n(canValidateInsertion:\nadmin + chef seulement)" as Validate
+  component "Colonnes dynamiques\n(canManageDynColumns:\nadmin + chef seulement)" as DynCol
+  component "Graphiques & Stats\n(par section clinique)" as Stats
 }
 
-Sidebar --> Table
+package "Page Validation — ValidationRequests.js" #FEF3C7 {
+  component "Liste des demandes\n(PreprocessValidationRequest)" as ReqList
+  component "Révision corrections\n(lignes corrigées par LLM)" as Review
+  component "Actions admin/chef\nApprouver / Rejeter" as Actions
+}
+
+package "API Backend" #DCFCE7 {
+  component "CRUD patients\n/api/patients/" as PatAPI
+  component "Preprocessing\n/api/patients/preprocess/" as PrepAPI
+  component "Validation requests\n/api/patients/validation-requests/" as ValAPI
+}
+
+' Flux interface
+User --> Table
+User --> Filters
+User --> Dialogs
+User --> Import
+
+Auth --> Validate : contrôle accès
+Auth --> DynCol : contrôle accès
+Auth --> Actions : contrôle accès
+
 Filters --> Table
 Dialogs --> Table
-Table --> Stats
-Table --> API
-Schema --> Table
-ExtraData --> Table
-API --> Table
-Dialogs --> API
-Table --> ExtraData
-Schema --> Filters
+Import --> PrepAPI
+Table --> PatAPI
+Validate --> ValAPI
+DynCol --> PatAPI
+Stats --> Table
 
-' Sécurité (AuthContext) contrôle tout
-actor AuthContext
-AuthContext --> Sidebar
-AuthContext --> Filters
-AuthContext --> Dialogs
-AuthContext --> Stats
-AuthContext --> Table
+ReqList --> ValAPI
+Review --> PrepAPI
+Actions --> ValAPI
+
+PatAPI --> Table
+PrepAPI --> Import
+ValAPI --> ReqList
 
 @enduml

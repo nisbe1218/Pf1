@@ -1917,7 +1917,33 @@ Feature engineering was performed in two steps: extraction of raw clinical featu
 
 \subsection{Clinical Feature Extraction}
 
-The 24 raw clinical features are extracted from Patient ORM objects by the function \texttt{extract\_features\_for\_patient()} in \texttt{feature\_mapping.py}. This function implements a \textbf{multi-strategy extraction}: direct numeric fields, binary encoded fields, keyword-detected fields (e.g., dyspnea detected from symptom free-text), and ordinal categorical encoding.
+The 24 raw clinical features were selected through a two-step process: (1) a systematic review of the hemodialysis mortality prediction literature to identify consistently reported predictors \cite{kdigo2015, registre_rein_2022, dopps2022, sheng2020, garcia2021, albumin_dialysis_2018, beddhu2000charlson, pisoni2002vascular, shemin2001residual}; and (2) restriction to variables systematically documented in the HD-478 cohort (excluding columns with $>90\%$ missingness). Table~\ref{tab:feat_selection} summarises the 24 selected features by clinical domain.
+
+\begin{table}[H]
+\centering
+\caption{24 raw clinical features by domain and supporting literature}
+\label{tab:feat_selection}
+\small
+\begin{tabular}{p{3.2cm} p{5.8cm} p{4cm}}
+\toprule
+\textbf{Domain} & \textbf{Features} & \textbf{Rationale / Reference} \\
+\midrule
+Biological markers & \texttt{albumine\_basale}, \texttt{calcium\_basale}, \texttt{ferritine\_basale}, \texttt{pth\_basale} & Low albumin ($<$35 g/L) and abnormal mineral metabolism are independent mortality predictors \cite{albumin_dialysis_2018, kdigo_mineral_2017, kdigo_anemia_2012} \\
+\addlinespace
+Dialysis modality \& quality & \texttt{hemodialyse}, \texttt{seances\_par\_semaine}, \texttt{fistule\_arterioveineuse\_creee}, \texttt{admission\_cathetere\_tunnellise}, \texttt{du\_residuelle} & Dialysis frequency, vascular access type, and residual renal function are key KDIGO and DOPPS mortality indicators \cite{kdigo2015, pisoni2002vascular, shemin2001residual, dopps2022} \\
+\addlinespace
+Cardiovascular comorbidities & \texttt{hypertension}, \texttt{cardiopathie}, \texttt{evenement\_cardiovasculaire}, \texttt{diabete} & Cardiovascular disease is the leading cause of death in HD patients; diabetes and HTA amplify risk \cite{registre_rein_2022, beddhu2000charlson, dopps2022} \\
+\addlinespace
+Clinical symptoms & \texttt{dyspnee}, \texttt{oedemes\_surcharge}, \texttt{douleur\_abdominale}, \texttt{crise\_convulsive} & Symptom burden (dyspnea, edema) is a marker of decompensation and predicts short-term mortality in dialysis cohorts \cite{registre_rein_2022} \\
+\addlinespace
+Disease context & \texttt{etiologie\_mrc}, \texttt{maladie\_renale\_hereditaire}, \texttt{nombre\_hospitalisations}, \texttt{annee\_inclusion} & CKD etiology, hereditary disease, and hospitalisation count are prognostic covariates validated in both registry and ML-based studies \cite{kdigo2015, sheng2020, maoujoud2017morocco} \\
+\addlinespace
+Care \& access & \texttt{couverture\_medicale}, \texttt{liste\_attente\_transplantation}, \texttt{information\_transplantation\_donnee} & Socioeconomic determinants and transplant trajectory are locally significant predictors specific to the Moroccan context \cite{maoujoud2017morocco, usrds2022} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These features are extracted from Patient ORM objects by the function \texttt{extract\_features\_for\_patient()} in \texttt{feature\_mapping.py}, using a \textbf{multi-strategy extraction}: direct numeric fields, binary encoded fields, keyword-detected fields (e.g., dyspnea detected from symptom free-text), and ordinal categorical encoding.
 
 
 \subsection{Derived Risk Indicators}
@@ -2222,7 +2248,7 @@ Model selection followed a multi-criteria evaluation protocol. The primary crite
 
 \section{Model Comparison and Results}\label{sec:results}
 
-Nine models were trained and evaluated on the HD-478 cohort using 10-fold stratified cross-validation. Table~\ref{tab:model_comparison} reports the four primary metrics for each model. Figure~\ref{fig:auc_comparison} visualises the AUC-ROC and PR-AUC scores side-by-side to facilitate direct comparison across all classifiers.
+Nine models were trained and evaluated on the HD-478 cohort using 10-fold stratified cross-validation. Table~\ref{tab:model_comparison} reports the four primary metrics for each model.
 
 \begin{table}[H]
 \centering
@@ -2252,41 +2278,6 @@ After retraining on the LLM-preprocessed platform database, the deployed SVM rea
 Three additional models tested in the initial comparative study --- \textbf{LDA} (AUC\,=\,0.8225), \textbf{LR Ridge} (0.821), and \textbf{LASSO} (0.745) --- appear in the visual comparison figures (Figures~\ref{fig:roc_curves}--\ref{fig:boxplot_folds}) but are not included in this summary table, which focuses on the nine primary algorithms evaluated.}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}
-\begin{axis}[
-  ybar, bar width=0.32cm,
-  width=13cm, height=7.5cm,
-  ylabel={Score},
-  xlabel={Model},
-  symbolic x coords={LR,SVM,RF,ET,GB,ADB,XGB,LGBM,CB,Ens},
-  xtick=data,
-  xticklabel style={rotate=30,anchor=east,font=\footnotesize},
-  ymin=0.40, ymax=0.95,
-  ymajorgrids=true,
-  legend pos=north west,
-  legend style={font=\small},
-  nodes near coords,
-  nodes near coords align={vertical},
-  every node near coord/.style={font=\tiny,rotate=90,anchor=west},
-  title={AUC-ROC and PR-AUC Comparison Across All Models (HD-478 Cohort)},
-  title style={font=\bfseries\small}
-]
-\addplot[fill=teal!60,draw=teal!90!black] coordinates {
-  (LR,0.791) (SVM,0.826) (RF,0.812) (ET,0.804) (GB,0.818)
-  (ADB,0.795) (XGB,0.821) (LGBM,0.819) (CB,0.817) (Ens,0.824)
-};
-\addplot[fill=softrose!80,draw=softrose!90!black] coordinates {
-  (LR,0.441) (SVM,0.489) (RF,0.462) (ET,0.453) (GB,0.471)
-  (ADB,0.445) (XGB,0.478) (LGBM,0.474) (CB,0.469) (Ens,0.483)
-};
-\legend{AUC-ROC, PR-AUC}
-\end{axis}
-\end{tikzpicture}
-\caption{AUC-ROC and PR-AUC comparison across all evaluated models (HD-478 cohort, 10-fold stratified CV). SVM achieves the highest scores on both metrics.}
-\label{fig:auc_comparison}
-\end{figure}
 
 \begin{resultbox}{SVM Selected as Best Model}
 In the offline evaluation on raw HD-478 data, the linear SVM achieved the highest AUC-ROC (\textbf{0.8235}), PR-AUC (0.489), and F1-score (0.567) with a Brier Score of 0.127. After retraining on the LLM-preprocessed platform database, the deployed model further improves to \textbf{AUC\,=\,0.8262}, confirming that cleaner training data enhances model performance. SVM was preferred for three clinical reasons: (1) linear boundary provides direct feature-weight interpretation; (2) strong L2 regularization prevents overfitting on small cohorts; (3) single-model structure facilitates regulatory compliance and audit.
@@ -2859,11 +2850,11 @@ Table~\ref{tab:django_apps} describes the four applications and their responsibi
 
 Figure~\ref{fig:class_diagram} presents the UML class diagram of the five main Django models and their relationships, reflecting the static structure of the platform's PostgreSQL schema.
 
-The \textbf{Role} model is intentionally minimal: it holds only the technical role name (\texttt{name}) and a human-readable label, serving as the access-control reference table. It is linked to the \textbf{Utilisateur} model by a 1-to-many aggregation: one role can be assigned to many users, but each user has exactly one active role. The Utilisateur model stores user identity (unique email, full name, phone), hashed credentials, and exposes two methods: \texttt{login()} which issues a JWT token pair, and \texttt{change\_password()} which re-hashes the password.
+The \textbf{Role} model is intentionally minimal: it holds only the technical role name (\texttt{nom}), serving as the access-control reference table. It is linked to the \textbf{Utilisateur} model by a 1-to-many aggregation: one role can be assigned to many users, but each user has exactly one active role. The Utilisateur model stores user identity (unique email, full name, phone), hashed credentials, and exposes two methods: \texttt{login()} which issues a JWT token pair, and \texttt{change\_password()} which re-hashes the password.
 
 The \textbf{Patient} model is the richest entity in the schema. It stores all clinical data as a flat collection of 160+ individual \texttt{TextField} columns, organized by clinical domain prefix (e.g., \texttt{demographie\_*}, \texttt{biologie\_*}, \texttt{dialyse\_*}). An additional \texttt{extra\_data} JSONField stores institution-specific dynamic columns. The method \texttt{extract\_features()} constructs the 32-feature vector required by the SVM model.
 
-The \textbf{AuditLog} model records every sensitive action on the platform (create, update, delete, import, predict) with the entity identifier, a plain-text change description, the actor's IP address, and a precise timestamp. It is linked to Utilisateur by a 1-to-many association. The \textbf{PreprocessValidationRequest} model materializes the LLM preprocessing approval workflow: each session receives a unique \texttt{session\_id} (VARCHAR(64)), a status (\texttt{pending} / \texttt{approved} / \texttt{rejected}), and references to the submitting and reviewing users.
+The \textbf{AuditLog} model records every sensitive action on the platform (create, update, delete, import, predict) with the entity identifier, a plain-text change description, the actor's IP address, and a precise timestamp. It is linked to Utilisateur by a 1-to-many association. The \textbf{PreprocessValidationRequest} model materializes the LLM preprocessing approval workflow: each session receives a unique \texttt{session\_id} (CharField, max 64 chars), a \texttt{status} field (\texttt{pending} / \texttt{approved} / \texttt{rejected}), and foreign keys to the submitting user (\texttt{submitted\_by\_id}) and reviewing user (\texttt{reviewed\_by\_id}).
 
 \begin{figure}[H]
 \centering
@@ -2900,8 +2891,8 @@ The \textbf{AuditLog} model records every sensitive action on the platform (crea
 %─── Role  @(0,0) ───
 \node[ctitle] (r_t) at (0,0) {Role};
 \node[cattr, below=0pt of r_t, anchor=north] (r1) {\underline{+ id : Integer (PK)}};
-\node[cattr, below=0pt of r1,  anchor=north] (r2) {+ name : CharField \textit{(unique)}};
-\node[cattr, below=0pt of r2,  anchor=north] (r3) {+ label : CharField};
+\node[cattr, below=0pt of r1,  anchor=north] (r2) {+ nom : CharField \textit{(unique)}};
+\node[cattr, below=0pt of r2,  anchor=north] (r3) {Valeurs : super\_admin, chef\_service,};
 
 %─── Utilisateur  @(7.5,0) ───
 \node[ctitle] (u_t) at (7.5,0) {Utilisateur};
@@ -2926,7 +2917,7 @@ The \textbf{AuditLog} model records every sensitive action on the platform (crea
 \node[cattr, below=0pt of p5,  anchor=north] (p6) {+ dialyse\_data : JSONB};
 \node[cattr, below=0pt of p6,  anchor=north] (p7) {+ \textit{[8 more JSONB sections]}};
 \node[cattr, below=0pt of p7,  anchor=north] (p8) {+ extra\_data : JSONB};
-\node[cattr, below=0pt of p8,  anchor=north] (p9) {+ utilisateur\_saisie : FK};
+\node[cattr, below=0pt of p8,  anchor=north] (p9) {+ utilisateur\_saisie : CharField};
 \draw[primary!30, line width=0.8pt] (p9.south west) -- (p9.south east);
 \node[cmeth, below=0pt of p9,  anchor=north] (pm1) {+ get\_flat\_view()};
 \node[cmeth, below=0pt of pm1, anchor=north] (pm2) {+ extract\_features() : list};
@@ -2938,20 +2929,20 @@ The \textbf{AuditLog} model records every sensitive action on the platform (crea
 \node[cattr, below=0pt of a_t, anchor=north] (a1) {\underline{+ id : Integer (PK)}};
 \node[cattr, below=0pt of a1,  anchor=north] (a2) {+ action : CharField};
 \node[cattr, below=0pt of a2,  anchor=north] (a3) {+ entite, entite\_id};
-\node[cattr, below=0pt of a3,  anchor=north] (a4) {+ details : JSONB};
+\node[cattr, below=0pt of a3,  anchor=north] (a4) {+ details : TextField};
 \node[cattr, below=0pt of a4,  anchor=north] (a5) {+ adresse\_ip : IPField};
-\node[cattr, below=0pt of a5,  anchor=north] (a6) {+ timestamp : DateTime};
+\node[cattr, below=0pt of a5,  anchor=north] (a6) {+ date : DateTime};
 \node[cattr, below=0pt of a6,  anchor=north] (a7) {+ utilisateur\_id : FK};
 
 %─── PreprocessValidationRequest  @(8.2,-10) ───
 \node[ctitleW] (pr_t) at (8.2,-10) {PreprocessValidationRequest};
 \node[cattrW, below=0pt of pr_t, anchor=north] (pr1) {\underline{+ id : Integer (PK)}};
-\node[cattrW, below=0pt of pr1,  anchor=north] (pr2) {+ session\_id : UUIDField};
-\node[cattrW, below=0pt of pr2,  anchor=north] (pr3) {+ fichier\_source : CharField};
-\node[cattrW, below=0pt of pr3,  anchor=north] (pr4) {+ statut : CharField};
-\node[cattrW, below=0pt of pr4,  anchor=north] (pr5) {+ soumis\_par\_id : FK};
-\node[cattrW, below=0pt of pr5,  anchor=north] (pr6) {+ valide\_par\_id : FK};
-\node[cattrW, below=0pt of pr6,  anchor=north] (pr7) {+ commentaire : TextField};
+\node[cattrW, below=0pt of pr1,  anchor=north] (pr2) {+ session\_id : CharField(64)};
+\node[cattrW, below=0pt of pr2,  anchor=north] (pr3) {+ source\_file\_name : CharField};
+\node[cattrW, below=0pt of pr3,  anchor=north] (pr4) {+ status : CharField};
+\node[cattrW, below=0pt of pr4,  anchor=north] (pr5) {+ submitted\_by\_id : FK};
+\node[cattrW, below=0pt of pr5,  anchor=north] (pr6) {+ reviewed\_by\_id : FK};
+\node[cattrW, below=0pt of pr6,  anchor=north] (pr7) {+ comment : TextField};
 
 %━━━━━━━━━━━━━━━━━  RELATIONSHIPS  ━━━━━━━━━━━━━━━━━
 
@@ -3948,7 +3939,7 @@ Figure~\ref{fig:seq_auth} illustrates the complete JWT authentication flow. The 
 
 % --- Notes ---
 \node[draw,fill=yellow!20,font=\tiny,align=left,inner sep=3pt] at (8.8,-5.5)
-  {JWT payload:\\user\_id, role,\\exp (8h), iat};
+  {JWT payload:\\id, email, nom,\\prenom, role,\\exp (8h), iat};
 \end{tikzpicture}
 }
 \caption{Sequence Diagram 1 — JWT Authentication flow}
@@ -3973,7 +3964,7 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 \node[actorbox] (CE) at (9.5,0)   {Celery\\Worker};
 \node[actorbox] (OL) at (12.5,0)  {Ollama\\(LLM)};
 \node[actorbox] (CH) at (15.5,0)  {ChromaDB};
-\node[actorbox] (DB) at (18.5,0)  {PostgreSQL};
+\node[actorbox] (DB) at (18.5,0)  {Redis / DB};
 
 % --- Lifelines ---
 \foreach \x in {0,3,6.5,9.5,12.5,15.5,18.5}
@@ -3981,8 +3972,8 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 
 % --- Messages ---
 \draw[msgfwd] (0,-0.9)  -- node[msglbl]{1. Upload Excel file} (3,-0.9);
-\draw[msgfwd] (3,-1.6)  -- node[msglbl]{2. POST /patients/import/ (multipart)} (6.5,-1.6);
-\draw[msgfwd] (6.5,-2.3) -- node[msglbl]{3. parse\_uploaded\_file() $\rightarrow$ DataFrame} (6.5,-2.3);
+\draw[msgfwd] (3,-1.6)  -- node[msglbl]{2. POST /patients/preprocess/analyze/ (multipart)} (6.5,-1.6);
+\draw[msgfwd] (6.5,-2.3) -- node[msglbl]{3. Save temp file, generate session\_id (UUID)} (6.5,-2.3);
   \draw[msgfwd] (6.63,-2.1) arc(90:-270:0.25cm);
 \draw[msgret] (6.5,-3.0) -- node[msglbl]{4. \{session\_id\}} (3,-3.0);
 \draw[msgfwd] (6.5,-3.7) -- node[msglbl]{5. analyze\_preprocess\_async(session\_id)} (9.5,-3.7);
@@ -3995,9 +3986,9 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 \draw[msgret] (15.5,-5.4) -- node[msglbl]{7. RAG embeddings context} (9.5,-5.4);
 \draw[msgfwd] (9.5,-6.1) -- node[msglbl]{8. POST /api/generate (prompt+context)} (12.5,-6.1);
 \draw[msgret] (12.5,-6.8) -- node[msglbl]{9. Cell corrections JSON} (9.5,-6.8);
-\draw[msgfwd] (9.5,-7.5) -- node[msglbl]{10. Store preprocessing session} (18.5,-7.5);
-\draw[msgret] (18.5,-8.2) -- node[msglbl]{11. OK} (9.5,-8.2);
-\draw[msgfwd] (9.5,-8.9) -- node[msglbl]{12. Update session status = «complete»} (18.5,-8.9);
+\draw[msgfwd] (9.5,-7.5) -- node[msglbl]{10. Save session \{status, report, corrections\}} (18.5,-7.5);
+\draw[msgret] (18.5,-8.2) -- node[msglbl]{11. OK (Redis cache)} (9.5,-8.2);
+\draw[msgfwd] (9.5,-8.9) -- node[msglbl]{12. Update session status = «completed» (Redis)} (18.5,-8.9);
 
 % Back to user
 \draw[msgfwd] (3,-9.8)  -- node[msglbl]{13. GET /preprocess/\{id\}/rows/ (polling)} (6.5,-9.8);
@@ -4005,7 +3996,7 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 \draw[msgret] (3,-11.2) -- node[msglbl]{15. Display cell corrections} (0,-11.2);
 \draw[msgfwd] (0,-11.9) -- node[msglbl]{16. Review + override + submit validation} (3,-11.9);
 \draw[msgfwd] (3,-12.6) -- node[msglbl]{17. POST /preprocess/\{id\}/integrate/ (chef)} (6.5,-12.6);
-\draw[msgfwd] (6.5,-13.1) -- node[msglbl]{18. INSERT INTO patients\_patient} (18.5,-13.1);
+\draw[msgfwd] (6.5,-13.1) -- node[msglbl]{18. PostgreSQL: INSERT INTO patients\_patient + AuditLog} (18.5,-13.1);
 
 \end{tikzpicture}
 }
@@ -4020,7 +4011,7 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 
 Figure~\ref{fig:seq_predict} traces the complete workflow triggered when a clinician requests a 1-year mortality prediction for a patient. The sequence involves five actors: the clinician navigating the React frontend, the Django REST API, the PostgreSQL database, and the pre-trained SVM pipeline loaded from a \texttt{.joblib} file.
 
-The flow begins when the clinician clicks the \textit{Prédire} button (Step~1), which sends \texttt{POST /predictions/predict-patient/} to the backend with the patient's identifier (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features()} to build the clinical feature vector (Step~5). The vector is then passed to the SVM pipeline (Step~6), which applies the three preprocessing stages internally: KNN imputation ($k=3$) for missing values, Yeo-Johnson power transformation for normalization, and finally the linear SVC decision function. The raw probability $p_\text{raw}$ is returned (Step~7) and calibrated to a final probability $\hat{p}$ via Platt scaling (CalibratedClassifierCV, Step~8).
+The flow begins when the clinician clicks the \textit{Prédire} button (Step~1), which sends \texttt{GET /predictions/patient/\{patient\_id\}/mortalite/} to the backend (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features()} to build the clinical feature vector (Step~5). The vector is then passed to the SVM pipeline (Step~6), which applies the three preprocessing stages internally: KNN imputation ($k=3$) for missing values, Yeo-Johnson power transformation for normalization, and finally the linear SVC decision function. The raw probability $p_\text{raw}$ is returned (Step~7) and calibrated to a final probability $\hat{p}$ via Platt scaling (CalibratedClassifierCV, Step~8).
 
 The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ and assigns a categorical risk level using fixed clinical thresholds: \textbf{Faible} ($\hat{p} < 10\%$), \textbf{Modéré} ($10\% \leq \hat{p} < 29\%$), or \textbf{Élevé} ($\hat{p} \geq 29\%$). A clinical recommendation text and the list of most influential factors are assembled before the action is logged in \texttt{AuditLog} (Step~11). The structured JSON response (Step~13) contains \texttt{risk\_level}, \texttt{score}, \texttt{probability}, \texttt{factors}, \texttt{recommendation}, and \texttt{features\_used}, which the frontend uses to render the risk gauge and results panel (Step~14).
 
@@ -4041,7 +4032,7 @@ The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ a
 
 % --- Messages ---
 \draw[msgfwd] (0,-0.9)   -- node[msglbl]{1. Click «Prédire» for patient} (3.5,-0.9);
-\draw[msgfwd] (3.5,-1.6) -- node[msglbl]{2. POST /predictions/predict-patient/ \{patient\_id\}} (7,-1.6);
+\draw[msgfwd] (3.5,-1.6) -- node[msglbl]{2. GET /predictions/patient/\{patient\_id\}/mortalite/} (7,-1.6);
 \draw[msgfwd] (7,-2.3)   -- node[msglbl]{3. SELECT patient WHERE id=patient\_id} (10.5,-2.3);
 \draw[msgret] (10.5,-3.0) -- node[msglbl]{4. Patient ORM object} (7,-3.0);
 \draw[msgfwd] (7,-3.7)   -- node[msglbl]{5. extract\_features(patient) $\rightarrow$ vector[32]} (7,-3.7);

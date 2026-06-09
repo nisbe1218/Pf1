@@ -1,12 +1,13 @@
-@startuml
-' Diagramme entite-association structure selon les roles et les fonctionnalites
+@startuml DiagrammeEntiteRelation
+' Diagramme Entité-Relation — basé sur backend/users/models.py,
+' backend/patients/models.py, backend/audit/models.py (vérification directe du code)
 top to bottom direction
 skinparam shadowing false
 skinparam backgroundColor white
 skinparam linetype ortho
 skinparam packageStyle rectangle
-skinparam ranksep 40
-skinparam nodesep 25
+skinparam ranksep 45
+skinparam nodesep 30
 !define RECTANGLE class
 
 skinparam class {
@@ -15,174 +16,163 @@ skinparam class {
   ArrowColor #64748B
   FontColor #0F172A
 }
-
 skinparam package {
   BorderColor #CBD5E1
   FontColor #0F172A
   BackgroundColor #F8FAFC
 }
 
-' ===== SECURITE & ACCES =====
+' ===== SÉCURITÉ & ACCÈS =====
 package "Sécurité & Accès" #FCE7F3 {
+  RECTANGLE Role {
+    +id : int
+    +nom : enum(super_admin, chef_service,\n             professeur, resident)
+  }
+
   RECTANGLE Utilisateur {
-    +id_utilisateur : int
+    +id : int
+    +email : string  <<unique>>
     +nom : string
     +prenom : string
-    +email : string
-    +mot_de_passe : string
-    +role : enum(admin, chef_service, professeur, resident)
-  }
-
-  RECTANGLE JournalTraçabilité {
-    +id_journal : int
-    +action : string
-    +cible : string
-    +date_action : datetime
-    +details : string
-    +utilisateur_id : int
-  }
-}
-
-' ===== GESTION DES DONNEES =====
-package "Gestion des données" #DBEAFE {
-  RECTANGLE ImportDonneesExcel {
-    +id_import : int
-    +fichier_excel : string
-    +date_import : datetime
-    +etat_import : enum(en_attente, valide, rejete)
-    +utilisateur_id : int
-  }
-
-  RECTANGLE DonneeMedicale {
-    +id_donnee : int
-    +type_donnee : enum(biologique, clinique)
-    +valeur : float
-    +date_mesure : date
-    +patient_id : int
-  }
-
-  RECTANGLE ValidationDonnees {
-    +id_validation : int
-    +date_validation : datetime
-    +statut : enum(validee, rejetee)
-    +commentaire : string
-    +import_id : int
-    +utilisateur_id : int
+    +telephone : string
+    +personal_notes : text
+    +role_id : FK → Role
+    +is_active : bool
+    +is_staff : bool
+    +date_creation : datetime
   }
 }
 
 ' ===== PATIENTS =====
 package "Dossier Patient" #FEF3C7 {
   RECTANGLE Patient {
-    +id_patient : int
-    +nom : string
-    +prenom : string
-    +date_naissance : date
-    +diagnostic_principal : string
-    +classification_clinique : enum(aigue, chronique)
-  }
-
-  RECTANGLE DossierPatient {
-    +id_dossier : int
-    +date_creation : date
-    +statut : enum(actif, archive)
-    +patient_id : int
-  }
-
-  RECTANGLE Consultation {
-    +id_consultation : int
-    +date_consultation : datetime
-    +notes : string
-    +patient_id : int
-    +utilisateur_id : int
-  }
-
-  RECTANGLE Diagnostic {
-    +id_diagnostic : int
-    +description : string
-    +date_diagnostic : date
-    +consultation_id : int
-  }
-
-  RECTANGLE Traitement {
-    +id_traitement : int
-    +description : string
-    +date_debut : date
-    +date_fin : date
-    +consultation_id : int
+    +id : int
+    +id_patient : string  <<auto PAT-XXXXXX>>
+    +id_enregistrement_source : string
+    +nom, prenom : string
+    +age : int
+    +sexe : enum(M, F, O)
+    +maladie : string
+    +date_naissance, date_admission : date
+    +statut_inclusion : string
+    +statut_consentement : string
+    +icc_charlson : string
+    --
+    +demographie_data : JSONField
+    +irc_data : JSONField
+    +comorbidite_data : JSONField
+    +presentation_data : JSONField
+    +biologie_data : JSONField
+    +imagerie_data : JSONField
+    +dialyse_data : JSONField
+    +qualite_data : JSONField
+    +complication_data : JSONField
+    +traitement_data : JSONField
+    +devenir_data : JSONField
+    +extra_data : JSONField
+    --
+    +created_at, updated_at : datetime
   }
 }
 
-' ===== CLASSIFICATION CLINIQUE =====
-package "Classification clinique" #E0E7FF {
-  RECTANGLE MaladieAigue {
-    +id_maladie_aigue : int
-    +type : enum(ESRD, coagulation, insuffisance_aigue)
-    +gravite : enum(critique, intermediaire, stable)
-    +patient_id : int
+' ===== FORMULAIRES DYNAMIQUES =====
+package "Formulaires dynamiques" #DBEAFE {
+  RECTANGLE PatientFormTemplate {
+    +id : int
+    +name : string
+    +source_file_name : string
+    +sheet_name : string
+    +imported_at : datetime
   }
 
-  RECTANGLE MaladieChronique {
-    +id_maladie_chronique : int
-    +diagnostic : string
-    +score_stabilite : enum(stable, instable, degradation)
-    +patient_id : int
+  RECTANGLE PatientFormField {
+    +id : int
+    +template_id : FK → PatientFormTemplate
+    +key : string
+    +label : string
+    +field_type : enum(text_short, text_long,\n  single_choice, multiple_choice,\n  date, integer, decimal, boolean, auto)
+    +order : int
+    +choices : JSONField
+    +source_hint : string
+    +is_required : bool
+    <<unique (template, key)>>
   }
 }
 
-' ===== ANALYSE & IA =====
-package "Analyse & IA" #DCFCE7 {
-  RECTANGLE ModeleML {
-    +id_modele : int
-    +nom : string
-    +type_modele : string
-    +version : string
+' ===== PREPROCESSING & VALIDATION =====
+package "Prétraitement & Validation" #DCFCE7 {
+  RECTANGLE PreprocessValidationRequest {
+    +id : int
+    +session_id : string
+    +source : enum(corrected, original)
+    +source_file_name : string
+    +submitted_by_id : FK → Utilisateur
+    +submitted_at : datetime
+    +status : enum(pending, approved, rejected)
+    +reviewed_by_id : FK → Utilisateur
+    +reviewed_at : datetime
+    +comment : text
+    +rows_count : int
+    +columns_count : int
+    +quality_score : float
   }
 
-  RECTANGLE Prediction {
-    +id_prediction : int
-    +type_prediction : enum(coagulation, mortalite_1an, progression)
-    +score : float
-    +facteurs_influents : string
-    +date_prediction : datetime
-    +patient_id : int
-    +utilisateur_id : int
-    +modele_id : int
+  RECTANGLE DynamicColumnRequest {
+    +id : int
+    +action : enum(add, delete)
+    +column_key : string
+    +column_label : string
+    +field_type : string
+    +submitted_by_id : FK → Utilisateur
+    +submitted_at : datetime
+    +status : enum(pending, approved, rejected)
+    +reviewed_by_id : FK → Utilisateur
+    +reviewed_at : datetime
+    +comment : text
+  }
+}
+
+' ===== TRAÇABILITÉ =====
+package "Traçabilité" #FFF7ED {
+  RECTANGLE AuditLog {
+    +id : int
+    +utilisateur_id : FK → Utilisateur
+    +action : text
+    +entite : string
+    +entite_id : int
+    +details : text
+    +adresse_ip : string
+    +date : datetime
   }
 
-  RECTANGLE Statistique {
-    +id_statistique : int
-    +type_analyse : string
-    +resultats : string
-    +date_analyse : datetime
-    +modele_id : int
+  RECTANGLE HiddenAuditLog {
+    +id : int
+    +user_id : FK → Utilisateur
+    +audit_log_id : FK → AuditLog
+    +hidden_at : datetime
+    <<unique (user, audit_log)>>
   }
 }
 
 ' ===== RELATIONS =====
-Utilisateur "1" -- "0..*" JournalTraçabilité : consigne
-Utilisateur "1" -- "0..*" Consultation : réalise
-Utilisateur "1" -- "0..*" Prediction : produit
+Role "1" -- "0..*" Utilisateur : attribué à
 
-ImportDonneesExcel "1" -- "0..*" ValidationDonnees : controle
-Patient "1" -- "1" DossierPatient : possède
-Patient "1" -- "0..*" Consultation : concerne
-Consultation "1" -- "0..*" Diagnostic : contient
-Consultation "1" -- "0..*" Traitement : contient
-Patient "1" -- "0..*" DonneeMedicale : possède
-Patient "1" -- "0..1" MaladieAigue : affiché en section aiguë
-Patient "1" -- "0..1" MaladieChronique : affiché en section chronique
-Patient "1" -- "0..*" Prediction : concerne
-Prediction "1" -- "1" ModeleML : utilise
-Prediction "0..*" -- "0..*" DonneeMedicale : exploite
-Statistique "0..*" -- "1" ModeleML : compare
+Utilisateur "1" -- "0..*" PreprocessValidationRequest : soumet >
+Utilisateur "1" -- "0..*" PreprocessValidationRequest : révise >
+Utilisateur "1" -- "0..*" DynamicColumnRequest : soumet >
+Utilisateur "1" -- "0..*" DynamicColumnRequest : révise >
+Utilisateur "1" -- "0..*" AuditLog : génère >
+Utilisateur "1" -- "0..*" HiddenAuditLog : masque >
 
-' Aide a l'agencement vertical
-Utilisateur -[hidden]down-> ImportDonneesExcel
-ImportDonneesExcel -[hidden]down-> Patient
-Patient -[hidden]down-> ModeleML
-ModeleML -[hidden]down-> JournalTraçabilité
-Patient -[hidden]down-> MaladieAigue
-MaladieAigue -[hidden]down-> MaladieChronique
+PatientFormTemplate "1" -- "1..*" PatientFormField : contient >
+
+AuditLog "1" -- "0..*" HiddenAuditLog : masqué par >
+
+' Aide à l'agencement
+Role -[hidden]right-> PatientFormTemplate
+Utilisateur -[hidden]down-> Patient
+Patient -[hidden]right-> PatientFormTemplate
+PatientFormTemplate -[hidden]down-> PreprocessValidationRequest
+AuditLog -[hidden]right-> HiddenAuditLog
 
 @enduml

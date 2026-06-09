@@ -1,0 +1,110 @@
+@startuml SequenceImportPretraitement
+' Séquence 2 — Import Patient & Prétraitement LLM
+' Basé sur : backend/patients/views.py (PatientPreprocessAnalyzeView)
+'             backend/patients/tasks.py (analyze_preprocess_async)
+'             frontend/src/pages/preprocessing/ValidationRequests.js
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam sequenceArrowThickness 1.5
+skinparam participantBorderColor #374151
+skinparam participantBackgroundColor #FFFFFF
+skinparam participantFontColor #0F172A
+skinparam noteBorderColor #D97706
+skinparam noteBackgroundColor #FEF9C3
+skinparam lifelineBorderColor #9CA3AF
+
+actor "Chef de Service\nou Admin" as User
+participant "Frontend\n(ValidationRequests.js)" as FE #E8F4FD
+participant "Backend\n(PatientPreprocessAnalyzeView)" as BE #FEF3C7
+participant "Celery Worker\n(analyze_preprocess_async)" as CW #DCFCE7
+participant "Ollama\n(Qwen 2.5)" as LLM #FCE7F3
+database "Redis\n(cache session)" as Redis #FFF7ED
+database "PostgreSQL" as DB #E8F4FD
+
+== 1. Upload du fichier ==
+
+User -> FE : Sélectionner fichier Excel\net cliquer "Analyser"
+activate FE
+FE -> BE : POST /api/patients/preprocess/analyze/\nFormData { file: File.xlsx }
+activate BE
+BE -> BE : Sauvegarder fichier temporaire\nGénérer session_id (UUID)
+BE -> CW : analyze_preprocess_async.delay(\n  session_id, file_path, user_id)
+note right of BE
+  Tâche Celery asynchrone
+  — retour immédiat 202
+end note
+BE --> FE : 202 Accepted\n{ preprocess_id: "uuid", status: "pending" }
+deactivate BE
+
+== 2. Traitement asynchrone (Celery) ==
+
+activate CW
+CW -> CW : Étape 1 — Lecture DataFrame\n_read_uploaded_dataframe()
+CW -> CW : Étape 2 — Profilage technique\n_build_technical_profile()
+CW -> CW : Étape 3 — Découpage chunks\n_build_preprocess_chunks(max=40 lignes)
+CW -> CW : Étape 4 — Contexte RAG\n_build_retrieval_context()
+CW -> CW : Étape 5 — Route LLM\n_determine_preprocess_route() → Qwen 2.5
+CW -> Redis : Mettre à jour progression\n{ status: "running", progress_message: "..." }
+
+CW -> LLM : HTTP POST (Ollama API)\nPrompt contextualisé + chunks
+activate LLM
+note right of LLM
+  Analyse : issues, corrections,
+  recommendations,
+  confidence_score, risk_level,
+  requires_review
+end note
+LLM --> CW : Réponse JSON\n{ issues[], corrections[],\n  recommendations[], confidence_score }
+deactivate LLM
+
+CW -> CW : Étape 7 — Appliquer plan LLM\n_apply_llm_correction_plan()
+CW -> CW : Étape 8 — Correction valeurs bio\n_run_bio_value_correction_pass()\n(knowledge base médicale)
+CW -> CW : Étape 9 — Correction outliers\n_run_llm_flagged_corrections()
+CW -> CW : Étape 10 — Imputation KNN\n_run_model_imputation(n_neighbors=5)
+CW -> CW : Étape 11 — Rapport final\n_build_preprocess_report()
+CW -> Redis : Sauvegarder session complète\n{ status: "completed", report, corrected_df }
+CW -> CW : Supprimer fichier temporaire
+deactivate CW
+
+== 3. Polling résultat (Frontend) ==
+
+loop toutes les 2 secondes
+    FE -> BE : GET /api/patients/preprocess/{id}/status/
+    activate BE
+    BE -> Redis : Lire session
+    Redis --> BE : session JSON
+    BE --> FE : { status, progress_message, report }
+    deactivate BE
+    alt status == "completed"
+        FE --> User : Afficher rapport + données corrigées
+    else status == "running"
+        FE --> User : Afficher barre de progression
+    end
+end
+
+== 4. Révision & Intégration ==
+
+User -> FE : Réviser les corrections\nAccepter / Rejeter lignes
+FE -> BE : POST /api/patients/preprocess/{id}/cell-corrections/\n{ corrections_validées }
+activate BE
+BE -> Redis : Mettre à jour corrections acceptées
+deactivate BE
+
+User -> FE : Cliquer "Intégrer les patients"
+FE -> BE : POST /api/patients/preprocess/{id}/integrate/
+activate BE
+BE -> DB : INSERT INTO patient (...) — pour chaque ligne
+activate DB
+DB --> BE : Patients créés (ids)
+deactivate DB
+BE -> DB : INSERT PreprocessValidationRequest\n{ status: "approved", reviewed_by: user }
+BE -> DB : INSERT AuditLog\n{ action: "import_patients", entite: "Patient" }
+deactivate DB
+BE --> FE : 200 OK\n{ patients_created: N, patients_updated: M }
+deactivate BE
+FE --> User : Confirmation ✓\nN patients intégrés avec succès
+deactivate FE
+
+@enduml
