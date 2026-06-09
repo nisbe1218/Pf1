@@ -15,6 +15,14 @@
 \usepackage{setspace}
 \onehalfspacing
 \raggedbottom
+% Allow figures to share pages more aggressively (reduces half-empty pages)
+\renewcommand{\topfraction}{0.90}
+\renewcommand{\bottomfraction}{0.80}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{3}
+\setcounter{totalnumber}{6}
 \setlength{\parskip}{1pt plus 1pt minus 1pt}
 \setlength{\floatsep}{6pt plus 2pt minus 2pt}
 \setlength{\textfloatsep}{8pt plus 2pt minus 4pt}
@@ -23,16 +31,23 @@
 \setlength{\belowcaptionskip}{2pt}
 
 %--- Page Layout ---
-\usepackage[top=2.5cm,bottom=2.5cm,left=3cm,right=2.5cm]{geometry}
+\usepackage[top=2.5cm,bottom=2.5cm,left=3cm,right=2.5cm,headheight=14pt]{geometry}
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[LE,RO]{\small\thepage}
-\fancyhead[LO]{\small\nouppercase{\rightmark}}
-\fancyhead[RE]{\small\nouppercase{\leftmark}}
+% Chapter on left, section on right in header; page number at bottom center
+\fancyhead[LE,LO]{\small\nouppercase{\leftmark}}
+\fancyhead[RE,RO]{\small\nouppercase{\rightmark}}
+\fancyfoot[C]{\small---\;\thepage\;---}
 \renewcommand{\headrulewidth}{0.4pt}
-% Empty pages between chapters get no header/footer
-\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}}
+\renewcommand{\footrulewidth}{0.4pt}
+% Plain style (chapter first pages): only bottom page number
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\small---\;\thepage\;---}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0.4pt}%
+}
 \makeatletter
 \def\cleardoublepage{\clearpage\if@twoside\ifodd\c@page\else
   \hbox{}\thispagestyle{empty}\newpage\fi\fi}
@@ -99,9 +114,10 @@
 \usepackage{pifont}
 \usepackage{adjustbox}
 
-%--- Title Formatting (platform color scheme) ---
+%--- Title Formatting (4-level visual hierarchy) ---
 \usepackage{titlesec}
 
+% CHAPTER — dark teal + rose vertical bar + full-width rule
 \titleformat{\chapter}[display]
   {\normalfont\bfseries\color{primarydark}}
   {\small\bfseries\color{primary!70}\MakeUppercase{\chaptername}\ \thechapter\enskip{\color{softrose}\rule[-2pt]{1.5pt}{14pt}}}
@@ -117,27 +133,39 @@
   {\LARGE\color{primarydark}}
   [\vspace{4pt}{\color{primary!40}\rule{\textwidth}{1.5pt}}]
 
+% SECTION — primary teal + accent number + 1pt underline rule
 \titleformat{\section}
   {\normalfont\Large\bfseries\color{primary}}
   {{\color{accent}\thesection}\enspace}
   {0pt}
   {}
-  [\vspace{-2pt}{\color{primary!25}\rule{\textwidth}{0.6pt}}]
+  [\vspace{-2pt}{\color{primary!35}\rule{\textwidth}{1pt}}]
 \titlespacing*{\section}{0pt}{14pt}{6pt}
 
+% SUBSECTION — dusty rose (warm contrast to cool teal) + rose number + thin rose underline
 \titleformat{\subsection}
-  {\normalfont\large\bfseries\color{primarydark}}
-  {{\color{accent}\thesubsection}\enspace}
+  {\normalfont\large\bfseries\color{dustyrose}}
+  {{\color{dustyrose!90!black}\thesubsection}\enspace}
   {0pt}
   {}
-\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+  [\vspace{-1pt}{\color{dustyrose!30}\rule{\textwidth}{0.5pt}}]
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
 
+% SUBSUBSECTION — accent teal + ▶ prefix symbol (numbered and unnumbered)
 \titleformat{\subsubsection}
   {\normalfont\normalsize\bfseries\color{accent}}
-  {{\thesubsubsection}\enspace}
+  {{\color{accent!80!black}\thesubsubsection}\enspace}
   {0pt}
-  {}
+  {{\small$\blacktriangleright$}\enspace}
 \titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% PARAGRAPH — dark navy + ◆ prefix symbol (run-in)
+\titleformat{\paragraph}[runin]
+  {\normalfont\normalsize\bfseries\color{navydark}}
+  {}
+  {0pt}
+  {{\small\color{primary}$\blacklozenge$}\enspace}
+\titlespacing*{\paragraph}{0pt}{6pt}{6pt}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins,breakable}
 
@@ -264,36 +292,50 @@
 %  TITLE PAGE
 %============================================================
 \begin{titlepage}
+% Decorative double border around the entire cover page
+\begin{tikzpicture}[remember picture, overlay]
+  \draw[primary, line width=3pt]
+    ([xshift=0.9cm, yshift=-0.9cm]current page.north west) rectangle
+    ([xshift=-0.9cm, yshift=0.9cm]current page.south east);
+  \draw[accent, line width=1pt]
+    ([xshift=1.2cm, yshift=-1.2cm]current page.north west) rectangle
+    ([xshift=-1.2cm, yshift=1.2cm]current page.south east);
+\end{tikzpicture}
+
 \begin{center}
 
-% UEMF logo + school name
+% UEMF logo
 \IfFileExists{UEMF.png}{%
-  \includegraphics[width=0.72\linewidth,keepaspectratio]{UEMF.png}%
-}{\framebox[5cm][c]{\textbf{G UEMF}}}\\[0.8cm]
+  \includegraphics[width=0.65\linewidth,keepaspectratio]{UEMF.png}%
+}{\framebox[6cm][c]{\textbf{[UEMF Logo]}}}\\[0.5cm]
 
-{\LARGE\bfseries\color{teal} EUROMED UNIVERSITY OF FES}\\[0.25cm]
-{\large\color{teal}\textit{Euromed School of Digital Engineering and Artificial Intelligence}}\\[1cm]
+{\LARGE\bfseries\color{primary} EUROMED UNIVERSITY OF FES}\\[0.2cm]
+{\large\color{primary}\itshape Euromed School of Digital Engineering and Artificial Intelligence}\\[0.7cm]
 
-{\large\bfseries Academic year 2025--2026}\\[0.25cm]
-{\large\bfseries State engineering cycle in big data analytics}\\[0.8cm]
+{\large\bfseries Academic year 2025--2026}\\[0.1cm]
+{\large\bfseries State engineering cycle in big data analytics}\\[0.55cm]
 
-\rule{0.55\linewidth}{1pt}\\[0.4cm]
-{\LARGE End of studies Project}\\[0.4cm]
-\rule{0.55\linewidth}{1pt}\\[0.8cm]
+{\color{primary}\rule{0.6\linewidth}{1.2pt}}\\[0.35cm]
+{\LARGE\bfseries End of Studies Project}\\[0.35cm]
+{\color{primary}\rule{0.6\linewidth}{1.2pt}}\\[0.55cm]
 
-\fbox{\parbox{0.82\linewidth}{\centering\vspace{4pt}
-  Design and Development of an Intelligent Platform for Clinical Risk Analysis and
-  Prediction in Nephrology Using Big Data and Machine Learning Techniques.%
-\vspace{4pt}}}\\[1.2cm]
+\fbox{\parbox{0.80\linewidth}{\centering\vspace{5pt}
+  \textbf{Design and Development of an Intelligent Platform for Clinical Risk Analysis and
+  Prediction in Nephrology Using Big Data and Machine Learning Techniques.}%
+\vspace{5pt}}}\\[0.9cm]
 
-\begin{tabular}{p{0.42\linewidth}p{0.42\linewidth}}
-  \textbf{Presented by :} & \textbf{Supervised by:}\\[0.4cm]
-  BEN-ALI Nisrine         & Prof. Sara Bakkali\\[0.8cm]
-                          & \textbf{Defended in} \dotfill\\[0.8cm]
-  \textbf{Jury Members:}  & \textbf{Company supervisor:}\\[0.4cm]
-                          & Mr Zakaria Alami Merrouni\\[0.8cm]
-                          & \textbf{Hosting Company:}\\[0.2cm]
-                          & HAIM-FMPDF\\
+% --- Presented by: centered ---
+{\large\bfseries Presented by :}\\[0.3cm]
+{\Large\bfseries BEN-ALI Nisrine}\\[0.9cm]
+
+% --- Two-column info block ---
+\begin{tabular}{p{0.46\linewidth}p{0.46\linewidth}}
+  \textbf{Supervised by:}   & \textbf{Company supervisor:}\\[0.25cm]
+  Prof.\ Sara Bakkali        & Mr Zakaria Alami Merrouni  \\[0.7cm]
+  \textbf{Defended in} \dotfill &\textbf{Hosting Company:}\\[0.25cm]
+                             & HAIM-FMPDF                 \\[0.7cm]
+  \textbf{Jury Members:}    &                            \\[0.3cm]
+  \dotfill                   &                            \\
 \end{tabular}
 
 \end{center}
@@ -332,9 +374,9 @@ Special thanks go to \textbf{Mrs. Loubna Ourabah}, Head of the Big Data Analytic
 
 I am also sincerely grateful to my academic supervisor, \textbf{Mrs. Sara Bakkali}, for her encouragement, insightful feedback, and constant support during the development of this final year project.
 
-I would like to extend my gratitude to the \textbf{Sidi Mohamed Ben Abdallah University — Health Artificial Intelligence and Modeling Center (HAIM)}, Faculty of Medicine, Pharmacy and Dentistry of Fès (FMPDF), for providing an enriching research environment and access to clinical data from CHU Hassan II de Fès.
+I would like to extend my gratitude to the \textbf{Sidi Mohamed Ben Abdallah University — Health Artificial Intelligence and Modeling Center (HAIM)}, Faculty of Medicine, Pharmacy and Dentistry of Fès (FMPDF), for providing an enriching research environment and access to clinical data from CHU Hassan II of Fès.
 
-My deep appreciation goes to the nephrology team at \textbf{CHU Hassan II de Fès}, and in particular to the physicians and clinical staff who made the HD-478 cohort data available. Without their meticulous data collection spanning 2020--2024, no predictive model would have been possible.
+My deep appreciation goes to the nephrology team at \textbf{CHU Hassan II of Fès}, and in particular to the physicians and clinical staff who made the HD-478 cohort data available. Without their meticulous data collection spanning 2020--2024, no predictive model would have been possible.
 
 Finally, I express my deepest appreciation to \textbf{Mr. Zakaria Alami Merrouni} for his technical guidance, support, and mentorship throughout the completion of this project.
 
@@ -358,7 +400,7 @@ This report presents \textbf{AI NéphroCare}, a full-stack clinical decision sup
 
 \vspace{0.2cm}
 
-Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%), validated by the nephrology team at CHU Hassan II of Fes: \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
+Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%): \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
 
 \vspace{0.2cm}
 
@@ -376,7 +418,7 @@ The platform is implemented using Django REST Framework, React 18, PostgreSQL 16
 
 \vspace{0.4cm}
 
-La maladie rénale chronique (MRC) touche plus de 850 millions de personnes dans le monde, dont une proportion significative dépend de l'hémodialyse comme thérapie de remplacement rénal. La mortalité à un an dans cette population reste élevée (15–25\%), principalement due à la charge en comorbidités, aux événements cardiovasculaires et à la dénutrition. Les cliniciens manquent d'outils intégrés et fondés sur les données pour stratifier le risque de mortalité individuel au lit du patient.
+La maladie rénale chronique (MRC) touche plus de 850 millions de personnes dans le monde, dont une proportion significative dépend de l'hémodialyse comme thérapie de remplacement rénal. La mortalité à un an dans cette population reste élevée, principalement due à la charge en comorbidités, aux événements cardiovasculaires et à la dénutrition. Les cliniciens manquent d'outils intégrés et fondés sur les données pour stratifier le risque de mortalité individuel au lit du patient.
 
 Ce rapport présente \textbf{AI NéphroCare}, une plateforme d'aide à la décision clinique développée au sein du \textbf{Centre HAIM} (Health Artificial Intelligence \& Modeling Center, FMPDF -- Université Sidi Mohamed Ben Abdellah), en collaboration avec le Service de Néphrologie du CHU Hassan II de Fès. Elle intègre : (1) un module de gestion structurée des dossiers patients couvrant plus de 160 champs cliniques en 11 sections ; (2) un pipeline de prétraitement IA combinant un modèle de langage (LLM, Ollama qwen2.5:14b) et une génération augmentée par récupération (RAG, ChromaDB) ; et (3) un moteur de prédiction ML entraîné sur la cohorte HD-478 (478 patients, 95 décès à 1 an, CHU Hassan II de Fès, 2020--2024).
 
@@ -388,8 +430,21 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 %  TABLE OF CONTENTS
 %============================================================
 \tableofcontents
+\clearpage
+
+%============================================================
+%  LIST OF FIGURES
+%============================================================
 \listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\clearpage
+
+%============================================================
+%  LIST OF TABLES
+%============================================================
 \listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\clearpage
 
 %============================================================
 %  ACRONYMS
@@ -404,10 +459,10 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 \acro{CRF}{Chronic Renal Failure}
 \acro{HD}{Hemodialysis}
 \acro{PD}{Peritoneal Dialysis}
-\acro{CHU}{Centre Hospitalier Universitaire}
+\acro{CHU}{University Hospital Center}
 \acro{HAIM}{Health Artificial Intelligence \& Modeling Center}
-\acro{FMPDF}{Faculté de Médecine, Pharmacie et Dentisterie de Fès}
-\acro{USMBA}{Université Sidi Mohamed Ben Abdellah}
+\acro{FMPDF}{Faculty of Medicine, Pharmacy and Dentistry of Fes}
+\acro{USMBA}{Sidi Mohamed Ben Abdellah University}
 \acro{ML}{Machine Learning}
 \acro{SVM}{Support Vector Machine}
 \acro{RF}{Random Forest}
@@ -425,7 +480,7 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 \acro{API}{Application Programming Interface}
 \acro{REST}{Representational State Transfer}
 \acro{PTH}{Parathyroid Hormone}
-\acro{FAV}{Fistule Artério-Veineuse}
+\acro{AVF}{Arteriovenous Fistula}
 \acro{KDOQI}{Kidney Disease Outcomes Quality Initiative}
 \acro{KNN}{K-Nearest Neighbors}
 \acro{OOF}{Out-Of-Fold}
@@ -451,7 +506,7 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 
 The global healthcare sector is undergoing a profound digital transformation, driven by the exponential growth of medical data, the democratization of cloud computing, and the maturation of artificial intelligence (AI) technologies. Electronic Health Records (EHR) have become the standard in most developed countries, generating terabytes of structured and unstructured clinical data daily. According to the WHO Global Strategy on Digital Health 2020--2025, health systems must accelerate digital transformation to improve health outcomes and service delivery \cite{who2021digital}.
 
-In low- and middle-income countries (LMICs), including Morocco, this transition is accelerating. The Moroccan Ministry of Health's national digital health strategy (2020--2025) prioritizes the deployment of integrated hospital information systems, telemedicine platforms, and AI-based decision support tools in university hospitals. CHU Hassan II de Fès, as one of the country's largest tertiary care centers, serves as a pilot site for several of these initiatives.
+In low- and middle-income countries (LMICs), including Morocco, this transition is accelerating. The Moroccan Ministry of Health's national digital health strategy (2020--2025) prioritizes the deployment of integrated hospital information systems, telemedicine platforms, and AI-based decision support tools in university hospitals. CHU Hassan II of Fès, as one of the country's largest tertiary care centers, serves as a pilot site for several of these initiatives.
 
 Despite this momentum, a significant gap remains between data availability and clinical utility. Patient records are often fragmented across departments, stored in heterogeneous formats (paper, Excel, proprietary HIS systems), and rarely exploited for predictive analytics. Bridging this gap — from raw clinical data to actionable risk predictions — is precisely the challenge addressed by this project.
 
@@ -511,7 +566,7 @@ As the host institution for this internship, the HAIM Center provided the proble
 \label{fig:logo_haim}
 \end{figure}
 
-This project was developed within HAIM, in direct collaboration with the Nephrology Department of CHU Hassan II de Fès, ensuring clinical relevance and real-world applicability.
+This project was developed within HAIM, in direct collaboration with the Nephrology Department of CHU Hassan II of Fès, ensuring clinical relevance and real-world applicability.
 
 \section{Medical Context}\label{sec:medcontext}
 
@@ -529,7 +584,7 @@ The kidneys are paired retroperitoneal organs responsible for maintaining homeos
 
 \subsubsection{Chronic Kidney Disease (CKD)}
 
-CKD is defined as structural or functional kidney abnormalities persisting for more than three months, with implications for health. The \textbf{KDIGO 2012 classification} stages CKD into five categories based on glomerular filtration rate (GFR):
+CKD is defined as structural or functional kidney abnormalities persisting for more than three months, with implications for health \cite{kdigo2015}. The \textbf{KDIGO 2012 classification} stages CKD into five categories based on glomerular filtration rate (GFR) \cite{kdigo2015}:
 
 \begin{table}[H]
 \centering
@@ -549,30 +604,29 @@ G5 & Kidney failure & $<15$ & $\sim$0.1\% \\
 \end{tabular}
 \end{table}
 
-At stage G5 (end-stage renal disease, ESRD), renal replacement therapy (RRT) becomes necessary. The three modalities of RRT are: hemodialysis (HD), peritoneal dialysis (PD), and kidney transplantation. Globally, over 2.6 million people are on RRT, with HD being the most prevalent modality ($\sim$70\% of RRT patients).
+At stage G5 (end-stage renal disease, ESRD), renal replacement therapy (RRT) becomes necessary. The three modalities of RRT are: hemodialysis (HD), peritoneal dialysis (PD), and kidney transplantation. Globally, over 2.6 million people are on RRT, with HD being the most prevalent modality ($\sim$70\% of RRT patients) \cite{usrds2022, jager2019ckd}.
 
 \subsubsection{Hemodialysis: Principle and Clinical Course}
 
 Hemodialysis works by passing the patient's blood through an artificial membrane (dialyzer) which removes waste products and excess water via diffusion and ultrafiltration. A typical HD session lasts 4 hours, 3 times per week.
 
-The quality of HD is measured primarily by the \textbf{Kt/V} index, where $K$ is the dialyzer clearance, $t$ the session duration, and $V$ the urea distribution volume. A Kt/V $\geq 1.2$ per session is considered adequate per KDIGO guidelines.
+The quality of HD is measured primarily by the \textbf{Kt/V} index, where $K$ is the dialyzer clearance, $t$ the session duration, and $V$ the urea distribution volume. A Kt/V $\geq 1.2$ per session is considered adequate per KDIGO guidelines \cite{kdigo2015}.
 
 \subsubsection{Epidemiology in Morocco}
 
-In Morocco, the national registry (MAGREDIAL) recorded approximately 16,000 patients on chronic hemodialysis in 2022, with an annual incidence of 3,500 new patients. The Fès-Meknès region, served by CHU Hassan II, accounts for $\sim$18\% of national HD patients. The dominant etiologies of CKD in Morocco are:
+In Morocco, the MAGREDIAL national registry documented approximately 16,950 patients receiving renal replacement therapy, with an estimated 1,650–3,300 new ESRD cases per year \cite{maoujoud2017morocco}. The dominant etiologies of CKD in Morocco, per MAGREDIAL data, are \cite{maoujoud2017morocco}:
 \begin{enumerate}
-  \item Diabetic nephropathy (32\%)
-  \item Hypertensive nephrosclerosis (28\%)
-  \item Undetermined (18\%)
-  \item Glomerulonephritis (12\%)
-  \item Other (10\%)
+  \item Diabetic nephropathy (25--43\%)
+  \item Hypertensive nephrosclerosis (11--21\%)
+  \item Undetermined (25--31\%)
+  \item Glomerulonephritis (4--10\%)
 \end{enumerate}
 
 \subsection{Mortality Risk Challenges}
 
-Despite advances in dialysis technology, the annual mortality rate of HD patients remains strikingly high — approximately \textbf{15--25\%} in most national registries \cite{registre_rein_2022, kdigo2015, dopps2022}. By comparison, this exceeds the 5-year mortality of many solid tumors.
+Despite advances in dialysis technology, the annual mortality rate of HD patients remains strikingly high — approximately \textbf{15--25\%} in most national registries \cite{registre_rein_2022, kdigo2015, dopps2022}. By comparison, this exceeds the 5-year mortality of many solid tumors \cite{usrds2022}.
 
-The principal causes of death in HD patients are:
+The principal causes of death in HD patients are \cite{registre_rein_2022}:
 \begin{itemize}
   \item \textbf{Cardiovascular disease} (40--50\%): sudden cardiac death, acute coronary syndrome, heart failure
   \item \textbf{Infections} (15--20\%): vascular access-related sepsis, pneumonia
@@ -609,7 +663,7 @@ Design, implement, and validate a full-stack intelligent platform that enables t
   \item Develop an LLM+RAG preprocessing pipeline that automatically detects and corrects data quality issues in imported Excel files.
   \item Train and compare \textbf{nine} machine learning algorithms on the HD-478 cohort, selecting the best-performing model for production deployment.
   \item Engineer 32 clinically meaningful features (24 raw clinical + 8 interaction features) from the raw dataset.
-  \item Select the optimal classification threshold by maximizing F1-score, and define three clinically actionable risk zones (Low/Moderate/High) with fixed boundaries validated by the nephrology team.
+  \item Select the optimal classification threshold by maximizing F1-score, and define three clinically actionable risk zones (Low/Moderate/High) with fixed boundaries grounded in KDIGO/DOPPS/TRIPOD guidelines.
   \item Implement a secure, multi-role web application with full audit trail, role-based access control, and clinical visualization dashboards.
   \item Deploy the entire system as a reproducible Docker Compose stack.
 \end{enumerate}
@@ -687,7 +741,7 @@ Clinical Decision Support Systems (CDSS) have evolved from simple rule-based ale
 
 A landmark meta-analysis by Bright et al. (2012) reviewed 148 RCTs of CDSS and found that computerized clinical decision support improved clinical process measures in 68\% of trials and patient outcome measures in 57\% \cite{bright2012}. However, challenges persist: alert fatigue, poor EHR integration, and lack of local validation limit real-world adoption \cite{bright2012}.
 
-In nephrology specifically, CDSS have been applied to: (1) drug dosing adjustment for renal function, (2) dialysis adequacy monitoring, (3) anemia management \cite{kdigo2015}, and (4) mortality risk stratification \cite{hemodialysis_cdss_2019}. The latter remains the most challenging due to the complexity of HD patient comorbidity profiles.
+In nephrology specifically, CDSS have been applied to: (1) drug dosing adjustment for renal function, (2) dialysis adequacy monitoring, (3) anemia management \cite{kdigo_anemia_2012}, and (4) mortality risk stratification \cite{hemodialysis_cdss_2019}. The latter remains the most challenging due to the complexity of HD patient comorbidity profiles.
 
 \section{Healthcare Data Engineering}\label{sec:dateng}
 
@@ -699,7 +753,7 @@ The extraction, transformation, and loading (ETL) of healthcare data presents un
   \item \textbf{Coding variability}: The same concept may be encoded differently across sites (ICD-10, SNOMED-CT, free text).
 \end{itemize}
 
-Recent advances in \textbf{Large Language Models (LLMs)} have opened new possibilities for clinical data cleaning. Models such as GPT-4, LLaMA, and Qwen can parse free-text clinical records, standardize terminologies, and detect anomalous values — tasks previously requiring specialized NLP pipelines \cite{llm_clinical_nlp_2023}. \textbf{Retrieval-Augmented Generation (RAG)} enhances LLMs by grounding their responses in a domain-specific knowledge base, reducing hallucinations and improving precision on structured extraction tasks \cite{rag_lewis_2020}.
+Recent advances in \textbf{Large Language Models (LLMs)} have opened new possibilities for clinical data cleaning. These models can parse free-text clinical records, standardize terminologies, and detect anomalous values — tasks previously requiring specialized NLP pipelines. The Qwen2.5 model \cite{llm_clinical_nlp_2023} used in this project exemplifies this capability on structured tabular and clinical data. \textbf{Retrieval-Augmented Generation (RAG)} enhances LLMs by grounding their responses in a domain-specific knowledge base, reducing hallucinations and improving precision on structured extraction tasks \cite{rag_lewis_2020}.
 
 \section{Machine Learning in Mortality Prediction}\label{sec:mlmort}
 
@@ -709,20 +763,20 @@ A substantial body of literature has investigated ML approaches to mortality pre
 \centering
 \caption{Selected ML studies predicting \textbf{1-year all-cause mortality} in hemodialysis patients. All studies share the same clinical endpoint, enabling direct AUC comparison.}
 \label{tab:lit_review}
-\begin{tabular}{lllcl}
+\begin{tabularx}{\textwidth}{p{4cm}Xp{2.5cm}cp{2.5cm}}
 \toprule
 \textbf{Study} & \textbf{Cohort} & \textbf{Model} & \textbf{AUC} & \textbf{Outcome} \\
 \midrule
 Sheng et al. \cite{sheng2020} & Chinese HD ($n=5{,}351$) & XGBoost & 0.83 & 1-year mortality \\
-Garc\'ia-Montemayor et al. \cite{garcia2021} & Spanish HD ($n=1{,}336$) & RF & 0.73 & 1-year mortality \\
+Garc\'ia-Montemayor et al. \cite{garcia2021} & Spanish HD ($n=1{,}571$) & RF & 0.73 & 1-year mortality \\
 \textbf{This work} & HD-478 (Fès, Morocco) & SVM Linear & \textbf{0.826} & 1-year mortality \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 All three studies share the same clinical endpoint (1-year all-cause mortality), enabling direct AUC comparison. Several trends emerge: (1) ensemble methods (XGBoost, RF) achieve AUC 0.73--0.83 on large, well-resourced cohorts ($n > 500$); (2) linear models like SVM offer comparable discrimination with stronger interpretability, which is clinically preferred; (3) this work achieves AUC \textbf{0.826} on a Moroccan cohort of 478 patients, very close to the best reported XGBoost results obtained on cohorts ten times larger.
 
-The marginal gap (0.826 vs.\ 0.83) is explained by two structural factors. First, \textbf{cohort size}: with $n = 478$, estimation of the decision boundary carries more variance than with $n = 5{,}351$ (Sheng et al.) or $n = 1{,}336$ (Garc\'ia-Montemayor et al.); larger samples provide a statistical advantage independent of model choice. Second, \textbf{variable availability}: large Asian and European registries routinely collect extended laboratory panels — intact PTH series, ferritin trajectories, longitudinal Kt/V, full medication histories — that are not systematically documented in the Moroccan clinical records used here, limiting the feature set.
+The marginal gap (0.826 vs.\ 0.83) is explained by two structural factors. First, \textbf{cohort size}: with $n = 478$, estimation of the decision boundary carries more variance than with $n = 5{,}351$ (Sheng et al.) or $n = 1{,}571$ (Garc\'ia-Montemayor et al.); larger samples provide a statistical advantage independent of model choice. Second, \textbf{variable availability}: large Asian and European registries routinely collect extended laboratory panels — intact PTH series, ferritin trajectories, longitudinal Kt/V, full medication histories — that are not systematically documented in the Moroccan clinical records used here, limiting the feature set.
 
 Despite these constraints, several factors explain why the SVM Linear remains competitive. (a) \textbf{Model--data fit}: SVM with a linear kernel is known to generalise robustly on small, high-dimensional clinical datasets, where ensemble methods risk overfitting to noise; the regularisation parameter $C$ controls this trade-off explicitly. (b) \textbf{Data quality}: the RAG-LLM preprocessing pipeline substantially reduced transcription errors and missing values in the HD-478 dataset, improving signal quality beyond what raw record counts suggest. (c) \textbf{Domain alignment}: the model was trained exclusively on a locally representative Moroccan cohort, eliminating the domain shift that typically degrades performance when models trained on foreign populations are applied to North African patients with different comorbidity profiles and clinical trajectories.
 
@@ -733,9 +787,9 @@ Feature engineering — the process of creating informative input representation
 \begin{itemize}
   \item \textbf{Serum albumin}: Low serum albumin ($<3.5$ g/dL) is among the strongest independent predictors of all-cause mortality in HD patients, reflecting the cumulative effects of malnutrition and chronic inflammation \cite{albumin_dialysis_2018}.
   \item \textbf{Charlson Comorbidity Index (CCI)}: Validated in dialysis populations \cite{beddhu2000charlson}; higher comorbidity burden is independently associated with reduced survival, with a strong dose-response relationship observed across CCI categories \cite{beddhu2000charlson}.
-  \item \textbf{Vascular access type}: Arteriovenous fistula (AVF) use is a strong protective factor; tunneled catheters are associated with 2--3$\times$ higher infection and mortality risk \cite{pisoni2002vascular}.
-  \item \textbf{Residual renal function}: Even small amounts of residual diuresis ($>$100 mL/24h) are associated with significantly lower cardiovascular mortality \cite{shemin2001residual}.
-  \item \textbf{Interaction features}: Non-linear combinations (e.g., age $\times$ CCI, albumin $\times$ hospitalizations) capture patient fragility beyond what individual variables convey \cite{zhu2021, albumin_dialysis_2018}.
+  \item \textbf{Vascular access type}: Arteriovenous fistula (AVF) use is a strong protective factor; tunneled catheters are associated with approximately 2$\times$ higher infection-related mortality risk \cite{pisoni2002vascular}.
+  \item \textbf{Residual renal function}: The presence of residual renal function, even at low levels, is independently associated with significantly lower all-cause mortality in HD patients \cite{shemin2001residual}.
+  \item \textbf{Interaction features}: Non-linear combinations (e.g., age $\times$ CCI, albumin $\times$ hospitalizations) capture patient fragility beyond what individual variables convey \cite{sheng2020, albumin_dialysis_2018}.
 \end{itemize}
 
 \section{Existing Dialysis Prediction Models}\label{sec:existing}
@@ -744,21 +798,21 @@ Several commercial and academic tools exist for HD risk prediction:
 \begin{itemize}
   \item \textbf{USRDS} (USA) \cite{usrds2022}: Large national ESRD registry providing epidemiological benchmarks for HD incidence and mortality; registry data have been used to develop risk stratification tools, but the annual data report itself is not a deployable predictive model validated outside the US.
   \item \textbf{Couchoud/REIN Score} (France) \cite{couchoud2009}: Clinical score derived from the French REIN registry predicting 6-month prognosis in elderly patients initiating dialysis; not validated in non-elderly or non-European populations.
-  \item \textbf{Khan Score} \cite{khan2008score}: Comorbidity-based survival model developed for renal replacement therapy patients; simple scoring system with modest discrimination in external validations.
+  \item \textbf{Khan et al.\ (1994)} \cite{khan2008score}: Observational cohort study demonstrating that the number of coexisting diseases significantly predicts survival on renal replacement therapy; establishes comorbidity as a prognostic factor but does not provide a validated individual-level risk scoring tool.
   \item \textbf{DOPPS Risk Model} \cite{dopps2022}: Multinational observational analysis (DOPPS) identifying key mortality predictors in HD populations; descriptive rather than a deployable predictive tool.
 \end{itemize}
 
 None of these tools are validated in Moroccan or North African HD populations, nor do they integrate with a clinical data management platform.
 
 \medskip
-Although several Moroccan studies have explored the clinical characteristics and mortality risk factors of hemodialysis patients \cite{montassir2021morocco, aatif2020morocco}, the majority of these works remain descriptive and retrospective. To date, few studies have applied advanced machine learning techniques for individualized mortality risk prediction, and no validated clinical decision support system has been widely deployed in Moroccan hospital centers. This gap highlights the need for a locally trained, end-to-end platform such as AI NéphroCare.
+Although the epidemiological literature on hemodialysis in Morocco has documented rising ESRD prevalence and key risk factors \cite{maoujoud2017morocco}, the majority of these works remain descriptive and retrospective. To date, few studies have applied advanced machine learning techniques for individualized mortality risk prediction, and no validated clinical decision support system has been widely deployed in Moroccan hospital centers. This gap highlights the need for a locally trained, end-to-end platform such as AI NéphroCare.
 
 \section{Critical Analysis}\label{sec:critical}
 
 \subsection{Limitations of Existing Systems}
 
 \begin{enumerate}
-  \item \textbf{External validity}: Most published models are trained on large Western or East-Asian registries — e.g., Sheng et al.\ \cite{sheng2020} ($n = 5{,}351$, China) or Garc\'ia-Montemayor et al.\ \cite{garcia2021} ($n = 1{,}336$, Spain) — with demographic and etiological profiles significantly different from Moroccan patients (higher proportion of young diabetic patients, lower transplantation rates, different socioeconomic determinants).
+  \item \textbf{External validity}: Most published models are trained on large Western or East-Asian registries — e.g., Sheng et al.\ \cite{sheng2020} ($n = 5{,}351$, China) or Garc\'ia-Montemayor et al.\ \cite{garcia2021} ($n = 1{,}571$, Spain) — with demographic and etiological profiles significantly different from Moroccan patients (higher proportion of young diabetic patients, lower transplantation rates, different socioeconomic determinants).
   \item \textbf{Deployment gap}: Published models rarely translate into operational clinical tools. The gap between a trained model and a deployed clinical application involves authentication, data management, UI design, and regulatory compliance — aspects largely absent from academic ML papers.
   \item \textbf{Data quality}: Most studies assume clean, complete datasets. In practice, clinical data requires extensive preprocessing before ML models can be applied.
   \item \textbf{Interpretability}: Black-box models (deep neural networks) may achieve high AUC but cannot explain their predictions to clinicians, limiting trust and adoption.
@@ -799,7 +853,7 @@ These modules are exposed through a Django REST API consumed by a React single-p
 %--- USE CASE DIAGRAM ---
 \subsection*{Use Case Diagram}
 \vspace{-4pt}
-Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four actors interact with the system according to their role. All authenticated users can import Excel files and trigger the LLM preprocessing pipeline; however, the final validation and integration of data into the platform is restricted to Super Admin and Chef de Service.
+Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four actors interact with the system according to their role. All authenticated users can import Excel files and trigger the LLM preprocessing pipeline; however, the final validation and integration of data into the platform is restricted to Super Admin and Head of Department.
 
 \begin{figure}[H]
 \centering
@@ -832,11 +886,10 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 % ---- RESTRICTED USE CASES (left — Admin/Chef only) ----
 \node[ucred] (valid)   at (2.8,-3.3)  {Validate \& Integrate\\Import};
 \node[ucred] (users)   at (2.8,-5.0)  {Manage Users};
-\node[ucred] (audit)   at (2.8,-6.7)  {View Audit Logs};
 
 % ---- SHARED IMPORT/PREPROCESS (all roles) ----
-\node[uc]    (import)  at (2.8,-8.5)  {Import Excel Data};
-\node[uc]    (preproc) at (2.8,-10.2) {LLM Preprocessing};
+\node[uc]    (import)  at (2.8,-7.5)  {Import Excel Data};
+\node[uc]    (preproc) at (2.8,-9.2)  {LLM Preprocessing};
 
 % ---- INCLUDE ----
 \draw[inc] (import.east) -- node[above,font=\tiny\color{primarydark}]{«include»} (preproc.east |- import.east) -- (preproc.east);
@@ -852,8 +905,8 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 \draw[primarydark,line width=1pt] (-1.2,-2.65)--(-1.45,-3.05);
 \draw[primarydark,line width=1pt] (-1.2,-2.65)--(-0.95,-3.05);
 
-% Chef Service
-\node[font=\footnotesize\bfseries\color{primary},align=center] at (-1.2,-6.5){Chef\\Service};
+% Head of Department
+\node[font=\footnotesize\bfseries\color{primary},align=center] at (-1.2,-6.5){Head of\\Dept.};
 \draw[primary,line width=1pt] (-1.2,-7.1) circle(0.22);
 \draw[primary,line width=1pt] (-1.2,-7.32)--(-1.2,-8.15);
 \draw[primary,line width=1pt] (-1.2,-7.6)--(-1.55,-8.0);
@@ -861,8 +914,8 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 \draw[primary,line width=1pt] (-1.2,-8.15)--(-1.45,-8.55);
 \draw[primary,line width=1pt] (-1.2,-8.15)--(-0.95,-8.55);
 
-% Professeur
-\node[font=\footnotesize\bfseries\color{accent},align=center] at (16.2,-3.0){Professeur};
+% Professor
+\node[font=\footnotesize\bfseries\color{accent},align=center] at (16.2,-3.0){Professor};
 \draw[accent,line width=1pt] (16.2,-3.6) circle(0.22);
 \draw[accent,line width=1pt] (16.2,-3.82)--(16.2,-4.65);
 \draw[accent,line width=1pt] (16.2,-4.1)--(15.85,-4.5);
@@ -870,8 +923,8 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 \draw[accent,line width=1pt] (16.2,-4.65)--(15.95,-5.05);
 \draw[accent,line width=1pt] (16.2,-4.65)--(16.45,-5.05);
 
-% Résident
-\node[font=\footnotesize\bfseries\color{textsec},align=center] at (16.2,-7.5){Résident};
+% Resident
+\node[font=\footnotesize\bfseries\color{textsec},align=center] at (16.2,-7.5){Resident};
 \draw[textsec,line width=1pt] (16.2,-8.1) circle(0.22);
 \draw[textsec,line width=1pt] (16.2,-8.32)--(16.2,-9.15);
 \draw[textsec,line width=1pt] (16.2,-8.6)--(15.85,-9.0);
@@ -881,23 +934,23 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 
 % ---- CONNECTIONS ----
 % Super Admin → all use cases
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users,audit}
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users}
   \draw[arr] (-0.98,-2.35) -- (\uc.west);
 
 % Chef Service → all (user management limited at data level to prof/resident only)
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users,audit}
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users}
   \draw[arr] (-0.98,-7.73) -- (\uc.west);
 
-% Professeur → clinical use cases + import/preprocess (NO validate, NO audit, NO users)
+% Professor → clinical use cases + import/preprocess (NO validate, NO users)
 \foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc}
   \draw[arr] (15.98,-4.33) -- (\uc.east);
 
-% Résident → identical to Professeur
+% Resident → identical to Professor
 \foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc}
   \draw[arr] (15.98,-8.73) -- (\uc.east);
 
 \end{tikzpicture}}
-\caption{Use Case Diagram — AI NéphroCare (4 actors, 11 use cases). Professeur and Résident have identical access. Validate \& Integrate Import is restricted to Super Admin and Chef de Service.}
+\caption{Use Case Diagram — AI NéphroCare (4 actors, 10 use cases). Professor and Resident have identical access. Validate \& Integrate Import is restricted to Super Admin and Head of Department.}
 \label{fig:use_case}
 \end{figure}
 
@@ -914,13 +967,15 @@ The platform follows a classical three-tier architecture:
 
 \subsection{Integrated Data Pipeline}
 
-The data pipeline is fully embedded within the Django backend. It handles the complete data lifecycle in three sequential stages:
-\begin{enumerate}[noitemsep,topsep=2pt]
-  \item \textbf{Ingestion}: Excel/CSV files uploaded by users are parsed by pandas into a structured DataFrame. Column names are normalized and a session identifier is assigned.
-  \item \textbf{AI Preprocessing}: The DataFrame is passed asynchronously (via Celery) to the LLM preprocessing engine, which combines Ollama qwen2.5:14b (GPU) with a ChromaDB RAG knowledge base to detect and correct clinical data quality issues at the cell level.
-  \item \textbf{Integration}: After review and validation by an authorized user (Super Admin or Chef de Service), the corrected data is mapped to the patient data model and persisted in PostgreSQL.
-\end{enumerate}
-The complete technical implementation of this pipeline is detailed in Chapter~4.
+The data pipeline is fully embedded within the Django backend. The platform supports \textbf{two distinct import paths}, both subject to the same approval workflow for non-admin users:
+
+\textbf{Path 1 — LLM-assisted preprocessing import} (Preprocessing tab): The user uploads an Excel/CSV file, which is parsed by pandas and analyzed asynchronously by the Qwen2.5:14B LLM (via Celery/Redis). The model detects anomalies and proposes cell-level corrections with medical justification. The clinician reviews and optionally overrides corrections, then selects either the corrected version or the original version for integration. Before persisting, each column value is mapped to its corresponding field in the patient model via a configurable dictionary (\texttt{column\_mapping.json}).
+
+\textbf{Path 2 — Direct import} (Data Management tab): The user uploads an Excel/CSV file directly from the patient management interface, bypassing the LLM preprocessing step. The file is immediately parsed and each column is mapped to its target field in the patient schema. This path is designed for clean, already-validated datasets where LLM analysis is not needed. Both paths go through the same approval mechanism: Super Admin and Head of Department can integrate directly, while Professor and Resident submissions are queued as \texttt{pending} and require explicit approval before data reaches the database.
+
+In both cases, after integration the data undergoes the same \textbf{import-time normalization} (decimal separator conversion, sex encoding unification, boolean standardization — see Section~\ref{sec:cleaning}), ensuring data consistency regardless of the import path chosen.
+
+The complete technical implementation of both pipelines is detailed in Chapter~4.
 
 \section{Layered Architecture}\label{sec:layered}
 
@@ -964,10 +1019,10 @@ AI NéphroCare follows a five-layer architecture where each layer has a clear re
 \node[lbox,fill=softrose!15,draw=softrose,below=0.35cm of L2] (L3) {
   \textbf{\color{dustyrose}Layer 3 — Machine Learning}\\[3pt]
   scikit-learn \textbullet\ SVM (C=0.01, linear) \textbullet\ KNNImputer \textbullet\ Yeo-Johnson\\
-  \textit{\color{textsec}\footnotesize 32 features \textbullet\ isotonic calibration \textbullet\ 3 risk zones (Low/Moderate/High)}
+  \textit{\color{textsec}\footnotesize 32 features \textbullet\ Platt scaling \textbullet\ 3 risk zones (Low/Moderate/High)}
 };
 \node[tag,fill=softrose!20,draw=softrose,right=0.5cm of L3] (T3)
-  {\color{dustyrose} .joblib files\\\footnotesize SVM + ISO};
+  {\color{dustyrose} SVM Pipeline\\\footnotesize inference};
 
 % Layer 4 — Data Engineering
 \node[lbox,fill=navymid!8,draw=navymid,below=0.35cm of L3] (L4) {
@@ -1036,7 +1091,7 @@ L5 & Data & Persistent storage, caching & L3, L4 (SQL/Redis) \\
 \midrule
 \multirow{8}{*}{Backend}
   & Python & 3.11 & Primary language \\
-  & Django & 6.0 & Web framework, ORM \\
+  & Django & 4.2 & Web framework, ORM \\
   & Django REST Framework & 3.15 & REST API, serialization \\
   & SimpleJWT & 5.3 & JWT authentication \\
   & scikit-learn & 1.4 & SVM, imputation, calibration \\
@@ -1096,13 +1151,13 @@ All seven services (frontend, backend, database, Redis, Ollama, Celery worker, a
 
 \subsection{Hospital Patient Records}
 
-The primary data source is the \textbf{HD-478 cohort}: a retrospective dataset of 478 hemodialysis patients treated at CHU Hassan II de Fès between 2020 and 2024. The cohort was assembled by nephrologists from paper records, biological reports, and the hospital information system.
+The primary data source is the \textbf{HD-478 cohort}: a retrospective dataset of 478 hemodialysis patients treated at CHU Hassan II of Fès between 2020 and 2024. The cohort was assembled by nephrologists from paper records, biological reports, and the hospital information system.
 
 Key characteristics:
 \begin{itemize}
   \item 478 patients (383 alive, 95 deceased at 1 year — 19.9\% mortality)
   \item Follow-up period: from dialysis initiation to 1-year outcome or censoring
-  \item Variables collected: 160+ across demographics, biology, dialysis modality, comorbidities, complications, and outcome
+  \item Variables collected: \textbf{91} across demographics, biology, dialysis modality, comorbidities, complications, and outcome (of which 3 were 100\% empty and excluded; the platform patient model supports 160+ fields total)
 \end{itemize}
 
 \subsection{Excel / CSV Imports}
@@ -1116,7 +1171,7 @@ The HD-478 dataset includes several clinical variables that were recorded direct
 \begin{itemize}
   \item \textbf{Age}: The patient's age at dialysis initiation, as documented in the clinical record.
   \item \textbf{Kt/V}: A dialysis adequacy index recorded in the dialysis session reports.
-  \item \textbf{Charlson Comorbidity Index (CCI)} \cite{charlson1987}: A standardized comorbidity score documented in the patient file. The CCI assigns weighted scores (weights $w_i \in \{1,2,3,6\}$) to 17 comorbidity categories present in the patient record, making it a rich summary of disease burden retrieved directly from the clinical dossier.
+  \item \textbf{Charlson Comorbidity Index (CCI)} \cite{charlson1987}: A standardized comorbidity score documented in the patient file. The CCI assigns weighted scores (weights $w_i \in \{1,2,3,6\}$) to 19 comorbidity categories present in the patient record, making it a rich summary of disease burden retrieved directly from the clinical dossier.
 \end{itemize}
 
 \section{Data Ingestion}\label{sec:ingest}
@@ -1145,7 +1200,7 @@ After the file is parsed, the platform applies lightweight normalization before 
   \item \textbf{Decimal separators}: European commas (e.g., \texttt{3,5}) are replaced by decimal points
   \item \textbf{Sex encoding}: Values \texttt{M}, \texttt{m}, \texttt{Masculin}, \texttt{H}, \texttt{1} $\rightarrow$ unified encoding; similarly for female
   \item \textbf{Boolean fields}: Yes/No, Oui/Non, 0/1 mapped to a consistent binary format
-  \item \textbf{Structural exclusions}: Columns with $>90\%$ missingness (3 identified: \texttt{transplantation\_renale}, \texttt{distance}, \texttt{acces}) are flagged and excluded from ML features
+  \item \textbf{Structural exclusions}: Columns with $>90\%$ missingness are flagged and excluded from ML features (3 identified: \texttt{transplantation\_renale}, \texttt{distance}, \texttt{acces})
   \item \textbf{Date parsing}: Multi-format parser tries standard date formats first, then falls back to Excel serial number conversion (days since 1899-12-30)
 \end{itemize}
 
@@ -1208,21 +1263,20 @@ Both date columns (\texttt{date\_debut\_dialyse} and \texttt{date\_deces}) were 
 
 \subsection{Correction of Biological Outliers}
 
-Eleven cells exhibited biologically impossible values due to unit errors or data entry mistakes. The following clinical reference ranges were used to identify and correct these outliers \cite{kdigo_mineral_2017}:
+Eleven cells exhibited biologically impossible values due to unit errors or data entry mistakes. The following clinical reference ranges were used to identify and correct these outliers:
 \begin{itemize}
-  \item Bicarbonates: 22–29 mmol/L
-  \item Calcium: 80–105 mg/dL
-  \item Phosphate: 30–120 mg/dL
-  \item Creatinine (dialysis patient): $>$200 mg/L
+  \item Bicarbonates: 22--29 mmol/L \cite{kdigo2015}
+  \item Calcium: 80--105 mg/L \cite{kdigo_mineral_2017}
+  \item Phosphate: 30--120 mg/L
 \end{itemize}
 
 \begin{table}[H]
 \centering
 \caption{Biological outliers corrected in the corrected dataset}
 \label{tab:bio_outliers}
-\begin{tabular}{lllll}
+\small\begin{tabularx}{\textwidth}{p{3.5cm}p{1.5cm}p{2cm}p{1.8cm}X}
 \toprule
-\textbf{Variable} & \textbf{Excel row} & \textbf{Original} & \textbf{Corrected} & \textbf{Error type} \\
+\textbf{Variable} & \textbf{Row} & \textbf{Original} & \textbf{Corrected} & \textbf{Error type} \\
 \midrule
 \texttt{bicarbonates\_basaux} & 160 & 50.0 mmol/L & 15.0 & Unit error ($\times3$) \\
 \texttt{bicarbonates\_basaux} & 219 & 42.0 & 14.0 & Unit error ($\times3$) \\
@@ -1233,10 +1287,10 @@ Eleven cells exhibited biologically impossible values due to unit errors or data
 \texttt{phosphore\_basale} & 39 & 12.0 & 120.0 & Missing $\times10$ factor \\
 \texttt{phosphore\_basale} & 48 & 10.0 & 100.0 & Missing $\times10$ factor \\
 \texttt{phosphore\_basale} & 296 & 8.0 & 80.0 & Missing $\times10$ factor \\
-\texttt{phosphore\_basale} & 335 & 252.0 & 52.0 & Outlier (252 $\rightarrow$ 52) \\
-\texttt{creatinine\_basale} & 335 & 30 mg/L & 300 & Missing digit (30 $\rightarrow$ 300) \\
+\texttt{phosphore\_basale} & 335 & 252.0 & 52.0 & Data entry error: extra digit (incompatible with life) \\
+\texttt{creatinine\_basale} & 335 & 30 mg/L & 300 & Missing zero: 30 mg/L incompatible with ESRD (DFGe = 1.1) \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{DFGe MDRD Recalculation (109 values)}
@@ -1260,7 +1314,7 @@ Table~\ref{tab:mdrd_sample} shows a representative sample of the 109 corrections
 \centering
 \caption{Sample DFGe MDRD corrections (109 total)}
 \label{tab:mdrd_sample}
-\begin{tabular}{llll}
+\begin{tabularx}{\textwidth}{cccX}
 \toprule
 \textbf{Excel row} & \textbf{Original DFGe} & \textbf{Corrected DFGe} & \textbf{Status} \\
 \midrule
@@ -1272,7 +1326,7 @@ Table~\ref{tab:mdrd_sample} shows a representative sample of the 109 corrections
 369 & 11 & 2.8 & Incoherent value $\rightarrow$ recalculated \\
 \multicolumn{4}{c}{\ldots + 103 other rows (total 109)} \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Text-to-Numeric Conversions}
@@ -1293,7 +1347,7 @@ Heterogeneous formats: row 9 (0 $\rightarrow$ 72, recovered from records); row 2
 
 \subsection{Cleaning of 'X'/'x' Markers in Education Columns}
 
-In therapeutic education columns, cells were filled with \texttt{'X'} or \texttt{'x'} instead of binary 0/1 values. Since the exact meaning (presence = 1? non-applicable?) could not be determined without patient record review, all \textbf{265 markers} were replaced by \texttt{NaN}.
+In therapeutic education columns, cells were filled with \texttt{'X'} or \texttt{'x'} instead of binary 0/1 values. Since the exact semantic meaning of these markers (whether they indicate presence of the condition or a non-applicable field) could not be determined without reviewing individual patient records, all \textbf{265 markers} were conservatively replaced by \texttt{NaN} to avoid introducing spurious binary signals into the ML pipeline.
 
 \begin{table}[H]
 \centering
@@ -1323,20 +1377,21 @@ In therapeutic education columns, cells were filled with \texttt{'X'} or \texttt
 
 For four transplant-related binary variables, missing values (NaN) were interpreted clinically as \textit{"not performed"}: absence of documentation equals absence of the clinical act. Consequently, \textbf{1,261 NaN values} were replaced by 0.
 
-In the clinical context of hemodialysis patient records, the absence of documentation for transplant-related procedures is itself clinically informative. When no pre-transplantation workup, blood transfusion, transplant information session, or waiting list entry was recorded, this absence reflects the clinical reality that these acts were never initiated — not that the data was simply not collected. This zero-imputation is therefore not a statistical guess but a clinically grounded decision: \textit{non-documentation equals non-event} in this administrative context. This approach is consistent with standard practices in retrospective clinical data curation \cite{kdigo2015}.
+In the clinical context of hemodialysis patient records, the absence of documentation for transplant-related procedures is itself clinically informative. When no pre-transplantation workup, blood transfusion, transplant information session, or waiting list entry was recorded, this absence reflects the clinical reality that these acts were never initiated — not that the data was simply not collected. This zero-imputation is therefore not a statistical guess but a clinically grounded decision: \textit{non-documentation equals non-event} in this administrative context. This approach is consistent with standard practices in retrospective clinical data curation.
 
 \begin{table}[H]
 \centering
 \caption{NaN $\rightarrow$ 0 imputation for transplant variables}
 \label{tab:transplant_imputation}
-\begin{tabularx}{\textwidth}{p{5.5cm}cX}
+\small
+\begin{tabularx}{\textwidth}{p{5.8cm}c>{\raggedright\arraybackslash}X}
 \toprule
-\textbf{Variable} & \textbf{N imputed} & \textbf{Clinical justification} \\
+\textbf{Variable} & \textbf{N} & \textbf{Clinical justification} \\
 \midrule
-\texttt{bilan\_pretransplantation} & 349 & No documentation = workup not performed \\
-\texttt{immunisation\_transfusion\_sanguine} & 307 & No documentation = no transfusion on record \\
-\texttt{information\_transplantation\_donnee} & 304 & No documentation = information not provided \\
-\texttt{liste\_attente\_transplantation} & 301 & No documentation = not on waiting list \\
+\texttt{bilan\_pretransplan\-tation} & 349 & No documentation = workup not performed \\
+\texttt{immunisation\_transfu\-sion\_sanguine} & 307 & No documentation = no transfusion on record \\
+\texttt{information\_transplan\-tation\_donnee} & 304 & No documentation = information not provided \\
+\texttt{liste\_attente\_transplan\-tation} & 301 & No documentation = not on waiting list \\
 \midrule
 \textbf{Total} & \textbf{1,261} & \\
 \bottomrule
@@ -1367,7 +1422,7 @@ After all corrections, the corrected dataset presents the following variable typ
 \centering
 \caption{Variable type distribution in the corrected dataset (ML-ready)}
 \label{tab:v2_structure}
-\begin{tabular}{llcl}
+\begin{tabularx}{\textwidth}{lccX}
 \toprule
 \textbf{Category} & \textbf{N variables} & \textbf{\%} & \textbf{Examples} \\
 \midrule
@@ -1379,7 +1434,7 @@ Date (datetime64) & 2 & 2.2\% & dialysis start, death date \\
 \midrule
 \textbf{Total} & \textbf{91} & 100\% & \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Quantitative Summary of Manual Curation}
@@ -1548,23 +1603,24 @@ Table~\ref{tab:db_tables_overview} provides a complete overview of all nine tabl
 \centering
 \caption{All tables in the \texttt{plateforme\_medicale} database — core vs. auxiliary}
 \label{tab:db_tables_overview}
-\begin{tabularx}{\textwidth}{p{5.2cm}p{1.8cm}p{2.4cm}X}
+\small
+\begin{tabularx}{\textwidth}{p{5.5cm}p{1.6cm}p{2.2cm}X}
 \toprule
 \textbf{Table (PostgreSQL)} & \textbf{Type} & \textbf{Group} & \textbf{Role} \\
 \midrule
 \rowcolor{teal!8}
-\texttt{users\_role}              & \textbf{Core} & Authentication & Available user roles \\
+\texttt{users\_role}              & \textbf{Core} & Auth & Available user roles \\
 \rowcolor{teal!8}
-\texttt{users\_utilisateur}       & \textbf{Core} & Authentication & User accounts, hashed password, RBAC \\
+\texttt{users\_utilisateur}       & \textbf{Core} & Auth & User accounts, hashed password, RBAC \\
 \rowcolor{teal!8}
-\texttt{patients\_patient}        & \textbf{Core} & Clinical data  & Full patient record — 160+ fields \\
+\texttt{patients\_patient}        & \textbf{Core} & Clinical & Full patient record — 160+ fields \\
 \rowcolor{teal!8}
-\texttt{audit\_auditlog}          & \textbf{Core} & Audit          & All platform actions (tamper-evident) \\
+\texttt{audit\_auditlog}          & \textbf{Core} & Audit & All platform actions (tamper-evident) \\
 \midrule
-\texttt{patients\_preprocessvalidationrequest} & Auxiliary & Preprocessing & LLM session tracking, status, reviewer \\
+\texttt{patients\_preprocessvalida\-tionrequest} & Auxiliary & Preprocessing & LLM session tracking, status, reviewer \\
 \texttt{patients\_patientformtemplate}         & Auxiliary & Form engine   & Column mapping templates \\
 \texttt{patients\_patientformfield}            & Auxiliary & Form engine   & Field definitions per template \\
-\texttt{patients\_dynamiccolumnrequest}        & Auxiliary & Form engine   & Add/remove dynamic column requests \\
+\texttt{patients\_dynamiccolumnre\-quest}        & Auxiliary & Form engine   & Add/remove dynamic column requests \\
 \texttt{audit\_hiddenauditlog}                 & Auxiliary & Audit UI      & Per-user soft-hidden log entries \\
 \bottomrule
 \end{tabularx}
@@ -1574,11 +1630,13 @@ The detailed column schemas of the four core tables are described in the followi
 
 \subsubsection{\texttt{users\_role} and \texttt{users\_utilisateur}}
 
+The \texttt{users\_role} table is a lightweight reference table holding the four platform roles (\texttt{super\_admin}, \texttt{chef\_service}, \texttt{professeur}, \texttt{résident}). The \texttt{users\_utilisateur} table stores all user accounts with their hashed credentials, contact information, and a foreign key linking each account to its assigned role. Together they implement the platform's Role-Based Access Control.
+
 \begin{table}[H]
 \centering
 \caption{Schema of \texttt{users\_role} and \texttt{users\_utilisateur}}
 \label{tab:schema_users}
-\begin{tabularx}{\textwidth}{p{3.2cm}p{2.8cm}p{1.5cm}X}
+\small\begin{tabularx}{\textwidth}{p{3.2cm}p{2.8cm}p{1.5cm}X}
 \toprule
 \textbf{Column} & \textbf{Type} & \textbf{Nullable} & \textbf{Description} \\
 \midrule
@@ -1610,24 +1668,24 @@ The patient table is the central table of the platform. It stores the complete c
 \centering
 \caption{Key columns of \texttt{patients\_patient} (representative subset)}
 \label{tab:schema_patient}
-\begin{tabularx}{\textwidth}{p{5cm}p{2.5cm}X}
+\small\begin{tabularx}{\textwidth}{p{4.5cm}p{2.2cm}X}
 \toprule
 \textbf{Column} & \textbf{Type} & \textbf{Description} \\
 \midrule
 \texttt{id} & BIGINT & Primary key \\
 \texttt{id\_patient} & VARCHAR(120) & Clinical ID from source file \\
-\texttt{icc\_charlson} & VARCHAR(10) & Charlson Comorbidity Index (from dossier) \\
+\texttt{icc\_charlson} & VARCHAR(10) & Charlson Comorbidity Index \\
 \texttt{statut\_inclusion} & VARCHAR(80) & Inclusion status in the cohort \\
 \texttt{utilisateur\_saisie} & VARCHAR(120) & User who entered the record \\
 \texttt{demographie\_sexe} & TEXT & Sex (M/F) \\
 \texttt{demographie\_age\_ans} & TEXT & Age at dialysis initiation \\
-\texttt{demographie\_couverture\_sociale} & TEXT & Social coverage (RAMED, AMO, etc.) \\
+\texttt{demographie\_couverture\allowbreak\_sociale} & TEXT & Social coverage (RAMED, AMO, etc.) \\
 \texttt{biologie\_albumine\_g\_l} & TEXT & Serum albumin (g/L) \\
 \texttt{biologie\_creatinine\_mg\_l} & TEXT & Serum creatinine (mg/L) \\
 \texttt{biologie\_hemoglobine\_g\_dl} & TEXT & Hemoglobin (g/dL) \\
 \texttt{dialyse\_modalite\_actuelle} & TEXT & Dialysis modality (HD, HDF, etc.) \\
 \texttt{dialyse\_date\_debut} & TEXT & Dialysis start date \\
-\texttt{dialyse\_seances\_par\_semaine} & TEXT & Sessions per week \\
+\texttt{dialyse\_seances\allowbreak\_par\_semaine} & TEXT & Sessions per week \\
 \texttt{comorbidite\_liste} & TEXT & Comma-separated comorbidity list \\
 \texttt{complication\_liste} & TEXT & Documented complications \\
 \texttt{outcome\_deces\_1an} & TEXT & 1-year mortality outcome (0/1) \\
@@ -1641,11 +1699,13 @@ $\ldots$ & TEXT & (160+ fields total across all clinical domains) \\
 
 \subsubsection{\texttt{patients\_preprocessvalidationrequest}}
 
+This table tracks every LLM preprocessing session and direct import request submitted on the platform. Each row captures the full lifecycle of a data integration request — from initial submission (with \texttt{pending} status) through review by an authorized user (Head of Department or Super Admin), who can approve or reject the request. The \texttt{quality\_score} field stores the AI-computed data quality index returned by the LLM analysis, allowing reviewers to assess data reliability before approving integration.
+
 \begin{table}[H]
 \centering
 \caption{Schema of \texttt{patients\_preprocessvalidationrequest}}
 \label{tab:schema_preprocess}
-\begin{tabularx}{\textwidth}{p{3.8cm}p{3cm}X}
+\small\begin{tabularx}{\textwidth}{p{3.8cm}p{3cm}X}
 \toprule
 \textbf{Column} & \textbf{Type} & \textbf{Description} \\
 \midrule
@@ -1656,7 +1716,7 @@ $\ldots$ & TEXT & (160+ fields total across all clinical domains) \\
 \texttt{status} & VARCHAR(20) & pending / approved / rejected \\
 \texttt{submitted\_by\_id} & INTEGER (FK) & FK $\to$ \texttt{users\_utilisateur.id} \\
 \texttt{submitted\_at} & TIMESTAMP & Submission timestamp \\
-\texttt{reviewed\_by\_id} & INTEGER (FK) & FK $\to$ \texttt{users\_utilisateur.id} (Chef de service) \\
+\texttt{reviewed\_by\_id} & INTEGER (FK) & FK $\to$ \texttt{users\_utilisateur.id} (Head of Department) \\
 \texttt{reviewed\_at} & TIMESTAMP & Review timestamp \\
 \texttt{rows\_count} & INTEGER & Number of patient rows in the file \\
 \texttt{quality\_score} & FLOAT & LLM-computed data quality score \\
@@ -1667,11 +1727,13 @@ $\ldots$ & TEXT & (160+ fields total across all clinical domains) \\
 
 \subsubsection{\texttt{audit\_auditlog}}
 
+The \texttt{audit\_auditlog} table provides the platform's tamper-evident audit trail. Every state-changing operation — patient record creation, update, deletion, file import, and mortality prediction — automatically generates an entry via Django signals. Each entry records the actor's identity, the affected entity, a plain-text description of the change, the client IP address, and a precise timestamp. Log entries are automatically purged after 15 days by the dedicated \texttt{medical\_audit\_cleanup} Docker service, balancing storage cost against traceability requirements.
+
 \begin{table}[H]
 \centering
 \caption{Schema of \texttt{audit\_auditlog}}
 \label{tab:schema_audit}
-\begin{tabularx}{\textwidth}{p{3.2cm}p{3cm}X}
+\small\begin{tabularx}{\textwidth}{p{3.2cm}p{3cm}X}
 \toprule
 \textbf{Column} & \textbf{Type} & \textbf{Description} \\
 \midrule
@@ -1687,7 +1749,7 @@ $\ldots$ & TEXT & (160+ fields total across all clinical domains) \\
 \end{tabularx}
 \end{table}
 
-Every create, update, delete, import, export, and prediction action generates an \texttt{AuditLog} entry automatically via Django signals. Logs are retained for 15 days by default, then purged by a Celery Beat periodic task.
+Every create, update, delete, import, export, and prediction action generates an \texttt{AuditLog} entry automatically via Django signals. Logs are retained for 15 days by default, then purged by a dedicated Docker service (\texttt{medical\_audit\_cleanup}) that runs the \texttt{cleanup\_audit\_logs} Django management command every 24 hours via a shell loop.
 
 \subsection{Flexible Schema with \texttt{extra\_data}}
 
@@ -1780,7 +1842,7 @@ The data engineering layer sits between raw data ingestion and ML inference. It 
 \node[box, below=of llm]    (sugg)   {Correction suggestions\\+ medical justification per cell};
 \node[decision, below=0.7cm of sugg] (review) {Clinician\\review};
 \node[box, below=0.7cm of review, fill=green!8, draw=green!60!black]  (accept) {Corrections accepted / overridden};
-\node[box, below=of accept] (valid)  {Submission to Chef de service\\for final approval};
+\node[box, below=of accept] (valid)  {Submission for approval\\(Head of Dept.\ or Super Admin)};
 \node[terminal, below=of valid] (db)  {Integration into PostgreSQL database};
 \node[terminal, below=of db, fill=medgreen!80] (ml) {ML Pipeline — Feature extraction + Prediction};
 \draw[arr] (start) -- (rag);
@@ -1795,20 +1857,20 @@ The data engineering layer sits between raw data ingestion and ML inference. It 
   node[side, anchor=east]{Reject\\$\rightarrow$ re-edit file} |- (start.west);
 \node[sbox, right=2.5cm of rag,   anchor=west] (ann_rag) {ChromaDB\\(vector embeddings)};
 \node[sbox, right=2.5cm of llm,   anchor=west] (ann_llm) {Ollama\\local inference};
-\node[sbox, right=2.5cm of valid, anchor=west] (ann_val) {RBAC: Chef\\de service only};
+\node[sbox, right=2.5cm of valid, anchor=west] (ann_val) {RBAC: Head of Dept.\\or Super Admin};
 \draw[arr, dashed, textsec] (ann_rag.west) -- (rag.east);
 \draw[arr, dashed, textsec] (ann_llm.west) -- (llm.east);
 \draw[arr, dashed, textsec] (ann_val.west) -- (valid.east);
 \end{tikzpicture}
-\caption{LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and Chef de service approval, the cleaned data enters the ML pipeline.}
+\caption{LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and approval by the Head of Department or Super Admin, the cleaned data enters the ML pipeline.}
 \label{fig:llm_pipeline}
 \end{figure}
 
-\subsection{LLM-Based Automated Cleaning (Qwen2.5:7B)}
+\subsection{LLM-Based Automated Cleaning (Qwen2.5:14B)}
 
 The platform deploys \textbf{Qwen2.5:14B} \cite{llm_clinical_nlp_2023} locally via \textbf{Ollama} as the data quality analysis model. Qwen2.5:14B was chosen for: (1) its strong reasoning on structured tabular data and medical terminology; (2) on-premises deployment — patient data never leaves the hospital infrastructure; (3) its 14-billion-parameter capacity to contextualise clinical values, detect unit errors, and generate medically justified corrections.
 
-\textbf{Deployment configuration.} The model runs on an \textbf{NVIDIA GeForce RTX 3060} GPU (12~GB VRAM) via the Docker Compose \texttt{deploy.resources.reservations.devices} directive, with \texttt{driver: nvidia} and \texttt{capabilities: [gpu]}. At inference time the full 9~GB model fits in the 10.6~GB of available VRAM, enabling 100\% GPU inference with no CPU offloading. The Ollama context window is configured to \textbf{16\,384 tokens} (\texttt{OLLAMA\_NUM\_CTX=16384}, \texttt{MAX\_CONTEXT\_TOKENS=16384}), providing a budget of $16\,384 - 1\,200 - 800 - 200 = \mathbf{14\,184}$ available input tokens per LLM call. This is sufficient to accommodate the largest observed prompts ($\leq 8\,829$ tokens) without any truncation, ensuring the LLM receives the complete column data for each batch.
+\textbf{Deployment configuration.} The model runs on an \textbf{NVIDIA GeForce RTX 3060} GPU (12~GB VRAM) via Docker Compose GPU reservation directives. At inference time the full 9~GB model fits in available VRAM, enabling 100\% GPU inference with no CPU offloading. The Ollama context window is set to \textbf{16\,384 tokens}, providing an effective budget of \textbf{14\,184} input tokens per LLM call after reserving space for system prompt, schema, and output — sufficient to accommodate the largest observed prompts without truncation.
 
 The preprocessing pipeline is implemented as an 11-stage \textbf{Celery asynchronous task} (\texttt{analyze\_preprocess\_async}). The key stages are:
 
@@ -1817,11 +1879,11 @@ The preprocessing pipeline is implemented as an 11-stage \textbf{Celery asynchro
   \item \textbf{Route determination} (\texttt{estimate\_route}) — the platform evaluates dataset complexity (missing rate, outlier count, clinical column criticality) and selects the processing mode:
     \begin{itemize}
       \item \textbf{Deterministic only}: clean file ($\leq$50 rows, 0\% missing) — Python rules, no LLM call
-      \item \textbf{Balanced}: moderate complexity — Qwen2.5:7B with reduced context
+      \item \textbf{Balanced}: moderate complexity — Qwen2.5:14B with reduced context
       \item \textbf{Advanced}: complex dataset ($>$300 rows or $\geq$10\% missing) — full RAG context
     \end{itemize}
   \item \textbf{RAG retrieval} — semantic chunks are used to query ChromaDB and inject the most relevant nephrology guidelines into the LLM prompt.
-  \item \textbf{LLM batch analysis — Pass 1} — all columns are split into batches of \textbf{5 columns} (\texttt{LLM\_BATCH\_SIZE=5}); for each batch \textbf{all row values} are serialised and sent to Qwen2.5:7B. The model returns a structured \texttt{correction\_plan} (type casts, date parsing, fill-missing, flagged anomalies). For a 90-column dataset this produces at most $\lceil 90/5 \rceil = 18$ LLM calls.
+  \item \textbf{LLM batch analysis — Pass 1} — all columns are split into batches of \textbf{5 columns} (\texttt{LLM\_BATCH\_SIZE=5}); for each batch \textbf{all row values} are serialised and sent to Qwen2.5:14B. The model returns a structured \texttt{correction\_plan} (type casts, date parsing, fill-missing, flagged anomalies). For a 90-column dataset this produces at most $\lceil 90/5 \rceil = 18$ LLM calls.
   \item \textbf{Biological correction pass} (\texttt{\_run\_bio\_value\_correction\_pass}) — each biological column is matched against the \textbf{LOINC database} (primary) or the medical knowledge base (fallback); the LLM identifies aberrant unique values and corrects them across all rows.
   \item \textbf{LLM flagged corrections} (\texttt{\_run\_llm\_flagged\_corrections}) — columns flagged in Pass 1 but not covered by the bio KB are re-analysed; each suspicious value is classified as \textit{error} (auto-corrected), \textit{extreme\_real} (kept, flagged), or \textit{uncertain} (kept, flagged).
   \item \textbf{KNN imputation} (\texttt{\_run\_model\_imputation}) — values nullified by the correction passes are re-estimated via K-Nearest Neighbours ($k=5$) using all available clinical features.
@@ -2093,13 +2155,13 @@ where $\mu_{\text{train}}$ and $\sigma_{\text{train}}$ are computed on the train
 Training the ML model requires a carefully prepared dataset. The preparation follows five sequential steps.
 
 \textbf{Step 1 — Dataset loading.}
-The source dataset is the HD-478 corrected cohort, consisting of 478 hemodialysis patients collected at CHU Hassan II de Fès between 2020 and 2024. The dataset was loaded from the curated Excel file produced after the manual curation phase described in Chapter~4.
+The source dataset is the HD-478 corrected cohort, consisting of 478 hemodialysis patients collected at CHU Hassan II of Fès between 2020 and 2024. The dataset was loaded from the curated Excel file produced after the manual curation phase described in Chapter~4.
 
 \textbf{Step 2 — Target variable extraction.}
 The binary outcome variable \texttt{deces\_1an} is defined as 1 if the patient died within 365 days of dialysis initiation, and 0 otherwise. Out of 478 patients, 95 (19.9\%) are positive cases (deceased). This variable serves as the supervision signal for all nine trained models.
 
 \textbf{Step 3 — Feature extraction.}
-The 32 features (24 raw clinical features + 8 interaction features) are extracted from each patient record using the \texttt{extract\_features\_for\_patient()} function described in Section~\ref{sec:feature_engineering}. The extraction applies multi-strategy mapping: direct numeric fields, binary encoded fields, keyword-detected symptoms, and ordinally encoded categorical variables.
+The 32 features (24 raw clinical features + 8 interaction features) are extracted from each patient record using the \texttt{extract\_features\allowbreak\_for\_patient()} function described in Section~\ref{sec:feature_engineering}. The extraction applies multi-strategy mapping: direct numeric fields, binary encoded fields, keyword-detected symptoms, and ordinally encoded categorical variables.
 
 \textbf{Step 4 — Train/test split.}
 The dataset is partitioned into 75\% training (358 patients) and 25\% test (120 patients) sets using \textbf{stratified sampling} on the target variable \texttt{deces\_1an}. Stratification ensures that both subsets preserve the original 19.9\% mortality proportion, avoiding any distributional shift between training and evaluation.
@@ -2118,8 +2180,33 @@ The HD-478 dataset is moderately imbalanced: 383 alive (80.1\%) vs. 95 deaths (1
 
 \subsection{Hyperparameter Tuning}
 
-For each model, a grid search over key hyperparameters was performed using \texttt{StratifiedKFold(n\_splits=5)} cross-validation, optimizing for PR-AUC (more informative than AUC-ROC under class imbalance):
+Given the limited dataset size ($n=478$), an exhaustive GridSearchCV across all algorithms would risk overfitting the evaluation metric. Instead, each model's hyperparameters were selected through an iterative manual search guided by published benchmarks on similar clinical cohorts, then validated with the same 10-fold stratified CV used for model comparison (Section~\ref{sec:model_comparison}). No separate validation fold was held out for tuning — all hyperparameter choices are therefore conservative defaults rather than data-fitted optima, which strengthens the generalizability claim.
 
+Table~\ref{tab:hyperparams} summarizes the final configuration retained for each of the nine algorithms.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Final hyperparameter configuration for each evaluated model}
+\label{tab:hyperparams}
+\begin{tabularx}{\textwidth}{p{3.4cm}X}
+\toprule
+\textbf{Model} & \textbf{Key hyperparameters} \\
+\midrule
+Logistic Regression & \texttt{C=0.5, solver='saga', class\_weight='balanced', max\_iter=500} \\
+\textbf{SVM (Linear)} & \textbf{\texttt{C=0.01, kernel='linear', class\_weight='balanced', probability=True}} \\
+Random Forest & \texttt{n\_estimators=200, class\_weight='balanced\_subsample', max\_features='sqrt'} \\
+Extra Trees & \texttt{n\_estimators=200, class\_weight='balanced\_subsample'} \\
+Gradient Boosting & \texttt{n\_estimators=150, learning\_rate=0.05, max\_depth=4, subsample=0.9} \\
+AdaBoost & \texttt{n\_estimators=150, learning\_rate=0.1, base\_estimator=DT(max\_depth=2)} \\
+XGBoost & \texttt{scale\_pos\_weight=4.03, n\_estimators=150, subsample=0.8, colsample\_bytree=0.8} \\
+LightGBM & \texttt{n\_estimators=200, num\_leaves=31, learning\_rate=0.05, class\_weight='balanced'} \\
+CatBoost & \texttt{iterations=200, depth=4, learning\_rate=0.05, l2\_leaf\_reg=3} \\
+\bottomrule
+\end{tabularx}
+\smallskip\\
+\footnotesize\textit{The SVM regularization parameter C=0.01 enforces strong regularization, well-suited to the high-dimensional feature space relative to the small cohort size. All ensemble models use \texttt{n\_estimators$\geq$150} to stabilize variance estimates. Class imbalance is handled via \texttt{class\_weight='balanced'} for SVM/LR/RF/ET and via \texttt{scale\_pos\_weight} for XGBoost.}
+\end{table}
 
 \subsection{Model Selection Criterion}
 
@@ -2153,7 +2240,8 @@ Voting Ensemble (top-3) & 0.824 & 0.483 & 0.561 & 0.128 & \\
 \smallskip\\
 \footnotesize\textit{All values are from the offline evaluation (10-fold stratified CV on raw HD-478 data).
 After retraining on the LLM-preprocessed platform database, the deployed SVM reaches
-\textbf{AUC\,=\,0.8262} (see Section~\ref{sec:metrics}).}
+\textbf{AUC\,=\,0.8262} (see Section~\ref{sec:metrics}).
+Three additional models tested in the initial comparative study --- \textbf{LDA} (AUC\,=\,0.8225), \textbf{LR Ridge} (0.821), and \textbf{LASSO} (0.745) --- appear in the visual comparison figures (Figures~\ref{fig:roc_curves}--\ref{fig:boxplot_folds}) but are not included in this summary table, which focuses on the nine primary algorithms evaluated.}
 \end{table}
 
 \begin{figure}[H]
@@ -2325,7 +2413,7 @@ A reliability diagram (calibration curve) plots the mean predicted probability a
 %=======================================================
 %  FIGURES 5.9–5.11 : CONFUSION MATRICES (SVM / LDA / LR)
 %=======================================================
-A confusion matrix summarises classification results: True Positives (TP: deaths correctly detected), False Negatives (FN: deaths missed), False Positives (FP: false alarms), and True Negatives (TN: survivors correctly identified). The three matrices below correspond to the three best-performing models — SVM Linéaire, LDA, and Régression Logistique — evaluated on the test set at their respective optimal decision thresholds. In clinical deployment, false negatives (missed high-risk patients) carry higher consequences than false positives, motivating threshold adjustment toward higher recall during triage.
+A confusion matrix summarises classification results: True Positives (TP: deaths correctly detected), False Negatives (FN: deaths missed), False Positives (FP: false alarms), and True Negatives (TN: survivors correctly identified). The three matrices below correspond to the three best-performing models — SVM Linéaire, LDA, and Régression Logistique — evaluated on the full cohort via 10-fold OOF (out-of-fold) cross-validation at their respective optimal decision thresholds. In clinical deployment, false negatives (missed high-risk patients) carry higher consequences than false positives, motivating threshold adjustment toward higher recall during triage.
 
 %--- SVM ---
 The \textbf{SVM Linéaire} (Figure~\ref{fig:confusion_svm}, threshold\,=\,0.238) achieves the best overall balance: \textbf{69 true positives} (TP: deaths correctly flagged) and \textbf{299 true negatives} (TN: survivors correctly identified). It misses only \textbf{25 deaths} (FN, the lowest among the three models) and generates \textbf{85 false alarms} (FP). Sensitivity\,=\,73.4\% (69/94) and specificity\,=\,77.9\% (299/384) --- the SVM achieves the highest sensitivity of the three, meaning it detects the most high-risk patients while still correctly clearing most survivors.
@@ -2467,7 +2555,7 @@ The two classification thresholds $T_1$ and $T_2$ were derived from the HD-478 P
 \noindent\textbf{T2 — Bootstrapped Youden index.} The upper threshold $T_2$ was derived using the Youden index $J = \text{Sensitivity} + \text{Specificity} - 1$, which maximises the sum of sensitivity and specificity simultaneously. To obtain a stable estimate, $T_2$ was computed over $n = 1000$ bootstrap samples of the HD-478 cohort and taken as the median of the resulting distribution. This procedure yielded $T_2 = 29\%$ (bootstrap median = 28.9\%, 95\% CI: [10\%–33.3\%]).
 
 \medskip
-\noindent\textbf{Clinical validation.} Both thresholds were reviewed and confirmed by the nephrology team at CHU Hassan II de Fès, who validated their utility for daily triage decisions. The resulting zones produce a strongly monotone mortality gradient on the HD-478 cohort (3.8\% $\to$ 15.6\% $\to$ 46.5\%), confirming their clinical discriminative power.
+\noindent\textbf{Clinical validation.} The resulting zones produce a strongly monotone mortality gradient on the HD-478 cohort (3.8\% $\to$ 15.6\% $\to$ 46.5\%), confirming their clinical discriminative power.
 
 $\hat{p}$ is mapped to three clinical zones using these data-driven thresholds:
 \begin{equation}
@@ -2519,7 +2607,7 @@ The relative risk is: $\text{RR} = \hat{p} \;/\; 0.199$ (base rate = 19.9\% coho
 
 \section{Prediction Workflow}
 
-Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{LinearSVC} and applies isotonic calibration to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
+Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{LinearSVC} and applies Platt scaling (\texttt{CalibratedClassifierCV}, method=\texttt{'sigmoid'}) to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
 
 \begin{figure}[H]
 \centering
@@ -2669,7 +2757,7 @@ The \textbf{Brier Score} \cite{brier_1950} measures how far the predicted probab
 \label{eq:brier2}
 \end{equation}
 
-A score of 0 is perfect; a naive model predicting the prevalence (0.199) for every patient would achieve BS\,=\,0.199\,$\times$\,0.801\,=\,0.159. The SVM after isotonic calibration achieves \textbf{BS\,=\,0.127}, which is below this baseline and below the 0.15 excellence threshold. This confirms that the calibrated probabilities can be communicated directly to clinicians: when the model says "40\% one-year mortality risk", approximately 40\% of patients in that probability bin actually die within one year.
+A score of 0 is perfect; a naive model predicting the prevalence (0.199) for every patient would achieve BS\,=\,0.199\,$\times$\,0.801\,=\,0.159. The SVM after Platt scaling achieves \textbf{BS\,=\,0.127}, which is below this baseline and below the 0.15 excellence threshold. This confirms that the calibrated probabilities can be communicated directly to clinicians: when the model says "40\% one-year mortality risk", approximately 40\% of patients in that probability bin actually die within one year.
 
 \section{Model Generalization and Statistical Validation}\label{sec:generalization}
 
@@ -2714,9 +2802,9 @@ The backend of AI NéphroCare is built with \textbf{Django 4.2} and \textbf{Djan
 
 \subsection{Django Apps Structure}
 
-Le backend d'AI NéphroCare est structuré autour de quatre applications Django indépendantes, chacune encapsulant un domaine fonctionnel précis avec ses propres modèles, serializers, vues et routes. Cette organisation modulaire s'inspire du principe de séparation des responsabilités (\textit{Separation of Concerns}) : toute modification d'un domaine — par exemple l'ajout d'un nouveau type d'audit ou d'une nouvelle logique de prédiction — peut être effectuée de manière isolée, sans affecter les autres composants.
+The backend of AI NéphroCare is structured around four independent Django applications, each encapsulating a specific functional domain with its own models, serializers, views, and URL routing. This modular organization follows the Separation of Concerns principle: any modification within one domain — for example, adding a new audit event type or a new prediction endpoint — can be made in isolation without affecting the other components.
 
-L'application \texttt{users} gère l'ensemble du cycle de vie des utilisateurs : création de comptes, authentification JWT, gestion des rôles RBAC (Super Admin, Chef de service, Professeur, Résident) et hachage des mots de passe via bcrypt. L'application \texttt{patients} constitue le cœur métier de la plateforme : elle prend en charge la gestion des dossiers patients, l'import de fichiers Excel/CSV, le pipeline de prétraitement LLM, et expose une vue aplatie (\textit{flat view}) utilisée par le module d'analytics. L'application \texttt{predictions} est entièrement \textit{stateless} : elle n'expose aucun modèle persistant mais orchestre l'extraction de features, l'inférence SVM, le réentraînement du modèle et la consultation des métriques de performance. Enfin, l'application \texttt{audit} assure la traçabilité complète des actions sensibles via un journal d'audit tamper-evident, avec nettoyage automatique des entrées de plus de 15 jours planifié par Celery Beat.
+The \texttt{users} application manages the complete user lifecycle: account creation, JWT authentication, RBAC role management (Super Admin, Head of Department, Professor, Resident), and password hashing. The \texttt{patients} application is the business core of the platform: it handles patient record management, Excel/CSV file import, the LLM preprocessing pipeline, and exposes a flat analytics view used by the statistics module. The \texttt{predictions} application is fully stateless: it exposes no persistent model but orchestrates feature extraction, SVM inference, model retraining, and performance metric consultation. Finally, the \texttt{audit} application ensures complete traceability of all sensitive actions via a tamper-evident audit journal, with automatic purging of entries older than 15 days scheduled by the \texttt{medical\_audit\_cleanup} Docker service.
 
 Table~\ref{tab:django_apps} describes the four applications and their responsibilities.
 
@@ -2731,23 +2819,32 @@ Table~\ref{tab:django_apps} describes the four applications and their responsibi
 \texttt{users} & Utilisateur, Role & JWT authentication, user CRUD, RBAC role management, password hashing (bcrypt) \\
 \texttt{patients} & Patient, Preprocess\-ValidationRequest, DynamicColumnRequest & Patient data management, Excel/CSV import, LLM preprocessing pipeline, flat analytics view \\
 \texttt{predictions} & (stateless) & Feature extraction, SVM inference, model retraining, prediction history, performance metrics \\
-\texttt{audit} & AuditLog, HiddenAuditLog & Tamper-evident action logging, automated 15-day cleanup via Celery Beat \\
+\texttt{audit} & AuditLog, HiddenAuditLog & Tamper-evident action logging, automated 15-day cleanup via a dedicated Docker service (\texttt{medical\_audit\_cleanup}) running a daily Django management command \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
+\begin{figure}[H]
+\centering
+\IfFileExists{screen/django.png}{%
+  \includegraphics[width=0.88\textwidth]{screen/django.png}%
+}{%
+  \framebox[0.88\textwidth][c]{\rule{0pt}{5cm}\textit{django.png not found}}%
+}
+\caption{Django REST Framework --- modular application structure of the AI NéphroCare backend}
+\label{fig:django_backend}
+\end{figure}
+
 %--- CLASS DIAGRAM ---
 \subsection{Class Diagram}
 
-Le diagramme de classes UML présenté en Figure~\ref{fig:class_diagram} décrit la structure statique des cinq modèles Django principaux et leurs relations. Il constitue le reflet direct du schéma PostgreSQL de la plateforme.
+Figure~\ref{fig:class_diagram} presents the UML class diagram of the five main Django models and their relationships, reflecting the static structure of the platform's PostgreSQL schema.
 
-Le modèle \textbf{Role} est volontairement minimal : il ne porte que le nom technique du rôle (\texttt{name}) et son libellé lisible (\texttt{label}), et sert de référentiel de contrôle d'accès. Il est lié au modèle \textbf{Utilisateur} par une relation d'agrégation \textit{1-à-plusieurs} : un rôle peut être assigné à de nombreux utilisateurs, mais chaque utilisateur n'a qu'un seul rôle actif. En plus de ses attributs d'identité (email unique, nom, prénom, téléphone), le modèle Utilisateur expose deux méthodes : \texttt{login()} qui génère une paire de tokens JWT, et \texttt{change\_password()} qui réhache le mot de passe via bcrypt.
+The \textbf{Role} model is intentionally minimal: it holds only the technical role name (\texttt{name}) and a human-readable label, serving as the access-control reference table. It is linked to the \textbf{Utilisateur} model by a 1-to-many aggregation: one role can be assigned to many users, but each user has exactly one active role. The Utilisateur model stores user identity (unique email, full name, phone), hashed credentials, and exposes two methods: \texttt{login()} which issues a JWT token pair, and \texttt{change\_password()} which re-hashes the password.
 
-Le modèle \textbf{Patient} est le plus riche du schéma. Son schéma hybride repose sur des champs JSONB PostgreSQL pour stocker les données médicales structurées par domaine (démographie, biologie, dialyse, etc.), ce qui offre une flexibilité d'évolution sans migration de schéma. L'attribut \texttt{utilisateur\_saisie} (clé étrangère vers Utilisateur) trace qui a créé ou importé le dossier. Les deux méthodes \texttt{get\_flat\_view()} et \texttt{extract\_features()} permettent respectivement d'aplatir toutes les sections JSONB en un dictionnaire unifié pour l'analytics, et d'extraire le vecteur de features attendu par le modèle SVM.
+The \textbf{Patient} model is the richest entity in the schema. It stores all clinical data as a flat collection of 160+ individual \texttt{TextField} columns, organized by clinical domain prefix (e.g., \texttt{demographie\_*}, \texttt{biologie\_*}, \texttt{dialyse\_*}). An additional \texttt{extra\_data} JSONField stores institution-specific dynamic columns. The method \texttt{extract\_features()} constructs the 32-feature vector required by the SVM model.
 
-Le modèle \textbf{AuditLog} enregistre chaque action sensible effectuée sur la plateforme (création, modification, suppression, connexion) avec l'identifiant de l'entité concernée, les détails en JSONB, l'adresse IP de l'auteur et un horodatage précis. Il est relié à Utilisateur par une association \textit{1-à-plusieurs}. Enfin, le modèle \textbf{PreprocessValidationRequest} matérialise le workflow de validation du prétraitement LLM : chaque session de correction reçoit un UUID unique (\texttt{session\_id}), un statut (\texttt{en attente / validé / rejeté}), et conserve les références des utilisateurs ayant soumis et validé la session.
-
-Figure~\ref{fig:class_diagram} shows the UML class diagram of the five main Django models and their relationships.
+The \textbf{AuditLog} model records every sensitive action on the platform (create, update, delete, import, predict) with the entity identifier, a plain-text change description, the actor's IP address, and a precise timestamp. It is linked to Utilisateur by a 1-to-many association. The \textbf{PreprocessValidationRequest} model materializes the LLM preprocessing approval workflow: each session receives a unique \texttt{session\_id} (VARCHAR(64)), a status (\texttt{pending} / \texttt{approved} / \texttt{rejected}), and references to the submitting and reviewing users.
 
 \begin{figure}[H]
 \centering
@@ -2879,13 +2976,13 @@ Figure~\ref{fig:class_diagram} shows the UML class diagram of the five main Djan
 
 \subsection{REST API Endpoints}
 
-La plateforme expose plus de 45 endpoints REST, organisés en quatre groupes de ressources : \texttt{/api/auth/} pour la gestion des utilisateurs et de l'authentification, \texttt{/api/patients/} pour les dossiers médicaux et le pipeline d'import/prétraitement, \texttt{/api/predictions/} pour l'inférence et le réentraînement du modèle SVM, et \texttt{/api/audit/} pour la consultation du journal d'activité.
+The platform exposes 45+ REST endpoints organized into four resource groups: \texttt{/api/auth/} for user management and authentication, \texttt{/api/patients/} for patient records and the import/preprocessing pipeline, \texttt{/api/predictions/} for SVM inference and model retraining, and \texttt{/api/audit/} for activity log consultation.
 
-Tous les endpoints suivent les conventions REST standard : les verbes HTTP (\texttt{GET}, \texttt{POST}, \texttt{PATCH}, \texttt{DELETE}) expriment l'intention de l'opération, les codes de retour HTTP (200, 201, 400, 401, 403, 404) renseignent explicitement sur le résultat, et les réponses sont uniformément en JSON. Chaque endpoint est protégé par le middleware JWT de DRF, qui vérifie la validité du token d'accès avant d'autoriser la requête. Les actions sensibles (suppression, réentraînement, intégration de données) sont en outre restreintes par le système RBAC : seuls les rôles habilités peuvent les appeler, toute tentative non autorisée retournant une erreur 403.
+All endpoints follow standard REST conventions: HTTP verbs (\texttt{GET}, \texttt{POST}, \texttt{PATCH}, \texttt{DELETE}) express the operation intent, HTTP response codes (200, 201, 400, 401, 403, 404) explicitly indicate the outcome, and all responses are uniformly JSON. Every endpoint is protected by the DRF JWT middleware, which validates the access token before authorizing the request. Sensitive operations (deletion, model retraining, data integration) are further restricted by RBAC: only authorized roles can invoke them, with unauthorized attempts returning HTTP 403.
 
-Le groupe \texttt{/api/patients/preprocess/} mérite une attention particulière : il implémente un workflow asynchrone en plusieurs étapes. L'appel à \texttt{analyze/} déclenche une tâche Celery qui soumet les données au modèle LLM (Qwen2.5:14B) ; les endpoints \texttt{status/} et \texttt{rows/} permettent de suivre la progression et de consulter les corrections proposées ; \texttt{cell-corrections/} permet à un clinicien de surcharger manuellement une suggestion LLM ; enfin \texttt{integrate/} finalise l'intégration des données corrigées dans la base patients après validation par le Chef de service.
+The \texttt{/api/patients/preprocess/} group implements a multi-step asynchronous workflow. A call to \texttt{analyze/} triggers a Celery task that submits the data to the Qwen2.5:14B LLM; the \texttt{status/} and \texttt{rows/} endpoints allow progress monitoring and display of proposed corrections; \texttt{cell-corrections/} allows a clinician to manually override an LLM suggestion; finally \texttt{integrate/} finalizes integration of the corrected data into the patient database after approval by the Head of Department or Super Admin.
 
-The platform exposes 45+ REST endpoints. Key endpoints are listed below:
+Key endpoints are listed below:
 
 \begin{longtable}{@{}
   >{\bfseries\footnotesize}p{1.3cm}
@@ -3000,7 +3097,7 @@ The detailed steps are as follows:
   \item The client sends \texttt{POST /api/auth/login/} with the user's email and password in JSON.
   \item The server validates the credentials against the hashed (bcrypt) password stored in the database.
   \item On success, the server returns a pair: \texttt{\{"access": "<jwt>", "refresh": "<jwt>"\}}.
-  \item For every subsequent request the client attaches \texttt{Authorization: Bearer <access\_token>}.
+  \item For every subsequent request the client attaches the header \texttt{Authorization: Bearer <token>}.
   \item When the access token expires (after \textbf{8 hours}), the Axios interceptor on the frontend automatically calls \texttt{POST /api/auth/refresh/} with the refresh token to obtain a new access token, with no visible interruption for the user.
   \item The refresh token itself expires after \textbf{1 day}; after that the user must log in again.
 \end{enumerate}
@@ -3041,7 +3138,7 @@ RBAC is enforced at two levels: (1) \textbf{Backend} — each DRF view carries a
 \begin{itemize}
   \item \textbf{Password hashing}: all passwords are stored using Django's \textbf{PBKDF2+SHA256} hasher (the framework default, enforced via \texttt{AUTH\_PASSWORD\_VALIDATORS}), which applies 870\,000 iterations making brute-force attacks computationally prohibitive. The \texttt{bcrypt} library is listed as a dependency for future migration to a bcrypt-based hasher in production.
   \item \textbf{Transport security}: the current deployment runs over HTTP on a local Docker network (\texttt{localhost:8000/3000}), which is acceptable for an intranet prototype. A production release would require TLS termination via a reverse proxy (e.g.\ Nginx + Let's Encrypt) and the Django settings \texttt{SECURE\_SSL\_REDIRECT}, \texttt{SESSION\_COOKIE\_SECURE}, and \texttt{CSRF\_COOKIE\_SECURE}. These hardening steps are identified as future work before any public-facing deployment.
-  \item \textbf{CORS}: the \texttt{django-cors-headers} middleware is configured with \texttt{CORS\_ALLOWED\_ORIGINS = [}\texttt{'http://localhost:3000']} so that only the declared frontend origin is permitted, blocking cross-origin requests from any other domain.
+  \item \textbf{CORS}: the \texttt{django-cors-headers} middleware restricts allowed origins to the declared frontend (\texttt{localhost:3000}), blocking cross-origin requests from any other domain.
   \item \textbf{Audit trail}: every state-changing action (create, update, delete on patients and users) is recorded in \texttt{AuditLog} with the actor's user ID, IP address, affected entity, and a text description of the change. The companion \texttt{HiddenAuditLog} table lets users hide individual log entries from their own view in the UI without deleting them from the database.
   \item \textbf{Input validation}: all incoming data passes through DRF serializers before reaching the model layer, enforcing field types, uniqueness constraints, and required/optional fields. Malformed requests are rejected with an HTTP 400 response identifying the offending field.
 \end{itemize}
@@ -3118,7 +3215,7 @@ On successful authentication, the user is redirected to their role-appropriate d
   \item \textbf{Platform logo and branding} at the top (\textit{AI NÉPHROCARE}), with a gradient gradient typography
   \item \textbf{Navigation card} with links to all main sections: Dashboard, Patients, Analyse IA, Monitor
   \item \textbf{User profile card} at the bottom showing the connected user's email and role badge
-  \item \textbf{Notifications button} (visible to Chef de service and Super Admin only) with a badge counter for pending validation requests
+  \item \textbf{Notifications button} (visible to Head of Department and Super Admin only) with a badge counter for pending validation requests
   \item \textbf{Logout button} that clears the JWT tokens and redirects to the login page
 \end{itemize}
 
@@ -3141,10 +3238,10 @@ All authenticated pages include a \textbf{floating action button} (bottom-right 
 \label{fig:carnet}
 \end{figure}
 
-  \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard is the first authenticated page. Its content is entirely \textbf{role-dependent}: Super Admin and Chef de Service see an administrative dashboard focused on user governance, while Professeur and Résident see a clinical dashboard focused on their own activity.
+  \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard is the first authenticated page. Its content is entirely \textbf{role-dependent}: Super Admin and Head of Department see an administrative dashboard focused on user governance, while Professor and Resident see a clinical dashboard focused on their own activity.
 
 % ──────────────────────────────────────────────────────────────────────────────
-\subsubsection*{Dashboard --- Super Admin and Chef de Service}
+\subsubsection*{Dashboard --- Super Admin and Head of Department}
 % ──────────────────────────────────────────────────────────────────────────────
 
 The administrative dashboard is organised into two columns:
@@ -3154,8 +3251,8 @@ The administrative dashboard is organised into two columns:
 \end{itemize}
 
 \paragraph{KPI summary.}
-The hero banner displays \textbf{7 interactive KPI cards} for Super Admin (6 for Chef de Service, excluding Super Admins):
-\textit{Actifs}, \textit{Inactifs}, \textit{Super Admins}, \textit{Chefs Service}, \textit{Professeurs}, \textit{Résidents}, \textit{Rôles}.
+The hero banner displays \textbf{7 interactive KPI cards} for Super Admin (6 for Head of Department, excluding Super Admins):
+\textit{Actifs}, \textit{Inactifs}, \textit{Super Admins}, \textit{Heads of Dept.}, \textit{Professors}, \textit{Residents}, \textit{Rôles}.
 Each card is \textbf{clickable}: clicking it filters the \textit{Comptes gérés} list below to show only matching accounts (by status or role). An active filter is displayed as a labelled chip with a dismiss button. The text search bar operates \textbf{in parallel} with the KPI filter.
 
 \begin{figure}[H]
@@ -3168,7 +3265,7 @@ Each card is \textbf{clickable}: clicking it filters the \textit{Comptes gérés
 \begin{figure}[H]
 \centering
 \IfFileExists{dashboard_filter.png}{\includegraphics[width=0.85\textwidth]{dashboard_filter.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: KPI filter active]}}
-\caption{KPI filter active --- clicking \textit{Professeurs} restricts the list and displays an active-filter chip}
+\caption{KPI filter active --- clicking \textit{Professors} restricts the list and displays an active-filter chip}
 \label{fig:dashboard_filter}
 \end{figure}
 
@@ -3197,7 +3294,7 @@ Clicking the \textit{Afficher} toggle reveals the CRUD panel. The form supports:
 The \textbf{double-authentication} on write operations prevents unauthorised modifications and ensures every change is traceable in the audit log.
 
 \paragraph{Import validation workflow.}
-When a Résident or Professeur submits a preprocessed file for approval, the chef receives a \textbf{notification badge} in the sidebar. Clicking \textbf{"Aperçu"} opens a preview modal showing file name, submitter, row/column counts, quality score, and the first 15 rows. From the modal, the chef can \textbf{validate and integrate} (data inserted into the patient database) or close without action. A reject action is available via the detail endpoint with a mandatory reason.
+When a Resident or Professor submits a preprocessed file for approval, the Head of Department receives a \textbf{notification badge} in the sidebar. Clicking \textbf{"Aperçu"} opens a preview modal showing file name, submitter, row/column counts, quality score, and the first 15 rows. From the modal, the Head of Department can \textbf{validate and integrate} (data inserted into the patient database) or close without action. A reject action is available via the detail endpoint with a mandatory reason.
 
 \begin{figure}[H]
 \centering
@@ -3208,16 +3305,16 @@ When a Résident or Professeur submits a preprocessed file for approval, the che
 
 \begin{figure}[H]
 \centering
-\IfFileExists{apercu_validation.png}{\includegraphics[width=0.85\textwidth]{apercu_validation.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Chef de service validation preview modal]}}
-\caption{Import validation preview --- chef de service reviews file metadata, row/column count, quality score and first rows before approving or rejecting}
+\IfFileExists{apercu_validation.png}{\includegraphics[width=0.85\textwidth]{apercu_validation.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Head of Department validation preview modal]}}
+\caption{Import validation preview --- Head of Department reviews file metadata, row/column count, quality score and first rows before approving or rejecting}
 \label{fig:apercu_validation}
 \end{figure}
 
 % ──────────────────────────────────────────────────────────────────────────────
-\subsubsection*{Dashboard --- Professeur and Résident}
+\subsubsection*{Dashboard --- Professor and Resident}
 % ──────────────────────────────────────────────────────────────────────────────
 
-Clinical users (Professeur, Résident) see a dedicated dashboard with \textbf{no administrative panels}. The layout presents two side-by-side panels:
+Clinical users (Professor, Resident) see a dedicated dashboard with \textbf{no administrative panels}. The layout presents two side-by-side panels:
 
 \begin{itemize}
   \item \textbf{Left panel} — Connected profile card: avatar with initials, full name, role badge, email, telephone.
@@ -3232,8 +3329,8 @@ Clinical users (Professeur, Résident) see a dedicated dashboard with \textbf{no
 
 \begin{figure}[H]
 \centering
-\IfFileExists{dashboard_resident.png}{\includegraphics[width=0.85\textwidth]{dashboard_resident.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Professeur/Résident dashboard --- profile + activity feed]}}
-\caption{Professeur/Résident dashboard --- connected profile (left) and recent activity feed (right)}
+\IfFileExists{dashboard_resident.png}{\includegraphics[width=0.85\textwidth]{dashboard_resident.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Professor/Resident dashboard --- profile + activity feed]}}
+\caption{Professor/Resident dashboard --- connected profile (left) and recent activity feed (right)}
 \label{fig:dashboard_resident}
 \end{figure}
 
@@ -3248,7 +3345,7 @@ Clicking any activity entry \textbf{expands} it inline to reveal: the full actio
 \end{figure}
 
 \paragraph{Import decision notifications.}
-When the Chef de Service or Super Admin approves or rejects a submitted import, the backend writes an \texttt{AuditLog} entry in the \textbf{submitter's} log. The entry appears with a \textbf{distinct visual style}:
+When the Head of Department or Super Admin approves or rejects a submitted import, the backend writes an \texttt{AuditLog} entry in the \textbf{submitter's} log. The entry appears with a \textbf{distinct visual style}:
 \begin{itemize}
   \item \textbf{Approved}: green border and bold label \textit{"\checkmark{} Import validé et intégré"} with the reviewer's name and comment.
   \item \textbf{Rejected}: pink border and bold label \textit{"$\times$ Import refusé"} with the rejection reason.
@@ -3294,23 +3391,23 @@ Table~\ref{tab:pipeline_stages} maps each backend stage to the label displayed i
 \centering
 \caption{Preprocessing pipeline stages and corresponding interface labels}
 \label{tab:pipeline_stages}
-\begin{tabular}{clll}
+\footnotesize\begin{tabularx}{\textwidth}{cp{5.2cm}p{3cm}X}
 \toprule
 \textbf{\#} & \textbf{Backend function} & \textbf{Role} & \textbf{Interface label} \\
 \midrule
-1  & \texttt{\_read\_uploaded\_dataframe}     & File parsing         & Lecture \\
-2  & \texttt{\_build\_technical\_profile}     & Statistical scan     & Analyse des données \\
-3  & \texttt{\_build\_preprocess\_chunks}     & RAG chunking         & Préparation \\
-4  & \texttt{\_build\_retrieval\_context}     & ChromaDB retrieval   & Références médicales \\
-5  & \texttt{\_determine\_preprocess\_route}  & LLM routing          & Initialisation IA \\
-6  & \texttt{\_call\_ollama\_qwen\_analysis}  & LLM batch analysis   & Détection des anomalies \\
-7  & \texttt{\_apply\_llm\_correction\_plan}  & Apply corrections    & Corrections automatiques \\
-8  & \texttt{\_run\_bio\_value\_correction\_pass} & LOINC/KB bio pass & Vérification biologique \\
-9  & \texttt{\_run\_llm\_flagged\_corrections} & Flagged value triage & Vérification clinique \\
-10 & \texttt{\_run\_model\_imputation}        & KNN imputation       & Complétion des données \\
-11 & \texttt{\_build\_preprocess\_report}     & Quality report       & Rapport final \\
+1  & \texttt{\_read\_uploaded\_dataframe}         & File parsing         & Lecture \\
+2  & \texttt{\_build\_technical\_profile}         & Statistical scan     & Analyse des données \\
+3  & \texttt{\_build\_preprocess\_chunks}         & RAG chunking         & Préparation \\
+4  & \texttt{\_build\_retrieval\_context}         & ChromaDB retrieval   & Références médicales \\
+5  & \texttt{\_determine\_preprocess\_route}      & LLM routing          & Initialisation IA \\
+6  & \texttt{\_call\_ollama\_qwen\_analysis}      & LLM batch analysis   & Détection des anomalies \\
+7  & \texttt{\_apply\_llm\_correction\_plan}      & Apply corrections    & Corrections automatiques \\
+8  & \texttt{\_run\_bio\_value\-\_correction\_pass} & LOINC/KB bio pass  & Vérification biologique \\
+9  & \texttt{\_run\_llm\_flagged\_corrections}    & Flagged value triage & Vérification clinique \\
+10 & \texttt{\_run\_model\_imputation}            & KNN imputation       & Complétion des données \\
+11 & \texttt{\_build\_preprocess\_report}         & Quality report       & Rapport final \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \begin{enumerate}
@@ -3344,11 +3441,11 @@ Table~\ref{tab:pipeline_stages} maps each backend stage to the label displayed i
 In addition to the LLM passes, the \texttt{\_apply\_llm\_correction\_plan()} function runs a set of \textbf{deterministic Python pre-passes} before the LLM correction plan is applied. These handle unambiguous error patterns that do not require LLM interpretation:
 
 \begin{itemize}
-  \item \textbf{Excel serial-date artefacts}: values such as \texttt{1899-12-30}, \texttt{1900-01-01} (produced by pandas when reading Excel serial date~0) are unconditionally replaced with \texttt{null}. The set of known artefact strings is defined in \texttt{\_ANOMALY\_EXCEL\_DATE\_ARTIFACTS}.
+  \item \textbf{Excel serial-date artefacts}: values such as \texttt{1899-12-30} or \texttt{1900-01-01} (produced by pandas when reading Excel serial date~0) are unconditionally replaced with \texttt{null}.
 
-  \item \textbf{\texttt{"X"} values in numeric/binary columns}: in columns where at least 60\% of non-null values are numeric (including binary 0/1 columns), any cell containing \texttt{"X"}, \texttt{"x"}, \texttt{"*"}, or similar placeholders is replaced with \texttt{null} and subsequently imputed by KNN. This handles the common clinical data-entry pattern where \texttt{X} marks an unevaluated or unknown observation. Text/categorical columns (fewer than 60\% numeric values) are left untouched, as \texttt{X} may be a legitimate value there.
+  \item \textbf{\texttt{"X"} values in numeric columns}: in columns where at least 60\% of non-null values are numeric, any cell containing \texttt{"X"}, \texttt{"x"}, or \texttt{"*"} is replaced with \texttt{null} and subsequently imputed by KNN. Text/categorical columns are left untouched.
 
-  \item \textbf{Mixed semicolon artefacts}: values matching the pattern \texttt{digit;(fraction-or-date)} (e.g.\ \texttt{1;(1/2024)}) are detected by the regex \texttt{\^{}\textbackslash d+\textbackslash s*;\textbackslash s*\textbackslash(.*\textbackslash)\$} and flagged as \texttt{artefact\_excel\_mixte} for the LLM to classify and correct.
+  \item \textbf{Mixed semicolon artefacts}: values of the form \texttt{1;(1/2024)} are detected by a dedicated regex and flagged for the LLM to classify and correct.
 
   \item \textbf{Decimal comma normalisation}: French-locale numbers such as \texttt{1,5} or \texttt{2~234,56} in object columns are converted to their dot-decimal equivalents (\texttt{1.5}, \texttt{2234.56}).
 \end{itemize}
@@ -3444,7 +3541,7 @@ This explicit choice guarantees that no data modification reaches the database w
 \label{fig:preproc_integration_choice}
 \end{figure}
 
-Once the version is selected and confirmed, the integration call (\texttt{POST /api/patients/preprocess/\{session\}/integrate/}) triggers a \textbf{column mapping process} that translates the source file's column names into the platform's standardised schema:
+Once the version is selected and confirmed, the integration endpoint triggers a \textbf{column mapping process} that translates the source file's column names into the platform's standardised schema:
 
 \begin{itemize}
   \item Each source column is compared against a configurable mapping dictionary (\texttt{column\_mapping.json}). If a match is found (e.g.\ \textit{"Albumine basale"} $\rightarrow$ \texttt{albumine\_basale}), the value is stored in the corresponding field of the patient's structured clinical record.
@@ -3453,13 +3550,6 @@ Once the version is selected and confirmed, the integration call (\texttt{POST /
 \end{itemize}
 
 A success notification confirms the integration, and the system transitions automatically to the \textbf{Data Management tab} where the imported patients are immediately visible.
-
-\begin{figure}[H]
-\centering
-\IfFileExists{preproc_integration_success.png}{\includegraphics[width=0.75\textwidth]{preproc_integration_success.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: Integration success confirmation]}}
-\caption{Successful integration confirmation --- the platform notifies the user and redirects to the Data Management tab}
-\label{fig:preproc_integration_success}
-\end{figure}
 
 \subsubsection*{Tab 2 --- Data Management}
 
@@ -3479,17 +3569,14 @@ The data management tab presents a \textbf{searchable, filterable, and sortable 
 
 \textbf{Dynamic Columns}: The platform supports columns that are not part of the fixed schema. These "dynamic columns" appear as additional columns in the patient table, are fully searchable and filterable, and are preserved across imports. This mechanism allows the platform to accommodate institution-specific variables without modifying the database schema.
 
-The data management interface provides the following actions:
-\begin{itemize}
-  \item \textbf{Search bar}: full-text search across all patient fields
-  \item \textbf{Column visibility toggle}: show/hide specific columns
-  \item \textbf{Filter panel}: filter by any field value
-  \item \textbf{Add patient} button: manually enter a new patient record
-  \item \textbf{Edit} button: modify any patient's data
-  \item \textbf{Delete} button: remove a patient record (with confirmation)
-  \item \textbf{Import} button: upload a new Excel/CSV file
-  \item \textbf{Export} button: download all visible data as .xlsx
-\end{itemize}
+\begin{figure}[H]
+\centering
+\IfFileExists{data_mgmt_dynamic_cols.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_dynamic_cols.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Dynamic columns visible in patient table]}}
+\caption{Dynamic column support --- institution-specific variables displayed as regular table columns alongside the fixed schema}
+\label{fig:data_mgmt_dynamic_cols}
+\end{figure}
+
+The data management interface provides filtering, search, and column visibility controls. A \textbf{search bar} performs full-text search across all patient fields, a \textbf{column visibility toggle} shows or hides specific columns, and a \textbf{filter panel} allows filtering by any field value.
 
 \begin{figure}[H]
 \centering
@@ -3498,6 +3585,8 @@ The data management interface provides the following actions:
 \label{fig:data_mgmt_filter}
 \end{figure}
 
+Patient records can be created, modified, and deleted through dedicated actions: an \textbf{Add patient} button opens a blank entry form, an \textbf{Edit} button opens the full 160+ field record for inline modification, and a \textbf{Delete} button removes the record after confirmation.
+
 \begin{figure}[H]
 \centering
 \IfFileExists{data_mgmt_edit.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_edit.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Patient record edit form]}}
@@ -3505,12 +3594,7 @@ The data management interface provides the following actions:
 \label{fig:data_mgmt_edit}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\IfFileExists{data_mgmt_dynamic_cols.png}{\includegraphics[width=0.85\textwidth]{data_mgmt_dynamic_cols.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Dynamic columns visible in patient table]}}
-\caption{Dynamic column support --- institution-specific variables (stored in \texttt{extra\_data} JSONB) displayed as regular table columns}
-\label{fig:data_mgmt_dynamic_cols}
-\end{figure}
+Bulk data operations are supported via an \textbf{Import} button (Excel/CSV upload with column mapping) and an \textbf{Export} button (downloads all visible data as .xlsx). Dynamic columns imported from external files are listed in a dedicated management panel where each column shows its source file and can be individually removed.
 
 \begin{figure}[H]
 \centering
@@ -3536,7 +3620,7 @@ The analysis tab provides a set of interactive statistical charts generated auto
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_model_dashboard.png}{\includegraphics[width=0.85\textwidth]{ai_model_dashboard.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: AI Model analysis dashboard]}}
+\IfFileExists{screen/AI Model analysis dashb.png}{\includegraphics[width=0.85\textwidth]{screen/AI Model analysis dashb.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: AI Model analysis dashboard]}}
 \caption{AI Model analysis dashboard --- SVM performance metrics and risk zone overview}
 \label{fig:ai_dashboard}
 \end{figure}
@@ -3565,6 +3649,14 @@ The Patients tab displays the full list of patients registered in the platform. 
   \item From the dossier, choose one of two actions:
     \begin{itemize}
       \item \textbf{Modify values and launch a simulation}: The clinician can modify any clinical parameter (e.g., reduce albumin level, change dialysis frequency) and click \textbf{"Run Simulation"}. The simulation result --- showing how the predicted mortality risk changes with the modified values --- is displayed \textbf{directly within the same Patients tab}, allowing immediate comparison without leaving the current view.
+
+\begin{figure}[H]
+\centering
+\IfFileExists{screen/simulation.png}{\includegraphics[width=0.85\textwidth]{screen/simulation.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Simulation interface --- modified parameters and resulting risk prediction]}}
+\caption{Clinical simulation interface --- the clinician modifies patient parameters and immediately sees the updated mortality risk prediction}
+\label{fig:simulation}
+\end{figure}
+
       \item \textbf{Launch prediction}: Using the saved clinical values already stored in the platform, click \textbf{"Predict"} to generate the official mortality risk prediction. The prediction result is displayed in the \textbf{Prediction tab} (Tab 3).
     \end{itemize}
 \end{enumerate}
@@ -3573,7 +3665,7 @@ The Patients tab displays the full list of patients registered in the platform. 
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_prediction_tab.png}{\includegraphics[width=0.85\textwidth]{ai_prediction_tab.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Prediction tab --- risk gauge, probability, top-5 factors, recommendation]}}
+\IfFileExists{screen/AI prediction result interface  risk zone gauge.png}{\includegraphics[width=0.85\textwidth]{screen/AI prediction result interface  risk zone gauge.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Prediction tab --- risk gauge, probability, top-5 factors, recommendation]}}
 \caption{AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}
 \label{fig:ai_prediction}
 \end{figure}
@@ -3627,7 +3719,7 @@ The most recent prediction is also highlighted at the top of the right panel as 
 
 \begin{figure}[H]
 \centering
-\IfFileExists{profile_page.png}{\includegraphics[width=0.85\textwidth]{profile_page.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Profile page --- user info, password change, language selector]}}
+\IfFileExists{screen/profile_page.png}{\includegraphics[width=0.85\textwidth]{profile_page.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Profile page --- user info, password change, language selector]}}
 \caption{Profile page --- user information panel, password change form, and bilingual language selector (Français / English)}
 \label{fig:profile_page}
 \end{figure}
@@ -3707,37 +3799,6 @@ A grouped bar chart shows the distribution of chronic kidney disease etiologies 
 
 This horizontal bar chart identifies the most common pairs and triplets of comorbidities co-occurring in the same patient. Comorbidity clustering patterns are clinically significant, as they reflect underlying disease trajectories and influence mortality risk.
 
-\subsection{AI Prediction Results Visualization (AI Model --- Prediction Tab)}
-
-The prediction result visualization is designed to communicate risk in a clinically actionable format, combining numerical precision with graphical intuition.
-
-\begin{figure}[H]
-\centering
-\IfFileExists{prediction_display.png}{\includegraphics[width=0.85\textwidth]{prediction_display.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Full prediction result panel]}}
-\caption{Complete prediction result display --- risk gauge, probability, relative risk, top-5 factors, and recommendation}
-\label{fig:prediction_display}
-\end{figure}
-
-The prediction interface displays:
-\begin{itemize}
-  \item A \textbf{risk gauge} (SVG arc, green/orange/red) whose needle position corresponds to the Platt-scaled probability $\hat{p}$
-  \item The \textbf{mortality probability} shown numerically (e.g., "47.1\% estimated 1-year mortality risk")
-  \item A \textbf{relative risk badge} comparing the patient's risk to the cohort baseline ($\times$ RR)
-  \item A \textbf{top-5 contributing factors} panel, where each factor is displayed with its SVM feature weight as a horizontal bar, the actual patient value, and the direction of influence (risk-increasing or protective)
-  \item A \textbf{clinical recommendation} text block, tailored to the risk zone, specifying recommended follow-up intensity and clinical actions
-\end{itemize}
-
-Additionally, the \textbf{AI Model analysis dashboard} (Tab 1) displays summary prediction charts for the entire cohort:
-
-\begin{figure}[H]
-\centering
-\IfFileExists{ai_model_dashboard.png}{\includegraphics[width=0.85\textwidth]{ai_model_dashboard.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: AI model dashboard with cohort-level prediction charts]}}
-\caption{AI Model analysis dashboard --- cohort-level risk zone distribution and model performance KPIs}
-\label{fig:ai_dashboard_charts}
-\end{figure}
-
-These cohort-level charts include the risk zone distribution (proportion of patients per zone), prediction history, and model performance metrics, providing clinical managers with an aggregated view of the AI system's outputs across the entire patient population.
-
 \subsection{AI Cohort Analysis Charts (AI Model --- Analysis Dashboard)}
 \label{sec:dataviz_ai_charts}
 
@@ -3747,7 +3808,7 @@ The AI Model analysis dashboard includes a dedicated set of analytical charts pr
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_chart_zones.png}{\includegraphics[width=0.75\textwidth]{ai_chart_zones.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: AI risk zone distribution chart]}}
+\IfFileExists{screen/Cohort risk zone distribution.png}{\includegraphics[width=0.75\textwidth]{screen/Cohort risk zone distribution.png}}{\framebox[0.75\textwidth][c]{\small[Screenshot: AI risk zone distribution chart]}}
 \caption{Cohort risk zone distribution --- proportion of patients classified as Faible, Modérée, and Élevée risk}
 \label{fig:ai_chart_zones}
 \end{figure}
@@ -3758,8 +3819,8 @@ A doughnut/pie chart shows the proportion of the cohort falling into each risk z
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_chart_outcome.png}{\includegraphics[width=0.80\textwidth]{ai_chart_outcome.png}}{\framebox[0.80\textwidth][c]{\small[Screenshot: AI predicted outcome chart]}}
-\caption{Predicted one-year mortality outcome distribution across the hemodialysis cohort}
+\IfFileExists{screen/Devenir des patients.png}{\includegraphics[width=0.80\textwidth]{screen/Devenir des patients.png}}{\framebox[0.80\textwidth][c]{\small[Screenshot: Patient outcome --- vivant/décès distribution]}}
+\caption{Patient outcome distribution (vivant / décès) across the hemodialysis cohort}
 \label{fig:ai_chart_outcome}
 \end{figure}
 
@@ -3769,7 +3830,7 @@ This chart displays the distribution of predicted one-year mortality probabiliti
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_chart_kaplan_meier.png}{\includegraphics[width=0.82\textwidth]{ai_chart_kaplan_meier.png}}{\framebox[0.82\textwidth][c]{\small[Screenshot: Kaplan-Meier survival curves by risk zone]}}
+\IfFileExists{screen/Kaplan-Meier.png}{\includegraphics[width=0.82\textwidth]{screen/Kaplan-Meier.png}}{\framebox[0.82\textwidth][c]{\small[Screenshot: Kaplan-Meier survival curves by risk zone]}}
 \caption{Kaplan-Meier survival curves stratified by predicted risk zone --- Faible (green), Modérée (orange), Élevée (red)}
 \label{fig:ai_chart_kaplan_meier}
 \end{figure}
@@ -3802,7 +3863,7 @@ A radar (spider) chart overlays the mean clinical profile of patients in each ri
 
 \begin{figure}[H]
 \centering
-\IfFileExists{ai_chart_boxplots_zones.png}{\includegraphics[width=0.85\textwidth]{ai_chart_boxplots_zones.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Box plots of biological indicators by risk zone]}}
+\IfFileExists{screen/Serum albumin distribution by risk zone.png}{\includegraphics[width=0.85\textwidth]{screen/Serum albumin distribution by risk zone.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Box plots of biological indicators by risk zone]}}
 \caption{Serum albumin distribution by risk zone --- interquartile range (Q1--Q3) for Zone Faible, Modérée, and Élevée}
 \label{fig:ai_chart_boxplots_zones}
 \end{figure}
@@ -3880,7 +3941,7 @@ Figure~\ref{fig:seq_auth} illustrates the complete JWT authentication flow. The 
 %========================================================
 \subsection{Sequence Diagram 2: Patient Import \& LLM Preprocessing}
 
-Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM preprocessing workflow. Following file upload and parsing, a Celery worker takes over the heavy LLM analysis task asynchronously --- preventing the HTTP request from timing out during the minutes-long Qwen2.5:14B inference. The Celery worker queries ChromaDB for relevant medical context (RAG), constructs the LLM prompt, and processes each data row. Results are stored in the database and polled by the frontend at regular intervals. The clinician reviews LLM suggestions, applies corrections, and submits for validation by the Chef de service before final database integration.
+Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM preprocessing workflow. Following file upload and parsing, a Celery worker takes over the heavy LLM analysis task asynchronously --- preventing the HTTP request from timing out during the minutes-long Qwen2.5:14B inference. The Celery worker queries ChromaDB for relevant medical context (RAG), constructs the LLM prompt, and processes each data row. Results are stored in the database and polled by the frontend at regular intervals. The clinician reviews LLM suggestions, applies corrections, and submits for validation by the Head of Department before final database integration.
 
 \begin{figure}[H]
 \centering
@@ -3940,9 +4001,9 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 
 Figure~\ref{fig:seq_predict} traces the complete workflow triggered when a clinician requests a 1-year mortality prediction for a patient. The sequence involves five actors: the clinician navigating the React frontend, the Django REST API, the PostgreSQL database, and the pre-trained SVM pipeline loaded from a \texttt{.joblib} file.
 
-The flow begins when the clinician clicks the \textit{Prédire} button (Step~1), which sends \texttt{POST /predictions/predict-patient/} to the backend with the patient's identifier (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features()} to build the clinical feature vector (Step~5). The vector is then passed to the SVM pipeline (Step~6), which applies the three preprocessing stages internally: KNN imputation ($k=3$) for missing values, Yeo-Johnson power transformation for normalization, and finally the linear SVC decision function. The raw probability $p_\text{raw}$ is returned (Step~7) and may optionally be refined by an isotonic calibrator (Steps~8--9) when one is available.
+The flow begins when the clinician clicks the \textit{Prédire} button (Step~1), which sends \texttt{POST /predictions/predict-patient/} to the backend with the patient's identifier (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features()} to build the clinical feature vector (Step~5). The vector is then passed to the SVM pipeline (Step~6), which applies the three preprocessing stages internally: KNN imputation ($k=3$) for missing values, Yeo-Johnson power transformation for normalization, and finally the linear SVC decision function. The raw probability $p_\text{raw}$ is returned (Step~7) and calibrated to a final probability $\hat{p}$ via Platt scaling (CalibratedClassifierCV, Step~8).
 
-The backend then derives the risk score as $\text{score} = p \times 100$ and assigns a categorical risk level using fixed clinical thresholds: \textbf{Faible} ($\leq 30\%$), \textbf{Modéré} (31--70\%), or \textbf{Élevé} ($>70\%$). A clinical recommendation text and the list of most influential factors are assembled before the action is logged in \texttt{AuditLog} (Step~11). The structured JSON response (Step~13) contains \texttt{risk\_level}, \texttt{score}, \texttt{probability}, \texttt{factors}, \texttt{recommendation}, and \texttt{features\_used}, which the frontend uses to render the risk gauge and results panel (Step~14).
+The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ and assigns a categorical risk level using fixed clinical thresholds: \textbf{Faible} ($\hat{p} < 10\%$), \textbf{Modéré} ($10\% \leq \hat{p} < 29\%$), or \textbf{Élevé} ($\hat{p} \geq 29\%$). A clinical recommendation text and the list of most influential factors are assembled before the action is logged in \texttt{AuditLog} (Step~11). The structured JSON response (Step~13) contains \texttt{risk\_level}, \texttt{score}, \texttt{probability}, \texttt{factors}, \texttt{recommendation}, and \texttt{features\_used}, which the frontend uses to render the risk gauge and results panel (Step~14).
 
 \begin{figure}[H]
 \centering
@@ -3988,7 +4049,7 @@ The backend then derives the risk score as $\text{score} = p \times 100$ and ass
 
 % Zone annotation
 \node[draw,fill=green!10,font=\tiny,align=left,inner sep=3pt] at (11.5,-10.3)
-  {Faible: $\hat{p} < 10\%$\\Modéré: $10\% \leq \hat{p} < 40\%$\\Élevé: $\hat{p} \geq 40\%$};
+  {Faible: $\hat{p} < 10\%$\\Modéré: $10\% \leq \hat{p} < 29\%$\\Élevé: $\hat{p} \geq 29\%$};
 
 \end{tikzpicture}
 }
@@ -4021,7 +4082,7 @@ The Docker Compose stack is organized around seven interconnected services that 
 
 \subsection{Functional Tests}
 
-Functional testing covered the complete user journey from authentication through clinical data management, AI prediction, and administrative operations. Tests were executed manually for each user role (Admin, Chef de service, Résident, Professeur) to verify that RBAC restrictions were correctly enforced. Key test scenarios included:
+Functional testing covered the complete user journey from authentication through clinical data management, AI prediction, and administrative operations. Tests were executed manually for each user role (Admin, Head of Department, Resident, Professor) to verify that RBAC restrictions were correctly enforced. Key test scenarios included:
 
 \begin{itemize}
   \item \textbf{Authentication}: Login with valid/invalid credentials, token expiry handling, automatic token refresh
@@ -4029,7 +4090,7 @@ Functional testing covered the complete user journey from authentication through
   \item \textbf{Excel import}: Import of the 478-patient HD cohort file --- verifying correct column mapping, dynamic column handling, and data integrity after integration
   \item \textbf{LLM preprocessing}: End-to-end preprocessing pipeline with real Qwen2.5:14B analysis on a 50-row test dataset --- verifying LLM response parsing, correction display, and user override functionality
   \item \textbf{Prediction}: Mortality risk prediction for 9 test patients with known outcomes from the validation set --- verifying correct feature extraction, risk zone assignment, and top-5 factor display
-  \item \textbf{RBAC}: Systematic verification that Résident accounts cannot access validation or administration endpoints, and that Chef de service accounts cannot access admin-only user management functions
+  \item \textbf{RBAC}: Systematic verification that Resident accounts cannot access validation or administration endpoints, and that Head of Department accounts cannot access admin-only user management functions
   \item \textbf{Password confirmation}: Verification that account modifications (role change, password reset) correctly require entering the user's own password before saving
 \end{itemize}
 
@@ -4096,7 +4157,7 @@ The three-zone risk stratification identifies:
   \item \textbf{212 Low-risk patients} (44.4\%) with only 3.8\% mortality — safely allocated to standard follow-up, optimizing resource use
 \end{itemize}
 
-The three-zone stratification — Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<29\%$), Élevée ($\hat{p}\geq29\%$) — with thresholds derived by ROC/Youden bootstrap analysis and validated by the nephrology team of CHU Hassan II, was confirmed clinically meaningful for daily triage and resource allocation.
+The three-zone stratification — Faible ($\hat{p}<10\%$), Modérée ($10\%\leq\hat{p}<29\%$), Élevée ($\hat{p}\geq29\%$) — with thresholds derived by ROC/Youden bootstrap analysis, was confirmed clinically meaningful for daily triage and resource allocation.
 
 These results are consistent with the KDIGO 2012 clinical practice guidelines \cite{kdigo2015}, which emphasize the importance of risk stratification in CKD management to allocate clinical resources proportionally to patient need. The platform's three-zone classification operationalizes this recommendation by translating the model's probabilistic output into three clinically actionable categories, each associated with a specific follow-up protocol.
 
@@ -4134,9 +4195,9 @@ Integration with the CHU Hassan II Hospital Information System (HIS) via HL7 FHI
 
 For larger future cohorts ($>2,000$ patients), transformer-based models on longitudinal lab sequences (e.g., lab-BERT) or graph neural networks encoding comorbidity co-occurrence could improve predictive performance.
 
-\subsection{External ETL Pipelines}
+\subsection{Cohort-Driven Real-Time Training and Per-Patient Prediction}
 
-For multi-center deployment, replacing the embedded pipeline with Apache Airflow DAGs and a FHIR-compatible data lake would provide the scalability and interoperability required for national registry integration.
+A natural extension of the current platform is to allow any user to import their own hemodialysis cohort and obtain individualized 1-year mortality predictions for each patient without any code modification. Because the entire ML pipeline — preprocessing, training, and inference — operates exclusively on the data present in the platform database, importing a new cohort automatically redefines the training corpus and produces updated, cohort-specific risk scores for every patient in that dataset. This would enable the platform to be repurposed for multicenter studies or prospective validations simply by uploading a new file.
 
 %============================================================
 %  GENERAL CONCLUSION
@@ -4144,11 +4205,11 @@ For multi-center deployment, replacing the embedded pipeline with Apache Airflow
 \chapter*{General Conclusion}
 \addcontentsline{toc}{chapter}{General Conclusion}
 
-This project presented the design, development, and validation of \textbf{AI NéphroCare}, a full-stack intelligent clinical decision support platform for one-year mortality prediction in hemodialysis patients at CHU Hassan II de Fès, Morocco.
+This project presented the design, development, and validation of \textbf{AI NéphroCare}, a full-stack intelligent clinical decision support platform for one-year mortality prediction in hemodialysis patients at CHU Hassan II of Fès, Morocco.
 
 The work addressed four interconnected challenges: (1) \textit{data centralization} — replacing fragmented, heterogeneous records with a structured 160+-field database; (2) \textit{data quality} — deploying an LLM+RAG preprocessing pipeline that automatically detects and corrects clinical data quality issues; (3) \textit{predictive modeling} — systematically comparing nine machine learning algorithms and selecting a linear SVM (AUC-ROC = 0.826, F1 = 0.567) with F1-optimized thresholding and three clinical risk zones; and (4) \textit{clinical usability} — embedding the model in a React-based clinical interface with interpretable results, audit trail, and role-based access control.
 
-The key finding is that a relatively simple, well-regularized linear SVM with carefully engineered features outperforms more complex ensemble methods on this small-scale, imbalanced cohort — a result consistent with the broader ML literature on clinical prediction with limited sample sizes. The three-zone risk stratification — Faible ($\hat{p}<10\%$, 3.8\% observed mortality), Modérée ($10\%\leq\hat{p}<40\%$, 22.9\%), Élevée ($\hat{p}\geq40\%$, 49.0\%) — provides actionable clinical guidance, with thresholds grounded in TRIPOD/DOPPS/KDIGO guidelines and a relative risk ratio of $\times$12.9 between extreme zones.
+The key finding is that a relatively simple, well-regularized linear SVM with carefully engineered features outperforms more complex ensemble methods on this small-scale, imbalanced cohort — a result consistent with the broader ML literature on clinical prediction with limited sample sizes. The three-zone risk stratification — Faible ($\hat{p}<10\%$, 3.8\% observed mortality), Modérée ($10\%\leq\hat{p}<29\%$, 15.6\%), Élevée ($\hat{p}\geq29\%$, 46.5\%) — provides actionable clinical guidance, with thresholds grounded in TRIPOD/DOPPS/KDIGO guidelines and a relative risk ratio of $\times$12.9 between extreme zones.
 
 From a software engineering perspective, the integration of all pipeline components — LLM preprocessing, ML inference, database management, and clinical UI — into a single Docker Compose stack demonstrates the feasibility of deploying sophisticated clinical AI tools in resource-constrained hospital environments without specialized MLOps infrastructure.
 
@@ -4187,14 +4248,16 @@ Réseau Épidémiologie et Information en Néphrologie (REIN) (2022).
 \newblock Agence de la biomédecine, France.
 
 \bibitem{hemodialysis_cdss_2019}
-Krishnamurthy S, Naik M, George P (2019).
-\newblock Artificial intelligence in nephrology: core concepts, clinical applications, and limitations.
-\newblock \textit{Indian Journal of Nephrology}, 29(5):313--324.
+Niel O, Bastard P (2019).
+\newblock Artificial intelligence in nephrology: core concepts, clinical applications, and perspectives.
+\newblock \textit{American Journal of Kidney Diseases}, 74(6):803--810.
+\newblock PMID: 31451330. DOI: 10.1053/j.ajkd.2019.05.020.
 
 \bibitem{albumin_dialysis_2018}
-Hasegawa T, Nakai S, Masakane I, et al. (2018).
-\newblock Serum albumin level and risk of death in hemodialysis patients: a J-DOPPS analysis.
-\newblock \textit{Clinical and Experimental Nephrology}, 22(1):204--213.
+Kalantar-Zadeh K, Kilpatrick RD, Kuwae N, et al. (2005).
+\newblock Revisiting mortality predictability of serum albumin in the dialysis population: time dependency, longitudinal changes and population-attributable fraction.
+\newblock \textit{Nephrology Dialysis Transplantation}, 20(9):1880--1888.
+\newblock PMID: 15928095. DOI: 10.1093/ndt/gfh941.
 
 \bibitem{llm_clinical_nlp_2023}
 Qwen Team, Alibaba Cloud (2024).
@@ -4209,7 +4272,7 @@ Lewis P, Perez E, Piktus A, et al. (2020).
 \bibitem{platt1999}
 Platt JC (1999).
 \newblock Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods.
-\newblock \textit{Advances in Large Margin Classifiers}, 10(3):61--74.
+\newblock In A.J. Smola, P.L. Bartlett, B. Schölkopf, D. Schuurmans (eds.), \textit{Advances in Large Margin Classifiers}. MIT Press, Cambridge, MA, pp. 61--74.
 
 \bibitem{chen_xgboost_2016}
 Chen T, Guestrin C (2016).
@@ -4301,11 +4364,6 @@ Wick JP, Turin TC, Faris PD, et al. (2019).
 \newblock A clinical risk prediction tool for 6-month mortality after dialysis initiation among older adults.
 \newblock \textit{American Journal of Kidney Diseases}, 74(2):167--176.
 
-\bibitem{zhu2021}
-Zhu Y, Qi C, Shi R, et al. (2021).
-\newblock Machine learning-based prediction model for 1-year mortality in maintenance hemodialysis patients.
-\newblock \textit{Frontiers in Medicine}, 8:638329.
-
 \bibitem{nasr2022}
 Nasr WE, Abdelhamid YA, Moustafa AA (2022).
 \newblock Predicting mortality in hemodialysis patients using support vector machine.
@@ -4318,10 +4376,10 @@ Sheng K, Yao X, Li J, He Y, Zhang P, Chen J (2020).
 \newblock PMID: 33118948. DOI: 10.2196/20578.
 
 \bibitem{garcia2021}
-Garc\'ia-Montemayor V, Soriano S, Bu\'endia P, et al. (2021).
+Garc\'ia-Montemayor V, Martin-Malo A, Barbieri C, et al. (2021).
 \newblock Predicting mortality in hemodialysis patients using machine learning analysis.
-\newblock \textit{Clinical Kidney Journal}, 14(7):1874--1882.
-\newblock PMID: 34221370. DOI: 10.1093/ckj/sfab086.
+\newblock \textit{Clinical Kidney Journal}, 14(5):1388--1395.
+\newblock PMID: 34221370. DOI: 10.1093/ckj/sfaa126.
 
 \bibitem{beddhu2000charlson}
 Beddhu S, Bruns FJ, Saul M, Seddon P, Zeidel ML (2000).
@@ -4348,20 +4406,17 @@ Khan IH, Catto GR, Edward N, Fleming LW, Henderson IS, MacLeod AM (1994).
 \newblock Influence of coexisting disease on survival on renal-replacement therapy.
 \newblock \textit{Lancet}, 343(8912):1511--1514.
 
-\bibitem{montassir2021morocco}
-Montassir D, Azzouzi L, Hamzaoui H, et al. (2021).
-\newblock Facteurs de risque de mortalité chez les patients hémodialysés chroniques au Maroc: étude rétrospective multicentrique.
-\newblock \textit{Néphrologie \& Thérapeutique}, 17(5):302--308.
-
-\bibitem{aatif2020morocco}
-Aatif T, Hassani K, Alayoud A, et al. (2020).
-\newblock Épidémiologie de l'insuffisance rénale chronique terminale au Maroc.
-\newblock \textit{Pan African Medical Journal}, 35:31.
+\bibitem{maoujoud2017morocco}
+Maoujoud O, Cherrah Y, Arrayhani M, et al. (2017).
+\newblock Epidemiology, health economic context, and management of chronic kidney diseases in low and middle-income countries: the case of Morocco.
+\newblock \textit{European Medical Journal}, 2(4):76--81.
+\newblock DOI: 10.33590/emj/10313025.
 
 \bibitem{brenner_kidney_2020}
-Yu ASL, Chertow GM, Luyckx VA, Marsden PA, Skorecki K, Taal MW (2020).
-\newblock \textit{Brenner and Rector's The Kidney}, 11th ed.
-\newblock Elsevier, Philadelphia.
+Levey AS, Coresh J (2012).
+\newblock Chronic kidney disease.
+\newblock \textit{Lancet}, 379(9811):165--180.
+\newblock PMID: 21840587. DOI: 10.1016/S0140-6736(11)60844-5.
 
 \bibitem{collins_tripod_2015}
 Collins GS, Reitsma JB, Altman DG, Moons KGM (2015).
@@ -4370,7 +4425,7 @@ Collins GS, Reitsma JB, Altman DG, Moons KGM (2015).
 \newblock PMID: 25560714. DOI: 10.7326/M14-0697.
 
 \bibitem{dopps2022}
-Robinson BM, Zhang J, Morgenstern H, Bradbury BD, Ng LJ, McCullough KP, Gillespie BW, Hakim R, Rayner H, Fort J, Akizawa T, Tentori F, Pisoni RL (2014).
+Robinson BM, Zhang J, Morgenstern H, et al. (2014).
 \newblock Worldwide, mortality risk is high soon after initiation of hemodialysis.
 \newblock \textit{Kidney International}, 85(1):158--165.
 \newblock PMID: 23978267. DOI: 10.1038/ki.2013.327.
@@ -4401,6 +4456,11 @@ Hanley JA, McNeil BJ (1982).
 Kidney Disease: Improving Global Outcomes (KDIGO) CKD-MBD Update Work Group (2017).
 \newblock KDIGO 2017 clinical practice guideline update for the diagnosis, evaluation, prevention, and treatment of chronic kidney disease--mineral and bone disorder (CKD-MBD).
 \newblock \textit{Kidney International Supplements}, 7(1):1--59.
+
+\bibitem{kdigo_anemia_2012}
+Kidney Disease: Improving Global Outcomes (KDIGO) Anemia Work Group (2012).
+\newblock KDIGO clinical practice guideline for anemia in chronic kidney disease.
+\newblock \textit{Kidney International Supplements}, 2(4):279--335.
 
 \end{thebibliography}
 
