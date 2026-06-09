@@ -8,75 +8,75 @@
 \contentsline {figure}{\numberline {1.3}{\ignorespaces Trello board used for task management and project tracking}}{29}{figure.caption.12}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces Use Case Diagram — AI NéphroCare (4 actors, 10 use cases). Professor and Resident have identical access. Validate \& Integrate Import is restricted to Super Admin and Head of Department.}}{38}{figure.caption.14}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Use Case Diagram — AI NéphroCare (4 actors, 12 use cases). View Recent Activity is accessible to Professor and Resident. View Audit Log (who performed operations) is restricted to Super Admin and Head of Department.}}{38}{figure.caption.14}%
 \contentsline {figure}{\numberline {3.2}{\ignorespaces Five-layer architecture of AI NéphroCare with technologies per layer}}{40}{figure.caption.15}%
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {4.1}{\ignorespaces Entity-Relationship diagram — AI NéphroCare complete database schema (PostgreSQL 16). 9 custom tables. Underlined = primary key; italicised = foreign key.}}{54}{figure.caption.25}%
 \contentsline {figure}{\numberline {4.2}{\ignorespaces LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and approval by the Head of Department or Super Admin, the cleaned data enters the ML pipeline. Each integration into the database triggers an automatic AuditLog entry.}}{61}{figure.caption.32}%
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {5.1}{\ignorespaces AUC-ROC and PR-AUC comparison across all evaluated models (HD-478 cohort, 10-fold stratified CV). SVM achieves the highest scores on both metrics.}}{76}{figure.caption.35}%
-\contentsline {figure}{\numberline {5.2}{\ignorespaces ROC curves --- all nine models (HD-478, 10-fold CV).}}{78}{figure.caption.36}%
-\contentsline {figure}{\numberline {5.3}{\ignorespaces ROC curves --- zoom Top 3 : SVM Linéaire, LDA, Régression Logistique (HD-478, 10-fold CV).}}{79}{figure.caption.37}%
-\contentsline {figure}{\numberline {5.4}{\ignorespaces AUC-ROC per model --- HD-478 cohort, 10-fold CV (mean\,$\pm $\,std).}}{80}{figure.caption.38}%
-\contentsline {figure}{\numberline {5.5}{\ignorespaces Train-test AUC gap per model --- vert\,$<$\,0.05 (excellent), orange\,$<$\,0.10 (acceptable). SVM Linéaire : gap le plus faible (0.047).}}{81}{figure.caption.39}%
-\contentsline {figure}{\numberline {5.6}{\ignorespaces Multi-metric radar chart --- AUC-ROC, PR-AUC, F1, Brier Score and Recall for all models.}}{82}{figure.caption.40}%
-\contentsline {figure}{\numberline {5.7}{\ignorespaces Brier Score per model --- lower is better (threshold 0.15 = excellent).}}{83}{figure.caption.41}%
-\contentsline {figure}{\numberline {5.8}{\ignorespaces Reliability diagram (Top 3 models) --- calibrated probabilities vs.\ observed mortality fraction.}}{83}{figure.caption.42}%
-\contentsline {figure}{\numberline {5.9}{\ignorespaces Confusion matrix --- SVM Linéaire (AUC\,=\,0.8235, seuil\,=\,0.238).}}{84}{figure.caption.43}%
-\contentsline {figure}{\numberline {5.10}{\ignorespaces Confusion matrix --- LDA (AUC\,=\,0.8225, seuil\,=\,0.220).}}{85}{figure.caption.44}%
-\contentsline {figure}{\numberline {5.11}{\ignorespaces Confusion matrix --- Régression Logistique (AUC\,=\,0.8210, seuil\,=\,0.502).}}{85}{figure.caption.45}%
-\contentsline {figure}{\numberline {5.12}{\ignorespaces Precision-Recall curves for all models --- PR-AUC is the primary selection metric (class imbalance 80/20).}}{86}{figure.caption.46}%
-\contentsline {figure}{\numberline {5.13}{\ignorespaces AUC-ROC boxplot across 10 CV folds per model --- stability and variance analysis.}}{87}{figure.caption.47}%
-\contentsline {figure}{\numberline {5.14}{\ignorespaces Complete 1-year mortality prediction workflow for a single patient. Each prediction triggers an automatic AuditLog entry via Django signals.}}{91}{figure.caption.49}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces ROC curves --- all nine models (HD-478, 10-fold CV).}}{77}{figure.caption.36}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces ROC curves --- zoom Top 3 : SVM Linéaire, LDA, Régression Logistique (HD-478, 10-fold CV).}}{78}{figure.caption.37}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces AUC-ROC per model --- HD-478 cohort, 10-fold CV (mean\,$\pm $\,std).}}{79}{figure.caption.38}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Train-test AUC gap per model --- vert\,$<$\,0.05 (excellent), orange\,$<$\,0.10 (acceptable). SVM Linéaire : gap le plus faible (0.047).}}{80}{figure.caption.39}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Multi-metric radar chart --- AUC-ROC, PR-AUC, F1, Brier Score and Recall for all models.}}{81}{figure.caption.40}%
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Brier Score per model --- lower is better (threshold 0.15 = excellent).}}{82}{figure.caption.41}%
+\contentsline {figure}{\numberline {5.8}{\ignorespaces Reliability diagram (Top 3 models) --- calibrated probabilities vs.\ observed mortality fraction.}}{82}{figure.caption.42}%
+\contentsline {figure}{\numberline {5.9}{\ignorespaces Confusion matrix --- SVM Linéaire (AUC\,=\,0.8235, seuil\,=\,0.238).}}{83}{figure.caption.43}%
+\contentsline {figure}{\numberline {5.10}{\ignorespaces Confusion matrix --- LDA (AUC\,=\,0.8225, seuil\,=\,0.220).}}{84}{figure.caption.44}%
+\contentsline {figure}{\numberline {5.11}{\ignorespaces Confusion matrix --- Régression Logistique (AUC\,=\,0.8210, seuil\,=\,0.502).}}{84}{figure.caption.45}%
+\contentsline {figure}{\numberline {5.12}{\ignorespaces Precision-Recall curves for all models --- PR-AUC is the primary selection metric (class imbalance 80/20).}}{85}{figure.caption.46}%
+\contentsline {figure}{\numberline {5.13}{\ignorespaces AUC-ROC boxplot across 10 CV folds per model --- stability and variance analysis.}}{86}{figure.caption.47}%
+\contentsline {figure}{\numberline {5.14}{\ignorespaces Complete 1-year mortality prediction workflow for a single patient. Each prediction triggers an automatic AuditLog entry via Django signals.}}{90}{figure.caption.49}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {6.1}{\ignorespaces Django REST Framework --- modular application structure of the AI NéphroCare backend}}{97}{figure.caption.51}%
-\contentsline {figure}{\numberline {6.2}{\ignorespaces UML Class Diagram --- main Django models}}{98}{figure.caption.52}%
-\contentsline {figure}{\numberline {6.3}{\ignorespaces JWT authentication flow: token issuance (Steps 1--3), authenticated request (Step~4), and automatic token refresh via Axios interceptor (Step~5).}}{100}{figure.caption.53}%
-\contentsline {figure}{\numberline {6.4}{\ignorespaces Landing page --- public entry point of the AI NéphroCare platform}}{104}{figure.caption.55}%
-\contentsline {figure}{\numberline {6.5}{\ignorespaces Login page --- split-panel design with branding (left) and JWT authentication form (right)}}{105}{figure.caption.56}%
-\contentsline {figure}{\numberline {6.6}{\ignorespaces AI NéphroCare navigation sidebar --- persistent across all authenticated pages}}{106}{figure.caption.57}%
-\contentsline {figure}{\numberline {6.7}{\ignorespaces Carnet numérique --- persistent personal notepad accessible from any authenticated page via a floating action button}}{107}{figure.caption.58}%
-\contentsline {figure}{\numberline {6.8}{\ignorespaces Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}}{108}{figure.caption.59}%
-\contentsline {figure}{\numberline {6.9}{\ignorespaces KPI filter active --- clicking \textit {Professors} restricts the list and displays an active-filter chip}}{108}{figure.caption.60}%
-\contentsline {figure}{\numberline {6.10}{\ignorespaces User management CRUD panel --- account creation and editing form}}{109}{figure.caption.61}%
-\contentsline {figure}{\numberline {6.11}{\ignorespaces Deletion confirmation dialog --- password required before account removal}}{109}{figure.caption.62}%
-\contentsline {figure}{\numberline {6.12}{\ignorespaces Import submission request --- clinician view showing file pending review with status indicator}}{110}{figure.caption.63}%
-\contentsline {figure}{\numberline {6.13}{\ignorespaces Import validation preview --- Head of Department reviews file metadata, row/column count, quality score and first rows before approving or rejecting}}{110}{figure.caption.64}%
-\contentsline {figure}{\numberline {6.14}{\ignorespaces Professor/Resident dashboard --- connected profile (left) and recent activity feed (right)}}{111}{figure.caption.65}%
-\contentsline {figure}{\numberline {6.15}{\ignorespaces Activity feed entry expanded --- full action detail, reviewer comment, and direct navigation shortcut}}{111}{figure.caption.66}%
-\contentsline {figure}{\numberline {6.16}{\ignorespaces Import decision notification in the activity feed --- green entry for approval, pink entry for rejection, both displaying the reviewer's comment}}{112}{figure.caption.67}%
-\contentsline {figure}{\numberline {6.17}{\ignorespaces Preprocessing interface --- general view before file upload}}{112}{figure.caption.68}%
-\contentsline {figure}{\numberline {6.18}{\ignorespaces Step 1 --- file upload zone with Excel/CSV file selected, ready for LLM analysis}}{113}{figure.caption.69}%
-\contentsline {figure}{\numberline {6.19}{\ignorespaces Step 2 --- LLM analysis in progress, real-time progress bar with current processing message}}{116}{figure.caption.71}%
-\contentsline {figure}{\numberline {6.20}{\ignorespaces Feuille \textit {Données} du fichier \texttt {.xlsx} exporté --- les cellules modifiées par le LLM sont surlignées en jaune pâle (\texttt {\#FFF2CC}) avec une police orange grasse, générées par \texttt {openpyxl}}}{117}{figure.caption.72}%
-\contentsline {figure}{\numberline {6.21}{\ignorespaces Feuille \textit {Corrections} du fichier \texttt {.xlsx} exporté --- tableau récapitulatif listant chaque cellule modifiée avec sa valeur originale, sa valeur corrigée, le type de correction et la justification médicale}}{118}{figure.caption.73}%
-\contentsline {figure}{\numberline {6.22}{\ignorespaces Step 3 --- LLM correction review table: quality score, KPI cards, and cell-level corrections with medical justifications}}{118}{figure.caption.74}%
-\contentsline {figure}{\numberline {6.23}{\ignorespaces Integration version selector --- the user chooses between the corrected version (recommended) and the original file before persisting data to the database}}{119}{figure.caption.75}%
-\contentsline {figure}{\numberline {6.24}{\ignorespaces Data management interface --- searchable patient table with dynamic column support}}{120}{figure.caption.76}%
-\contentsline {figure}{\numberline {6.25}{\ignorespaces Dynamic column support --- institution-specific variables displayed as regular table columns alongside the fixed schema}}{121}{figure.caption.77}%
-\contentsline {figure}{\numberline {6.26}{\ignorespaces Data management filter panel --- multi-field filtering with active filter indicators}}{121}{figure.caption.78}%
-\contentsline {figure}{\numberline {6.27}{\ignorespaces Patient record edit form --- all 160+ clinical variables organized in collapsible sections}}{122}{figure.caption.79}%
-\contentsline {figure}{\numberline {6.28}{\ignorespaces Dynamic columns management --- list of active dynamic columns imported from Excel/CSV with their source file tooltip and individual delete action}}{122}{figure.caption.80}%
-\contentsline {figure}{\numberline {6.29}{\ignorespaces Patient analysis interface --- epidemiological and clinical statistics charts}}{123}{figure.caption.81}%
-\contentsline {figure}{\numberline {6.30}{\ignorespaces AI Model analysis dashboard --- SVM performance metrics and risk zone overview}}{123}{figure.caption.82}%
-\contentsline {figure}{\numberline {6.31}{\ignorespaces AI Model patient list --- each row shows patient summary and a Predict action button}}{124}{figure.caption.83}%
-\contentsline {figure}{\numberline {6.32}{\ignorespaces Clinical simulation interface --- the clinician modifies patient parameters and immediately sees the updated mortality risk prediction}}{125}{figure.caption.84}%
-\contentsline {figure}{\numberline {6.33}{\ignorespaces AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}}{125}{figure.caption.85}%
-\contentsline {figure}{\numberline {6.34}{\ignorespaces Patient monitoring board --- patient list (left), clinical timeline with prediction history and field-level audit trail (right)}}{126}{figure.caption.86}%
-\contentsline {figure}{\numberline {6.35}{\ignorespaces Profile page --- user information panel, password change form, and bilingual language selector (Français / English)}}{127}{figure.caption.87}%
-\contentsline {figure}{\numberline {6.36}{\ignorespaces Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}}{128}{figure.caption.88}%
-\contentsline {figure}{\numberline {6.37}{\ignorespaces Sex distribution of the hemodialysis cohort with associated KPI indicators}}{128}{figure.caption.89}%
-\contentsline {figure}{\numberline {6.38}{\ignorespaces Age distribution of hemodialysis patients grouped by sex in 5-year age bands}}{129}{figure.caption.90}%
-\contentsline {figure}{\numberline {6.39}{\ignorespaces Frequency of documented complication types across the patient cohort}}{129}{figure.caption.91}%
-\contentsline {figure}{\numberline {6.40}{\ignorespaces Distribution of CKD etiologies stratified by inclusion status in the cohort}}{130}{figure.caption.92}%
-\contentsline {figure}{\numberline {6.41}{\ignorespaces Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}}{130}{figure.caption.93}%
-\contentsline {figure}{\numberline {6.42}{\ignorespaces Cohort risk zone distribution --- proportion of patients classified as Faible, Modérée, and Élevée risk}}{131}{figure.caption.94}%
-\contentsline {figure}{\numberline {6.43}{\ignorespaces Patient outcome distribution (vivant / décès) across the hemodialysis cohort}}{131}{figure.caption.95}%
-\contentsline {figure}{\numberline {6.44}{\ignorespaces Kaplan-Meier survival curves stratified by predicted risk zone --- Faible (green), Modérée (orange), Élevée (red)}}{132}{figure.caption.96}%
-\contentsline {figure}{\numberline {6.45}{\ignorespaces Top contributing risk factors --- mean SVM feature weights across the cohort, ranked by absolute importance}}{132}{figure.caption.97}%
-\contentsline {figure}{\numberline {6.46}{\ignorespaces Multi-dimensional clinical risk profile --- radar chart of normalized key indicators for Faible, Modérée, and Élevée zones}}{133}{figure.caption.98}%
-\contentsline {figure}{\numberline {6.47}{\ignorespaces Serum albumin distribution by risk zone --- interquartile range (Q1--Q3) for Zone Faible, Modérée, and Élevée}}{134}{figure.caption.99}%
-\contentsline {figure}{\numberline {6.48}{\ignorespaces Sequence Diagram 1 — JWT Authentication flow}}{135}{figure.caption.100}%
-\contentsline {figure}{\numberline {6.49}{\ignorespaces Sequence Diagram 2 — Patient Import and LLM Preprocessing}}{136}{figure.caption.101}%
-\contentsline {figure}{\numberline {6.50}{\ignorespaces Sequence Diagram 3 — Mortality Risk Prediction workflow}}{137}{figure.caption.102}%
+\contentsline {figure}{\numberline {6.1}{\ignorespaces Django REST Framework --- modular application structure of the AI NéphroCare backend}}{96}{figure.caption.51}%
+\contentsline {figure}{\numberline {6.2}{\ignorespaces UML Class Diagram --- main Django models}}{97}{figure.caption.52}%
+\contentsline {figure}{\numberline {6.3}{\ignorespaces JWT authentication flow: token issuance (Steps 1--3), authenticated request (Step~4), and automatic token refresh via Axios interceptor (Step~5).}}{99}{figure.caption.53}%
+\contentsline {figure}{\numberline {6.4}{\ignorespaces Landing page --- public entry point of the AI NéphroCare platform}}{103}{figure.caption.55}%
+\contentsline {figure}{\numberline {6.5}{\ignorespaces Login page --- split-panel design with branding (left) and JWT authentication form (right)}}{104}{figure.caption.56}%
+\contentsline {figure}{\numberline {6.6}{\ignorespaces AI NéphroCare navigation sidebar --- persistent across all authenticated pages}}{105}{figure.caption.57}%
+\contentsline {figure}{\numberline {6.7}{\ignorespaces Carnet numérique --- persistent personal notepad accessible from any authenticated page via a floating action button}}{106}{figure.caption.58}%
+\contentsline {figure}{\numberline {6.8}{\ignorespaces Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}}{107}{figure.caption.59}%
+\contentsline {figure}{\numberline {6.9}{\ignorespaces KPI filter active --- clicking \textit {Professors} restricts the list and displays an active-filter chip}}{107}{figure.caption.60}%
+\contentsline {figure}{\numberline {6.10}{\ignorespaces User management CRUD panel --- account creation and editing form}}{108}{figure.caption.61}%
+\contentsline {figure}{\numberline {6.11}{\ignorespaces Deletion confirmation dialog --- password required before account removal}}{108}{figure.caption.62}%
+\contentsline {figure}{\numberline {6.12}{\ignorespaces Import submission request --- clinician view showing file pending review with status indicator}}{109}{figure.caption.63}%
+\contentsline {figure}{\numberline {6.13}{\ignorespaces Import validation preview --- Head of Department reviews file metadata, row/column count, quality score and first rows before approving or rejecting}}{109}{figure.caption.64}%
+\contentsline {figure}{\numberline {6.14}{\ignorespaces Professor/Resident dashboard --- connected profile (left) and recent activity feed (right)}}{110}{figure.caption.65}%
+\contentsline {figure}{\numberline {6.15}{\ignorespaces Activity feed entry expanded --- full action detail, reviewer comment, and direct navigation shortcut}}{110}{figure.caption.66}%
+\contentsline {figure}{\numberline {6.16}{\ignorespaces Import decision notification in the activity feed --- green entry for approval, pink entry for rejection, both displaying the reviewer's comment}}{111}{figure.caption.67}%
+\contentsline {figure}{\numberline {6.17}{\ignorespaces Preprocessing interface --- general view before file upload}}{111}{figure.caption.68}%
+\contentsline {figure}{\numberline {6.18}{\ignorespaces Step 1 --- file upload zone with Excel/CSV file selected, ready for LLM analysis}}{112}{figure.caption.69}%
+\contentsline {figure}{\numberline {6.19}{\ignorespaces Step 2 --- LLM analysis in progress, real-time progress bar with current processing message}}{115}{figure.caption.71}%
+\contentsline {figure}{\numberline {6.20}{\ignorespaces Feuille \textit {Données} du fichier \texttt {.xlsx} exporté --- les cellules modifiées par le LLM sont surlignées en jaune pâle (\texttt {\#FFF2CC}) avec une police orange grasse, générées par \texttt {openpyxl}}}{116}{figure.caption.72}%
+\contentsline {figure}{\numberline {6.21}{\ignorespaces Feuille \textit {Corrections} du fichier \texttt {.xlsx} exporté --- tableau récapitulatif listant chaque cellule modifiée avec sa valeur originale, sa valeur corrigée, le type de correction et la justification médicale}}{117}{figure.caption.73}%
+\contentsline {figure}{\numberline {6.22}{\ignorespaces Step 3 --- LLM correction review table: quality score, KPI cards, and cell-level corrections with medical justifications}}{117}{figure.caption.74}%
+\contentsline {figure}{\numberline {6.23}{\ignorespaces Integration version selector --- the user chooses between the corrected version (recommended) and the original file before persisting data to the database}}{118}{figure.caption.75}%
+\contentsline {figure}{\numberline {6.24}{\ignorespaces Data management interface --- searchable patient table with dynamic column support}}{119}{figure.caption.76}%
+\contentsline {figure}{\numberline {6.25}{\ignorespaces Dynamic column support --- institution-specific variables displayed as regular table columns alongside the fixed schema}}{120}{figure.caption.77}%
+\contentsline {figure}{\numberline {6.26}{\ignorespaces Data management filter panel --- multi-field filtering with active filter indicators}}{120}{figure.caption.78}%
+\contentsline {figure}{\numberline {6.27}{\ignorespaces Patient record edit form --- all 160+ clinical variables organized in collapsible sections}}{121}{figure.caption.79}%
+\contentsline {figure}{\numberline {6.28}{\ignorespaces Dynamic columns management --- list of active dynamic columns imported from Excel/CSV with their source file tooltip and individual delete action}}{121}{figure.caption.80}%
+\contentsline {figure}{\numberline {6.29}{\ignorespaces Patient analysis interface --- epidemiological and clinical statistics charts}}{122}{figure.caption.81}%
+\contentsline {figure}{\numberline {6.30}{\ignorespaces AI Model analysis dashboard --- SVM performance metrics and risk zone overview}}{122}{figure.caption.82}%
+\contentsline {figure}{\numberline {6.31}{\ignorespaces AI Model patient list --- each row shows patient summary and a Predict action button}}{123}{figure.caption.83}%
+\contentsline {figure}{\numberline {6.32}{\ignorespaces Clinical simulation interface --- the clinician modifies patient parameters and immediately sees the updated mortality risk prediction}}{124}{figure.caption.84}%
+\contentsline {figure}{\numberline {6.33}{\ignorespaces AI prediction result interface --- risk zone gauge, calibrated probability, contributing factors, and clinical recommendation}}{124}{figure.caption.85}%
+\contentsline {figure}{\numberline {6.34}{\ignorespaces Patient monitoring board --- patient list (left), clinical timeline with prediction history and field-level audit trail (right)}}{125}{figure.caption.86}%
+\contentsline {figure}{\numberline {6.35}{\ignorespaces Profile page --- user information panel, password change form, and bilingual language selector (Français / English)}}{126}{figure.caption.87}%
+\contentsline {figure}{\numberline {6.36}{\ignorespaces Monthly dialysis initiation trend --- number of new patients starting hemodialysis per month}}{127}{figure.caption.88}%
+\contentsline {figure}{\numberline {6.37}{\ignorespaces Sex distribution of the hemodialysis cohort with associated KPI indicators}}{127}{figure.caption.89}%
+\contentsline {figure}{\numberline {6.38}{\ignorespaces Age distribution of hemodialysis patients grouped by sex in 5-year age bands}}{128}{figure.caption.90}%
+\contentsline {figure}{\numberline {6.39}{\ignorespaces Frequency of documented complication types across the patient cohort}}{128}{figure.caption.91}%
+\contentsline {figure}{\numberline {6.40}{\ignorespaces Distribution of CKD etiologies stratified by inclusion status in the cohort}}{129}{figure.caption.92}%
+\contentsline {figure}{\numberline {6.41}{\ignorespaces Most frequent comorbidity co-occurrence combinations in the hemodialysis cohort}}{129}{figure.caption.93}%
+\contentsline {figure}{\numberline {6.42}{\ignorespaces Cohort risk zone distribution --- proportion of patients classified as Faible, Modérée, and Élevée risk}}{130}{figure.caption.94}%
+\contentsline {figure}{\numberline {6.43}{\ignorespaces Patient outcome distribution (vivant / décès) across the hemodialysis cohort}}{130}{figure.caption.95}%
+\contentsline {figure}{\numberline {6.44}{\ignorespaces Kaplan-Meier survival curves stratified by predicted risk zone --- Faible (green), Modérée (orange), Élevée (red)}}{131}{figure.caption.96}%
+\contentsline {figure}{\numberline {6.45}{\ignorespaces Top contributing risk factors --- mean SVM feature weights across the cohort, ranked by absolute importance}}{131}{figure.caption.97}%
+\contentsline {figure}{\numberline {6.46}{\ignorespaces Multi-dimensional clinical risk profile --- radar chart of normalized key indicators for Faible, Modérée, and Élevée zones}}{132}{figure.caption.98}%
+\contentsline {figure}{\numberline {6.47}{\ignorespaces Serum albumin distribution by risk zone --- interquartile range (Q1--Q3) for Zone Faible, Modérée, and Élevée}}{133}{figure.caption.99}%
+\contentsline {figure}{\numberline {6.48}{\ignorespaces Sequence Diagram 1 — JWT Authentication flow}}{134}{figure.caption.100}%
+\contentsline {figure}{\numberline {6.49}{\ignorespaces Sequence Diagram 2 — Patient Import and LLM Preprocessing}}{135}{figure.caption.101}%
+\contentsline {figure}{\numberline {6.50}{\ignorespaces Sequence Diagram 3 — Mortality Risk Prediction workflow}}{136}{figure.caption.102}%
 \addvspace {10\p@ }

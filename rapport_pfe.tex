@@ -871,7 +871,7 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 ]
 
 %--- System boundary ---
-\draw[sys] (0.5,-0.3) rectangle (14.5,-12.5);
+\draw[sys] (0.5,-0.3) rectangle (14.5,-13.5);
 \node[font=\bfseries\small\color{primarydark}] at (7.5,0.1)
   {\guillemotleft system\guillemotright\quad AI NéphroCare};
 
@@ -890,6 +890,10 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 % ---- SHARED IMPORT/PREPROCESS (all roles) ----
 \node[uc]    (import)  at (2.8,-7.5)  {Import Excel Data};
 \node[uc]    (preproc) at (2.8,-9.2)  {LLM Preprocessing};
+
+% ---- AUDIT / ACTIVITY USE CASES ----
+\node[uc]    (activity) at (7.5,-10.4) {View Recent Activity};
+\node[ucred] (auditlog) at (2.8,-11.8) {View Audit Log};
 
 % ---- INCLUDE ----
 \draw[inc] (import.east) -- node[above,font=\tiny\color{primarydark}]{«include»} (preproc.east |- import.east) -- (preproc.east);
@@ -934,23 +938,23 @@ Figure~\ref{fig:use_case} presents the use case diagram of the platform. Four ac
 
 % ---- CONNECTIONS ----
 % Super Admin → all use cases
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users}
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users,auditlog}
   \draw[arr] (-0.98,-2.35) -- (\uc.west);
 
 % Chef Service → all (user management limited at data level to prof/resident only)
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users}
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,valid,users,auditlog}
   \draw[arr] (-0.98,-7.73) -- (\uc.west);
 
-% Professor → clinical use cases + import/preprocess (NO validate, NO users)
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc}
+% Professor → clinical use cases + import/preprocess + recent activity (NO validate, NO users, NO audit)
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,activity}
   \draw[arr] (15.98,-4.33) -- (\uc.east);
 
 % Resident → identical to Professor
-\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc}
+\foreach \uc in {auth,crud,predict,export,analytics,monitor,import,preproc,activity}
   \draw[arr] (15.98,-8.73) -- (\uc.east);
 
 \end{tikzpicture}}
-\caption{Use Case Diagram — AI NéphroCare (4 actors, 10 use cases). Professor and Resident have identical access. Validate \& Integrate Import is restricted to Super Admin and Head of Department.}
+\caption{Use Case Diagram — AI NéphroCare (4 actors, 12 use cases). View Recent Activity is accessible to Professor and Resident. View Audit Log (who performed operations) is restricted to Super Admin and Head of Department.}
 \label{fig:use_case}
 \end{figure}
 
@@ -2253,7 +2257,7 @@ Three additional models tested in the initial comparative study --- \textbf{LDA}
 \begin{tikzpicture}
 \begin{axis}[
   ybar, bar width=0.32cm,
-  width=13cm, height=9cm,
+  width=13cm, height=7.5cm,
   ylabel={Score},
   xlabel={Model},
   symbolic x coords={LR,SVM,RF,ET,GB,ADB,XGB,LGBM,CB,Ens},
@@ -2283,8 +2287,6 @@ Three additional models tested in the initial comparative study --- \textbf{LDA}
 \caption{AUC-ROC and PR-AUC comparison across all evaluated models (HD-478 cohort, 10-fold stratified CV). SVM achieves the highest scores on both metrics.}
 \label{fig:auc_comparison}
 \end{figure}
-
-\clearpage
 
 \begin{resultbox}{SVM Selected as Best Model}
 In the offline evaluation on raw HD-478 data, the linear SVM achieved the highest AUC-ROC (\textbf{0.8235}), PR-AUC (0.489), and F1-score (0.567) with a Brier Score of 0.127. After retraining on the LLM-preprocessed platform database, the deployed model further improves to \textbf{AUC\,=\,0.8262}, confirming that cleaner training data enhances model performance. SVM was preferred for three clinical reasons: (1) linear boundary provides direct feature-weight interpretation; (2) strong L2 regularization prevents overfitting on small cohorts; (3) single-model structure facilitates regulatory compliance and audit.
