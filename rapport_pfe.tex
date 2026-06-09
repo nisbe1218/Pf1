@@ -1958,96 +1958,126 @@ This dual approach --- statistical and clinical --- reflects recognised practice
 
 Table~\ref{tab:var_evidence} details the clinical justification and key supporting reference for each of the 24 variables, together with their SHAP validation status.
 
-\begin{longtable}{@{}p{4.2cm}p{1.6cm}p{4.8cm}p{3cm}@{}}
-\caption{Per-variable clinical evidence and SHAP validation status}
+\begin{longtable}{@{}p{4.2cm}p{1.5cm}p{5.0cm}p{2.8cm}@{}}
+\caption{Per-variable clinical justification and supporting literature for the 24 selected features}
 \label{tab:var_evidence}\\
 \toprule
-\textbf{Variable} & \textbf{SHAP} & \textbf{Clinical evidence} & \textbf{Reference} \\
+\textbf{Variable} & \textbf{Status} & \textbf{Clinical evidence} & \textbf{Reference} \\
 \midrule
 \endfirsthead
-\multicolumn{4}{c}{\footnotesize\textit{(continued)}}\\
+\multicolumn{4}{c}{\footnotesize\textit{(continued from previous page)}}\\
 \toprule
-\textbf{Variable} & \textbf{SHAP} & \textbf{Clinical evidence} & \textbf{Reference} \\
+\textbf{Variable} & \textbf{Status} & \textbf{Clinical evidence} & \textbf{Reference} \\
 \midrule
 \endhead
 \bottomrule
+\multicolumn{4}{r}{\footnotesize\textit{continued on next page}}\\
+\endfoot
+\bottomrule
 \endlastfoot
+
 %--- SHAP-confirmed ---
-\multicolumn{4}{l}{\textit{--- SHAP-confirmed variables (top-24) ---}}\\[3pt]
-\texttt{fistule\_arterioveineuse\allowbreak\_creee} & \#1 &
-  AVF associated with lower mortality vs.\ central catheter; vascular access type is a key DOPPS predictor &
-  \cite{pisoni2002vascular} \\[3pt]
-\texttt{couverture\_medicale} & \#2 &
-  Social health coverage determines access to adequate dialysis care; locally significant determinant in Morocco &
-  \cite{maoujoud2017morocco, usrds2022} \\[3pt]
-\texttt{calcium\_basale} & \#3 &
-  Abnormal serum calcium is an independent predictor of 1-year HD mortality across DOPPS sites &
-  \cite{tentori2008, kdigo_mineral_2017} \\[3pt]
-\texttt{albumine\_basale} & \#4 &
-  Each 1~g/dL decrease in albumin independently increases mortality risk; albumin $<$35~g/L is a sentinel threshold &
-  \cite{albumin_dialysis_2018} \\[3pt]
-\texttt{evenement\_cardiovasculaire} & top-24 &
-  Prior cardiovascular events are the strongest predictor of future mortality in HD patients ($>$40\% of deaths) &
-  \cite{foley1998cv, registre_rein_2022} \\[3pt]
-\texttt{admission\_cathetere\allowbreak\_tunnellise} & top-24 &
-  Central venous catheter at initiation is associated with higher infection and mortality risk compared to AVF &
-  \cite{pisoni2002vascular} \\[3pt]
-\texttt{du\_residuelle} & top-24 &
-  Residual diuresis independently reduces mortality and improves solute clearance in HD patients &
-  \cite{shemin2001residual} \\[3pt]
-\texttt{nombre\_hospitalisations} & top-24 &
-  Hospitalisation count is a surrogate of global morbidity burden and a strong predictor in ML-based studies &
-  \cite{sheng2020, beddhu2000charlson} \\[3pt]
-\texttt{pth\_basale} & top-24 &
-  PTH $>$600~pg/mL is associated with cardiovascular events and excess mortality in the DOPPS cohort &
-  \cite{tentori2008, kdigo_mineral_2017} \\[3pt]
-\texttt{ferritine\_basale} & top-24 &
-  Ferritin reflects iron stores and ESA response; very high ferritin ($>$800~ng/mL) is associated with mortality &
-  \cite{kdigo_anemia_2012} \\[3pt]
-\texttt{seances\_par\_semaine} & top-24 &
-  Dialysis frequency directly impacts adequacy (Kt/V) and survival; $<$3 sessions/week associated with excess mortality &
-  \cite{dopps2022} \\[3pt]
-\texttt{etiologie\_mrc} & top-24 &
-  CKD etiology (diabetic nephropathy, hypertensive vs.\ hereditary) determines complication profile and survival trajectory &
-  \cite{kdigo2015} \\[3pt]
-\texttt{annee\_inclusion} & top-24 &
-  Temporal covariate capturing therapeutic practice evolution across the 2020--2024 HD cohort period &
-  \cite{dopps2022} \\[3pt]
+\multicolumn{4}{l}{\textit{--- SHAP-confirmed (top-24 out of 77) ---}}\\[3pt]
+
+\texttt{fistule\_arterioveineuse\allowbreak\_creee} & SHAP \#1 &
+  AVF vs.\ tunnelled catheter: $-$26\% mortality risk in the DOPPS international cohort; access type is the strongest modifiable predictor &
+  \cite{pisoni2002vascular} \\[4pt]
+
+\texttt{couverture\_medicale} & SHAP \#2 &
+  Patients without social coverage have delayed or suboptimal dialysis access in Morocco; health coverage is an independent survival determinant in low-to-middle-income countries &
+  \cite{maoujoud2017morocco, usrds2022} \\[4pt]
+
+\texttt{calcium\_basale} & SHAP \#3 &
+  Both hypercalcaemia and hypocalcaemia independently predict 1-year mortality across DOPPS sites; mineral metabolism disorders are a leading cause of cardiovascular death in HD &
+  \cite{tentori2008, kdigo_mineral_2017} \\[4pt]
+
+\texttt{albumine\_basale} & SHAP \#4 &
+  Each 1~g/dL decrease in serum albumin increases mortality risk; albumin $<$35~g/L is the threshold used in international HD quality registries &
+  \cite{albumin_dialysis_2018} \\[4pt]
+
+\texttt{evenement\_cardiovasculaire} & SHAP top-24 &
+  Prior cardiovascular events (MI, stroke, cardiac arrest) are the strongest predictor of death in HD; cardiovascular disease accounts for $>$40\% of mortality &
+  \cite{foley1998cv, registre_rein_2022} \\[4pt]
+
+\texttt{admission\_cathetere\allowbreak\_tunnellise} & SHAP top-24 &
+  Tunnelled catheter at dialysis initiation is associated with 2--3$\times$ higher bloodstream infection risk and excess early mortality compared to AVF &
+  \cite{pisoni2002vascular} \\[4pt]
+
+\texttt{du\_residuelle} & SHAP top-24 &
+  Each 1~mL/min increase in residual GFR is associated with a 5--10\% reduction in mortality risk; residual function provides clearance that HD sessions cannot fully replace &
+  \cite{shemin2001residual} \\[4pt]
+
+\texttt{nombre\_hospitalisations} & SHAP top-24 &
+  Hospitalisation count integrates global morbidity burden; confirmed as a strong mortality predictor in ML-based HD models on 5,351 patients &
+  \cite{sheng2020, beddhu2000charlson} \\[4pt]
+
+\texttt{pth\_basale} & SHAP top-24 &
+  PTH $>$600~pg/mL associated with elevated all-cause and cardiovascular mortality in the DOPPS cohort; secondary hyperparathyroidism is a KDIGO-MBD treatment target &
+  \cite{tentori2008, kdigo_mineral_2017} \\[4pt]
+
+\texttt{ferritine\_basale} & SHAP top-24 &
+  Ferritin $<$200 or $>$800~ng/mL both signal suboptimal anaemia management; ESA hypo-response linked to higher mortality in HD &
+  \cite{kdigo_anemia_2012} \\[4pt]
+
+\texttt{seances\_par\_semaine} & SHAP top-24 &
+  Fewer than 3 sessions/week is associated with increased mortality in worldwide DOPPS data; dialysis frequency is a primary adequacy determinant &
+  \cite{dopps2022} \\[4pt]
+
+\texttt{etiologie\_mrc} & SHAP top-24 &
+  CKD aetiology (diabetic nephropathy, hypertensive, hereditary) determines complication profile, residual function trajectory and long-term survival &
+  \cite{kdigo2015, brenner_kidney_2020} \\[4pt]
+
+\texttt{annee\_inclusion} & SHAP top-24 &
+  Temporal covariate: patients included later (2022--2024) benefit from improved protocols; DOPPS shows measurable practice-era effects on survival &
+  \cite{dopps2022} \\[4pt]
+
 %--- Maintained for clinical value ---
-\multicolumn{4}{l}{\textit{--- Variables maintained for clinical interpretability ---}}\\[3pt]
-\texttt{hypertension} & clinical &
-  Most prevalent comorbidity in HD ($>$80\% of patients); chronic risk factor for cardiovascular disease &
-  \cite{registre_rein_2022, foley1998cv} \\[3pt]
-\texttt{cardiopathie} & clinical &
-  Cardiac disease is the leading cause of death in HD patients; essential for phenotypic description &
-  \cite{foley1998cv, registre_rein_2022} \\[3pt]
-\texttt{diabete} & clinical &
-  Diabetic nephropathy is the leading cause of ESRD; amplifies cardiovascular and infectious risk &
-  \cite{registre_rein_2022, kdigo2015} \\[3pt]
-\texttt{dyspnee} & clinical &
-  Dyspnea is a clinical marker of cardiac decompensation and fluid overload, both direct mortality risks &
-  \cite{wizemann2009} \\[3pt]
-\texttt{oedemes\_surcharge} & clinical &
-  Chronic overhydration is an independent predictor of cardiovascular mortality in HD &
-  \cite{wizemann2009} \\[3pt]
-\texttt{douleur\_abdominale} & clinical &
-  Abdominal pain signals peritoneal, mesenteric, or infectious complications requiring urgent management &
-  \cite{kdigo2015} \\[3pt]
-\texttt{crise\_convulsive} & clinical &
-  Seizures indicate uremic encephalopathy or severe electrolyte imbalance; marker of critical deterioration &
-  \cite{kdigo2015} \\[3pt]
-\texttt{maladie\_renale\_hereditaire} & clinical &
-  Hereditary nephropathy (e.g.\ ADPKD) has distinct complication profile and progression trajectory &
-  \cite{kdigo2015} \\[3pt]
-\texttt{hemodialyse} & clinical &
-  Dialysis modality flag necessary for cohort homogeneity; all HD-478 patients on conventional HD &
-  \cite{kdigo2015} \\[3pt]
-\texttt{liste\_attente\_transplantation} & clinical &
-  Transplant waitlisting is associated with lower mortality in ESRD; marker of therapeutic trajectory &
-  \cite{usrds2022} \\[3pt]
-\texttt{information\_transplantation\allowbreak\_donnee} & clinical &
-  Transplant information provision reflects care quality and patient engagement in the Moroccan context &
-  \cite{maoujoud2017morocco} \\[3pt]
+\multicolumn{4}{l}{\textit{--- Literature-justified variables (maintained for clinical phenotyping) ---}}\\[3pt]
+
+\texttt{hypertension} & Lit. &
+  HTA present in $>$80\% of HD patients; uncontrolled blood pressure is a direct cardiovascular mortality driver; included in the Charlson Comorbidity Index &
+  \cite{foley1998cv, beddhu2000charlson, registre_rein_2022} \\[4pt]
+
+\texttt{cardiopathie} & Lit. &
+  Cardiac disease causes $>$40\% of HD deaths; myocardial infarction and cardiac failure are the leading causes; necessary for complete risk phenotyping &
+  \cite{foley1998cv, beddhu2000charlson} \\[4pt]
+
+\texttt{diabete} & Lit. &
+  Diabetic nephropathy is the first cause of ESRD worldwide; diabetes amplifies cardiovascular, infectious, and vascular access complications in HD patients &
+  \cite{registre_rein_2022, usrds2022} \\[4pt]
+
+\texttt{dyspnee} & Lit. &
+  Dyspnoea is the primary clinical sign of fluid overload and cardiac decompensation; overhydration directly predicts cardiovascular mortality in HD &
+  \cite{wizemann2009, foley1998cv} \\[4pt]
+
+\texttt{oedemes\_surcharge} & Lit. &
+  Chronic overhydration increases left ventricular mass and all-cause mortality; $>$2.5~L fluid excess associated with 2.1$\times$ relative risk of death &
+  \cite{wizemann2009} \\[4pt]
+
+\texttt{douleur\_abdominale} & Lit. &
+  GI complications (ulcers, mesenteric ischaemia, liver disease) are included in the Charlson Comorbidity Index and are documented mortality predictors in HD cohorts &
+  \cite{beddhu2000charlson, dopps2022} \\[4pt]
+
+\texttt{crise\_convulsive} & Lit. &
+  Seizures in HD signal uremic encephalopathy, severe electrolyte disorders or stroke; neurological and cerebrovascular events are Charlson index components and independent mortality predictors &
+  \cite{beddhu2000charlson, foley1998cv} \\[4pt]
+
+\texttt{maladie\_renale\_hereditaire} & Lit. &
+  ADPKD and other hereditary nephropathies have a distinct complication profile with lower cardiovascular mortality but higher risk of rupture and haemorrhagic complications &
+  \cite{kdigo2015, brenner_kidney_2020} \\[4pt]
+
+\texttt{hemodialyse} & Lit. &
+  Dialysis modality (HD vs.\ PD) significantly impacts solute clearance, cardiovascular load, and infection risk; modality is a primary KDIGO prognostic variable &
+  \cite{kdigo2015, dopps2022} \\[4pt]
+
+\texttt{liste\_attente\_transplantation} & Lit. &
+  Waitlisted HD patients have $\sim$50\% lower mortality than non-listed patients (USRDS); listing status reflects both clinical eligibility and care quality &
+  \cite{usrds2022} \\[4pt]
+
+\texttt{information\_transplantation\allowbreak\_donnee} & Lit. &
+  Transplant education is associated with higher waitlisting rates and reduced mortality; access to information is unequal in the Moroccan context &
+  \cite{maoujoud2017morocco, usrds2022} \\[4pt]
+
 \end{longtable}
 
 \subsection{Derived Risk Indicators}
