@@ -2020,16 +2020,16 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{kdigo_anemia_2012} \\[4pt]
 
 \texttt{seances\_par\_semaine} & SHAP top-24 &
-  Fewer than 3 sessions/week is associated with increased mortality in worldwide DOPPS data; dialysis frequency is a primary adequacy determinant &
-  \cite{dopps2022} \\[4pt]
+  Longer treatment time and adequate session frequency are independently associated with reduced mortality in the DOPPS international cohort; each session below 3/week increases mortality risk &
+  \cite{saran2006dopps} \\[4pt]
 
 \texttt{etiologie\_mrc} & SHAP top-24 &
-  CKD aetiology (diabetic nephropathy, hypertensive, hereditary) determines complication profile, residual function trajectory and long-term survival &
-  \cite{kdigo2015, brenner_kidney_2020} \\[4pt]
+  USRDS and REIN registries stratify 1-year survival by CKD aetiology; diabetic nephropathy shows higher early mortality than glomerulonephritis or hereditary causes &
+  \cite{usrds2022, registre_rein_2022} \\[4pt]
 
 \texttt{annee\_inclusion} & SHAP top-24 &
-  Temporal covariate: patients included later (2022--2024) benefit from improved protocols; DOPPS shows measurable practice-era effects on survival &
-  \cite{dopps2022} \\[4pt]
+  USRDS data show year-on-year improvement in HD 1-year survival; inclusion year captures era-specific protocol effects on outcome across the 2020--2024 cohort &
+  \cite{usrds2022} \\[4pt]
 
 %--- Maintained for clinical value ---
 \multicolumn{4}{l}{\textit{--- Literature-justified variables (maintained for clinical phenotyping) ---}}\\[3pt]
@@ -2055,20 +2055,20 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{wizemann2009} \\[4pt]
 
 \texttt{douleur\_abdominale} & Lit. &
-  GI complications (ulcers, mesenteric ischaemia, liver disease) are included in the Charlson Comorbidity Index and are documented mortality predictors in HD cohorts &
-  \cite{beddhu2000charlson, dopps2022} \\[4pt]
+  GI complications (peptic ulcers, liver disease, mesenteric ischaemia) are explicit components of the Charlson Comorbidity Index, whose score independently predicts clinical outcomes and mortality in dialysis patients &
+  \cite{beddhu2000charlson} \\[4pt]
 
 \texttt{crise\_convulsive} & Lit. &
   Seizures in HD signal uremic encephalopathy, severe electrolyte disorders or stroke; neurological and cerebrovascular events are Charlson index components and independent mortality predictors &
   \cite{beddhu2000charlson, foley1998cv} \\[4pt]
 
 \texttt{maladie\_renale\_hereditaire} & Lit. &
-  ADPKD and other hereditary nephropathies have a distinct complication profile with lower cardiovascular mortality but higher risk of rupture and haemorrhagic complications &
-  \cite{kdigo2015, brenner_kidney_2020} \\[4pt]
+  ADPKD and hereditary nephropathies have slower cardiovascular mortality than diabetic CKD but specific complications (cyst haemorrhage, pain); phenotypic flag essential for risk stratification &
+  \cite{grantham2008adpkd, kdigo2015} \\[4pt]
 
 \texttt{hemodialyse} & Lit. &
-  Dialysis modality (HD vs.\ PD) significantly impacts solute clearance, cardiovascular load, and infection risk; modality is a primary KDIGO prognostic variable &
-  \cite{kdigo2015, dopps2022} \\[4pt]
+  Dialysis modality (HD vs.\ PD) impacts solute clearance and cardiovascular load; DOPPS shows that treatment time and session parameters directly determine mortality risk in HD patients &
+  \cite{kdigo2015, saran2006dopps} \\[4pt]
 
 \texttt{liste\_attente\_transplantation} & Lit. &
   Waitlisted HD patients have $\sim$50\% lower mortality than non-listed patients (USRDS); listing status reflects both clinical eligibility and care quality &
@@ -4623,6 +4623,19 @@ Wizemann V, Wabel P, Chamney P, et al. (2009).
 \newblock The mortality risk of overhydration in haemodialysis patients.
 \newblock \textit{Nephrology Dialysis Transplantation}, 24(5):1574--1579.
 \newblock PMID: 19131355. DOI: 10.1093/ndt/gfn707.
+
+\bibitem{saran2006dopps}
+Saran R, Bragg-Gresham JL, Levin NW, et al. (2006).
+\newblock Longer treatment time and slower ultrafiltration in hemodialysis:
+  associations with reduced mortality in the DOPPS.
+\newblock \textit{Kidney International}, 69(7):1222--1228.
+\newblock PMID: 16609682. DOI: 10.1038/sj.ki.5000186.
+
+\bibitem{grantham2008adpkd}
+Grantham JJ (2008).
+\newblock Autosomal dominant polycystic kidney disease.
+\newblock \textit{New England Journal of Medicine}, 359(14):1477--1485.
+\newblock PMID: 18832244. DOI: 10.1056/NEJMcp0804458.
 
 \end{thebibliography}
 
