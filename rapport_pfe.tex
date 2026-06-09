@@ -2016,8 +2016,8 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{tentori2008, kdigo_mineral_2017} \\[4pt]
 
 \texttt{ferritine\_basale} & SHAP top-24 &
-  Ferritin $<$200 or $>$800~ng/mL both signal suboptimal anaemia management; ESA hypo-response linked to higher mortality in HD &
-  \cite{kdigo_anemia_2012} \\[4pt]
+  Time-dependent cohort study: both very low and very high ferritin independently predict mortality in HD patients; J-shaped relationship confirmed in JASN cohort analysis &
+  \cite{kalantar2005iron} \\[4pt]
 
 \texttt{seances\_par\_semaine} & SHAP top-24 &
   Longer treatment time and adequate session frequency are independently associated with reduced mortality in the DOPPS international cohort; each session below 3/week increases mortality risk &
@@ -2063,12 +2063,12 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{beddhu2000charlson, foley1998cv} \\[4pt]
 
 \texttt{maladie\_renale\_hereditaire} & Lit. &
-  ADPKD and hereditary nephropathies have slower cardiovascular mortality than diabetic CKD but specific complications (cyst haemorrhage, pain); phenotypic flag essential for risk stratification &
-  \cite{grantham2008adpkd, kdigo2015} \\[4pt]
+  ERA-EDTA registry: ADPKD patients on dialysis have significantly better 1-year survival than diabetic/hypertensive ESRD patients; hereditary nephropathy acts as a protective factor in mortality models &
+  \cite{spithoven2014, usrds2022} \\[4pt]
 
 \texttt{hemodialyse} & Lit. &
-  Dialysis modality (HD vs.\ PD) impacts solute clearance and cardiovascular load; DOPPS shows that treatment time and session parameters directly determine mortality risk in HD patients &
-  \cite{kdigo2015, saran2006dopps} \\[4pt]
+  Propensity-matched JASN study: HD and PD patients have significantly different 1-year mortality profiles; modality flag discriminates patients who switched to PD or other modalities during follow-up &
+  \cite{weinhandl2010, kdigo2015} \\[4pt]
 
 \texttt{liste\_attente\_transplantation} & Lit. &
   Waitlisted HD patients have $\sim$50\% lower mortality than non-listed patients (USRDS); listing status reflects both clinical eligibility and care quality &
@@ -4636,6 +4636,31 @@ Grantham JJ (2008).
 \newblock Autosomal dominant polycystic kidney disease.
 \newblock \textit{New England Journal of Medicine}, 359(14):1477--1485.
 \newblock PMID: 18832244. DOI: 10.1056/NEJMcp0804458.
+
+\bibitem{spithoven2014}
+Spithoven EM, Kramer A, Meijer E, et al. (2014).
+\newblock Renal replacement therapy for autosomal dominant polycystic kidney
+  disease (ADPKD) in Europe: prevalence and survival --- an analysis of data
+  from the ERA-EDTA Registry.
+\newblock \textit{Nephrology Dialysis Transplantation}, 29(Suppl~4):iv15--iv25.
+\newblock PMID: 25165187. DOI: 10.1093/ndt/gfu017.
+
+\bibitem{weinhandl2010}
+Weinhandl ED, Foley RN, Gilbertson DT, Arneson TJ, Snyder JJ, Collins AJ
+  (2010).
+\newblock Propensity-matched mortality comparison of incident hemodialysis and
+  peritoneal dialysis patients.
+\newblock \textit{Journal of the American Society of Nephrology},
+  21(3):499--506.
+\newblock PMID: 20133483. DOI: 10.1681/ASN.2009060631.
+
+\bibitem{kalantar2005iron}
+Kalantar-Zadeh K, Regidor DL, McAllister CJ, Michael B, Warnock DG (2005).
+\newblock Time-dependent associations between iron and mortality in
+  hemodialysis patients.
+\newblock \textit{Journal of the American Society of Nephrology},
+  16(10):3070--3080.
+\newblock PMID: 16093449. DOI: 10.1681/ASN.2005040423.
 
 \end{thebibliography}
 
