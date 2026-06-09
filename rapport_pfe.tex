@@ -1980,52 +1980,52 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
 \multicolumn{4}{l}{\textit{--- SHAP-confirmed (top-24 out of 77) ---}}\\[3pt]
 
 \texttt{fistule\_arterioveineuse\allowbreak\_creee} & SHAP \#1 &
-  AVF vs.\ tunnelled catheter: $-$26\% mortality risk in the DOPPS international cohort; access type is the strongest modifiable predictor &
-  \cite{pisoni2002vascular} \\[4pt]
+  AVF vs.\ tunnelled catheter: $-$26\% mortality risk in the DOPPS cohort; vascular access type is ranked among the top-15 predictors of 1-year HD mortality in the Sheng 2020 ML model &
+  \cite{pisoni2002vascular, sheng2020} \\[4pt]
 
 \texttt{couverture\_medicale} & SHAP \#2 &
   Systematic review of worldwide ESRD access: lack of treatment coverage directly increases mortality; in LMIC settings health coverage determines dialysis continuity and survival &
   \cite{liyanage2015, usrds2022} \\[4pt]
 
 \texttt{calcium\_basale} & SHAP \#3 &
-  Both hypercalcaemia and hypocalcaemia independently predict 1-year mortality across DOPPS sites; mineral metabolism disorders are a leading cause of cardiovascular death in HD &
-  \cite{tentori2008} \\[4pt]
+  Both hypercalcaemia and hypocalcaemia independently predict 1-year mortality across DOPPS sites; calcium is included among the 42 candidate features in the Sheng 2020 1-year HD mortality ML model &
+  \cite{tentori2008, sheng2020} \\[4pt]
 
 \texttt{albumine\_basale} & SHAP \#4 &
-  Each 1~g/dL decrease in serum albumin increases mortality risk; albumin $<$35~g/L is the threshold used in international HD quality registries &
-  \cite{albumin_dialysis_2018} \\[4pt]
+  Each 1~g/dL decrease in serum albumin increases mortality risk; albumin is a confirmed predictor in both the Kalantar-Zadeh cohort study and the Sheng 2020 XGBoost 1-year HD mortality model &
+  \cite{albumin_dialysis_2018, sheng2020} \\[4pt]
 
 \texttt{evenement\_cardiovasculaire} & SHAP top-24 &
-  Prior cardiovascular events (MI, stroke, cardiac arrest) are the strongest predictor of death in HD; cardiovascular disease accounts for $>$40\% of mortality &
-  \cite{foley1998cv, registre_rein_2022} \\[4pt]
+  Ischemic heart disease and cerebrovascular disease are both top-15 predictors in the Sheng 2020 XGBoost 1-year HD mortality model; cardiovascular disease accounts for $>$40\% of HD deaths &
+  \cite{foley1998cv, sheng2020} \\[4pt]
 
 \texttt{admission\_cathetere\allowbreak\_tunnellise} & SHAP top-24 &
-  Tunnelled catheter at dialysis initiation is associated with 2--3$\times$ higher bloodstream infection risk and excess early mortality compared to AVF &
-  \cite{pisoni2002vascular} \\[4pt]
+  Tunnelled catheter is associated with 2--3$\times$ higher infection risk vs.\ AVF; vascular access type (including catheter) is a top-15 predictor in the Sheng 2020 1-year HD mortality model &
+  \cite{pisoni2002vascular, sheng2020} \\[4pt]
 
 \texttt{du\_residuelle} & SHAP top-24 &
   Each 1~mL/min increase in residual GFR is associated with a 5--10\% reduction in mortality risk; residual function provides clearance that HD sessions cannot fully replace &
   \cite{shemin2001residual} \\[4pt]
 
 \texttt{nombre\_hospitalisations} & SHAP top-24 &
-  Hospitalisation count integrates global morbidity burden; confirmed as a strong mortality predictor in ML-based HD models on 5,351 patients &
-  \cite{sheng2020, beddhu2000charlson} \\[4pt]
+  Prior hospitalisations are an independent predictor of early mortality among incident HD patients in the DOPPS international cohort; count captures total clinical burden beyond individual comorbidities &
+  \cite{bradbury2007dopps, beddhu2000charlson} \\[4pt]
 
 \texttt{pth\_basale} & SHAP top-24 &
-  PTH $>$600~pg/mL associated with elevated all-cause and cardiovascular mortality in the DOPPS cohort; same DOPPS analysis confirms PTH as independent mortality predictor in HD &
-  \cite{tentori2008} \\[4pt]
+  PTH $>$600~pg/mL associated with elevated all-cause mortality in the DOPPS cohort; parathyroid hormone is included among the 42 candidate features in the Sheng 2020 1-year HD mortality model &
+  \cite{tentori2008, sheng2020} \\[4pt]
 
 \texttt{ferritine\_basale} & SHAP top-24 &
-  Time-dependent cohort study: both very low and very high ferritin independently predict mortality in HD patients; J-shaped relationship confirmed in JASN cohort analysis &
-  \cite{kalantar2005iron} \\[4pt]
+  J-shaped relationship between ferritin and HD mortality confirmed in JASN cohort; ferritin is included among the 42 candidate features in the Sheng 2020 1-year HD mortality XGBoost model &
+  \cite{kalantar2005iron, sheng2020} \\[4pt]
 
 \texttt{seances\_par\_semaine} & SHAP top-24 &
   Longer treatment time and adequate session frequency are independently associated with reduced mortality in the DOPPS international cohort; each session below 3/week increases mortality risk &
   \cite{saran2006dopps} \\[4pt]
 
 \texttt{etiologie\_mrc} & SHAP top-24 &
-  USRDS and REIN registries stratify 1-year survival by CKD aetiology; diabetic nephropathy shows higher early mortality than glomerulonephritis or hereditary causes &
-  \cite{usrds2022, registre_rein_2022} \\[4pt]
+  CKD aetiology (diabetic nephropathy top-15 in Sheng 2020; also glomerulonephritis, hypertensive, hereditary) is an explicit feature set in the Sheng 2020 1-year HD mortality model &
+  \cite{sheng2020, usrds2022} \\[4pt]
 
 \texttt{annee\_inclusion} & SHAP top-24 &
   USRDS data show year-on-year improvement in HD 1-year survival; inclusion year captures era-specific protocol effects on outcome across the 2020--2024 cohort &
@@ -2035,16 +2035,16 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
 \multicolumn{4}{l}{\textit{--- Literature-justified variables (maintained for clinical phenotyping) ---}}\\[3pt]
 
 \texttt{hypertension} & Lit. &
-  HTA present in $>$80\% of HD patients; uncontrolled blood pressure is a direct cardiovascular mortality driver; included in the Charlson Comorbidity Index &
-  \cite{foley1998cv, beddhu2000charlson, registre_rein_2022} \\[4pt]
+  Systolic and diastolic blood pressure are included in the Sheng 2020 1-year HD mortality model; HTA is the primary cardiovascular mortality driver and a Charlson index component &
+  \cite{foley1998cv, beddhu2000charlson, sheng2020} \\[4pt]
 
 \texttt{cardiopathie} & Lit. &
-  Cardiac disease causes $>$40\% of HD deaths; myocardial infarction and cardiac failure are the leading causes; necessary for complete risk phenotyping &
-  \cite{foley1998cv, beddhu2000charlson} \\[4pt]
+  Congestive heart failure and ischemic heart disease are both top-15 predictors in the Sheng 2020 XGBoost 1-year HD mortality model; cardiac disease accounts for $>$40\% of HD deaths &
+  \cite{foley1998cv, sheng2020} \\[4pt]
 
 \texttt{diabete} & Lit. &
-  Diabetic nephropathy is the first cause of ESRD worldwide; diabetes amplifies cardiovascular, infectious, and vascular access complications in HD patients &
-  \cite{registre_rein_2022, usrds2022} \\[4pt]
+  Diabetic nephropathy is a top-15 predictor in the Sheng 2020 1-year HD mortality model; it is also the leading cause of ESRD worldwide with amplified cardiovascular and infectious risk &
+  \cite{sheng2020, usrds2022} \\[4pt]
 
 \texttt{dyspnee} & Lit. &
   Dyspnoea is the primary clinical sign of fluid overload and cardiac decompensation; overhydration directly predicts cardiovascular mortality in HD &
@@ -2063,8 +2063,8 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{beddhu2000charlson, foley1998cv} \\[4pt]
 
 \texttt{maladie\_renale\_hereditaire} & Lit. &
-  ERA-EDTA registry: ADPKD patients on dialysis have significantly better 1-year survival than diabetic/hypertensive ESRD patients; hereditary nephropathy acts as a protective factor in mortality models &
-  \cite{spithoven2014, usrds2022} \\[4pt]
+  Polycystic kidney disease is an explicit etiology feature in the Sheng 2020 1-year HD mortality model; ERA-EDTA registry confirms ADPKD patients have better survival than diabetic ESRD patients &
+  \cite{spithoven2014, sheng2020} \\[4pt]
 
 \texttt{hemodialyse} & Lit. &
   Propensity-matched JASN study: HD and PD patients have significantly different 1-year mortality profiles; modality flag discriminates patients who switched to PD or other modalities during follow-up &
@@ -4713,6 +4713,14 @@ Liyanage T, Ninomiya T, Jha V, et al. (2015).
   systematic review.
 \newblock \textit{Lancet}, 385(9981):1975--1982.
 \newblock PMID: 25777665. DOI: 10.1016/S0140-6736(14)61601-9.
+
+\bibitem{bradbury2007dopps}
+Bradbury BD, Fissell RB, Albert JM, et al. (2007).
+\newblock Predictors of early mortality among incident US hemodialysis patients
+  in the Dialysis Outcomes and Practice Patterns Study (DOPPS).
+\newblock \textit{Clinical Journal of the American Society of Nephrology},
+  2(1):89--99.
+\newblock PMID: 17699392. DOI: 10.2215/CJN.01170906.
 
 \end{thebibliography}
 
