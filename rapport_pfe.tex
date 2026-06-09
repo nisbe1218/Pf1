@@ -2083,9 +2083,7 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
 \subsection{Derived Risk Indicators}
 \label{sec:interaction_features}
 
-These interaction features were constructed based on clinical evidence from the nephrology literature regarding combined risk factors in hemodialysis mortality \cite{beddhu2000charlson,albumin_dialysis_2018,kdigo2015,waikar2011sodium,dopps2022}.
-
-Eight interaction features are computed to capture non-linear risk combinations:
+These interaction features were constructed to capture non-linear and synergistic risk combinations documented in the hemodialysis mortality literature. Eight terms are computed as follows:
 
 \begin{align}
 \text{age\_x\_charlson} &= \text{age} \times \text{CCI} \label{eq:int1}\\
@@ -2099,6 +2097,53 @@ Eight interaction features are computed to capture non-linear risk combinations:
 \end{align}
 
 A null-safe multiplication helper ensures that any interaction involving a missing feature returns \texttt{None} rather than propagating errors, allowing the downstream KNN imputer to handle these cases at inference time.
+
+Table~\ref{tab:interaction_evidence} details the clinical rationale and supporting reference for each of the eight interaction terms.
+
+\begin{table}[H]
+\centering
+\caption{Clinical justification and literature support for the 8 interaction features}
+\label{tab:interaction_evidence}
+\small\begin{tabularx}{\textwidth}{@{}p{3.6cm}p{5.8cm}p{3.6cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Clinical rationale} & \textbf{Reference} \\
+\midrule
+
+\texttt{age\_x\_charlson} &
+  Age amplifies comorbidity burden: older patients with high CCI have compounded mortality risk beyond the additive effect of each factor alone &
+  \cite{beddhu2000charlson, khan2008score} \\[4pt]
+
+\texttt{age\_x\_cardio} &
+  Cardiac disease mortality increases non-linearly with age in HD; elderly patients with cardiopathy have disproportionately higher 1-year mortality &
+  \cite{foley1998cv, registre_rein_2022} \\[4pt]
+
+\texttt{dyspnee\_x\_oedeme} &
+  Simultaneous dyspnoea and oedema signals acute cardiopulmonary decompensation; combined overhydration markers predict cardiovascular death more strongly than either sign alone &
+  \cite{wizemann2009} \\[4pt]
+
+\texttt{charlson\_x\_hosp} &
+  High comorbidity score combined with frequent hospitalisations captures the global clinical burden; their product is a stronger predictor than either variable independently in ML-based HD mortality models &
+  \cite{sheng2020, beddhu2000charlson} \\[4pt]
+
+\texttt{hypert\_x\_cardio} &
+  Co-occurrence of HTA and cardiac disease is the dominant cardiovascular risk profile in HD; their interaction captures the synergistic contribution to left ventricular hypertrophy and sudden death &
+  \cite{foley1998cv} \\[4pt]
+
+\texttt{albumine\_x\_hosp} &
+  Malnutrition (low albumin) combined with high hospitalisation rate represents a malnutrition-inflammation-morbidity complex, a well-documented predictor of mortality in HD cohorts &
+  \cite{albumin_dialysis_2018, sheng2020} \\[4pt]
+
+\texttt{albumine\_lt35} &
+  Albumin $<$35~g/L is the sentinel threshold below which mortality risk increases sharply; the binary flag captures the threshold effect not modelled by the continuous variable alone &
+  \cite{albumin_dialysis_2018} \\[4pt]
+
+\texttt{sodium\_lt130} &
+  Severe hyponatraemia ($<$130~mmol/L) is an independent predictor of 90-day and 1-year mortality in HD patients, beyond the contribution of the continuous sodium value &
+  \cite{waikar2011sodium} \\[4pt]
+
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Discussion}\label{sec:ch4_discussion}
 
