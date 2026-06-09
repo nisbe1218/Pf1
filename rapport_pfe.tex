@@ -1945,6 +1945,16 @@ Care \& access & \texttt{couverture\_medicale}, \texttt{liste\_attente\_transpla
 
 These features are extracted from Patient ORM objects by the function \texttt{extract\_features\_for\_patient()} in \texttt{feature\_mapping.py}, using a \textbf{multi-strategy extraction}: direct numeric fields, binary encoded fields, keyword-detected fields (e.g., dyspnea detected from symptom free-text), and ordinal categorical encoding.
 
+\subsection{Variable Selection and SHAP Validation}
+\label{sec:shap_validation}
+
+The selection of the 24 clinical variables rested on two complementary criteria: documented relevance in the international hemodialysis mortality literature, and statistical importance evaluated by SHAP (SHapley Additive exPlanations) analysis.
+
+A post-hoc SHAP verification was conducted by training an XGBoost model on all 77 available variables (after excluding target variables and identifiers), in order to retrospectively assess the relevance of the 24 retained variables. This analysis confirmed 13 of the 24 variables (54\%) in the SHAP top-24, including the most discriminating ones: \texttt{fistule\_arterioveineuse\_creee} (SHAP rank \#1), \texttt{couverture\_medicale} (\#2), \texttt{calcium\_basale} (\#3), and \texttt{albumine\_basale} (\#4).
+
+Regarding variables not directly confirmed by SHAP, two explanations were identified. First, the Charlson Comorbidity Index and age --- ranked respectively \#5 and \#20 in SHAP importance --- do not appear directly among the 24 variables but are integrated via eight interaction terms (\texttt{age\_x\_charlson}, \texttt{charlson\_x\_hosp}, \texttt{age\_x\_cardio}); their predictive signal is therefore captured in a transformed form. Second, eleven variables with low SHAP signal (\texttt{hypertension}, \texttt{cardiopathie}, \texttt{diabete}, \texttt{hemodialyse}, \texttt{liste\_attente\_transplantation}, \texttt{information\_transplantation\_donnee}) were maintained for their documented clinical value in the phenotypic description of the dialysis patient, independently of their marginal contribution to the risk score.
+
+This dual approach --- statistical and clinical --- reflects recognised practice in medical modelling, where variable selection cannot rely exclusively on algorithmic criteria, at the risk of excluding clinically relevant markers whose isolated effect is weak but whose presence is necessary for model interpretability by the clinician \cite{beddhu2000charlson, albumin_dialysis_2018, kdigo2015}.
 
 \subsection{Derived Risk Indicators}
 \label{sec:interaction_features}
