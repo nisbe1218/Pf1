@@ -1956,6 +1956,100 @@ Regarding variables not directly confirmed by SHAP, two explanations were identi
 
 This dual approach --- statistical and clinical --- reflects recognised practice in medical modelling, where variable selection cannot rely exclusively on algorithmic criteria, at the risk of excluding clinically relevant markers whose isolated effect is weak but whose presence is necessary for model interpretability by the clinician \cite{beddhu2000charlson, albumin_dialysis_2018, kdigo2015}.
 
+Table~\ref{tab:var_evidence} details the clinical justification and key supporting reference for each of the 24 variables, together with their SHAP validation status.
+
+\begin{longtable}{@{}p{4.2cm}p{1.6cm}p{4.8cm}p{3cm}@{}}
+\caption{Per-variable clinical evidence and SHAP validation status}
+\label{tab:var_evidence}\\
+\toprule
+\textbf{Variable} & \textbf{SHAP} & \textbf{Clinical evidence} & \textbf{Reference} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\footnotesize\textit{(continued)}}\\
+\toprule
+\textbf{Variable} & \textbf{SHAP} & \textbf{Clinical evidence} & \textbf{Reference} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+%--- SHAP-confirmed ---
+\multicolumn{4}{l}{\textit{--- SHAP-confirmed variables (top-24) ---}}\\[3pt]
+\texttt{fistule\_arterioveineuse\allowbreak\_creee} & \#1 &
+  AVF associated with lower mortality vs.\ central catheter; vascular access type is a key DOPPS predictor &
+  \cite{pisoni2002vascular} \\[3pt]
+\texttt{couverture\_medicale} & \#2 &
+  Social health coverage determines access to adequate dialysis care; locally significant determinant in Morocco &
+  \cite{maoujoud2017morocco, usrds2022} \\[3pt]
+\texttt{calcium\_basale} & \#3 &
+  Abnormal serum calcium is an independent predictor of 1-year HD mortality across DOPPS sites &
+  \cite{tentori2008, kdigo_mineral_2017} \\[3pt]
+\texttt{albumine\_basale} & \#4 &
+  Each 1~g/dL decrease in albumin independently increases mortality risk; albumin $<$35~g/L is a sentinel threshold &
+  \cite{albumin_dialysis_2018} \\[3pt]
+\texttt{evenement\_cardiovasculaire} & top-24 &
+  Prior cardiovascular events are the strongest predictor of future mortality in HD patients ($>$40\% of deaths) &
+  \cite{foley1998cv, registre_rein_2022} \\[3pt]
+\texttt{admission\_cathetere\allowbreak\_tunnellise} & top-24 &
+  Central venous catheter at initiation is associated with higher infection and mortality risk compared to AVF &
+  \cite{pisoni2002vascular} \\[3pt]
+\texttt{du\_residuelle} & top-24 &
+  Residual diuresis independently reduces mortality and improves solute clearance in HD patients &
+  \cite{shemin2001residual} \\[3pt]
+\texttt{nombre\_hospitalisations} & top-24 &
+  Hospitalisation count is a surrogate of global morbidity burden and a strong predictor in ML-based studies &
+  \cite{sheng2020, beddhu2000charlson} \\[3pt]
+\texttt{pth\_basale} & top-24 &
+  PTH $>$600~pg/mL is associated with cardiovascular events and excess mortality in the DOPPS cohort &
+  \cite{tentori2008, kdigo_mineral_2017} \\[3pt]
+\texttt{ferritine\_basale} & top-24 &
+  Ferritin reflects iron stores and ESA response; very high ferritin ($>$800~ng/mL) is associated with mortality &
+  \cite{kdigo_anemia_2012} \\[3pt]
+\texttt{seances\_par\_semaine} & top-24 &
+  Dialysis frequency directly impacts adequacy (Kt/V) and survival; $<$3 sessions/week associated with excess mortality &
+  \cite{dopps2022} \\[3pt]
+\texttt{etiologie\_mrc} & top-24 &
+  CKD etiology (diabetic nephropathy, hypertensive vs.\ hereditary) determines complication profile and survival trajectory &
+  \cite{kdigo2015} \\[3pt]
+\texttt{annee\_inclusion} & top-24 &
+  Temporal covariate capturing therapeutic practice evolution across the 2020--2024 HD cohort period &
+  \cite{dopps2022} \\[3pt]
+%--- Maintained for clinical value ---
+\multicolumn{4}{l}{\textit{--- Variables maintained for clinical interpretability ---}}\\[3pt]
+\texttt{hypertension} & clinical &
+  Most prevalent comorbidity in HD ($>$80\% of patients); chronic risk factor for cardiovascular disease &
+  \cite{registre_rein_2022, foley1998cv} \\[3pt]
+\texttt{cardiopathie} & clinical &
+  Cardiac disease is the leading cause of death in HD patients; essential for phenotypic description &
+  \cite{foley1998cv, registre_rein_2022} \\[3pt]
+\texttt{diabete} & clinical &
+  Diabetic nephropathy is the leading cause of ESRD; amplifies cardiovascular and infectious risk &
+  \cite{registre_rein_2022, kdigo2015} \\[3pt]
+\texttt{dyspnee} & clinical &
+  Dyspnea is a clinical marker of cardiac decompensation and fluid overload, both direct mortality risks &
+  \cite{wizemann2009} \\[3pt]
+\texttt{oedemes\_surcharge} & clinical &
+  Chronic overhydration is an independent predictor of cardiovascular mortality in HD &
+  \cite{wizemann2009} \\[3pt]
+\texttt{douleur\_abdominale} & clinical &
+  Abdominal pain signals peritoneal, mesenteric, or infectious complications requiring urgent management &
+  \cite{kdigo2015} \\[3pt]
+\texttt{crise\_convulsive} & clinical &
+  Seizures indicate uremic encephalopathy or severe electrolyte imbalance; marker of critical deterioration &
+  \cite{kdigo2015} \\[3pt]
+\texttt{maladie\_renale\_hereditaire} & clinical &
+  Hereditary nephropathy (e.g.\ ADPKD) has distinct complication profile and progression trajectory &
+  \cite{kdigo2015} \\[3pt]
+\texttt{hemodialyse} & clinical &
+  Dialysis modality flag necessary for cohort homogeneity; all HD-478 patients on conventional HD &
+  \cite{kdigo2015} \\[3pt]
+\texttt{liste\_attente\_transplantation} & clinical &
+  Transplant waitlisting is associated with lower mortality in ESRD; marker of therapeutic trajectory &
+  \cite{usrds2022} \\[3pt]
+\texttt{information\_transplantation\allowbreak\_donnee} & clinical &
+  Transplant information provision reflects care quality and patient engagement in the Moroccan context &
+  \cite{maoujoud2017morocco} \\[3pt]
+\end{longtable}
+
 \subsection{Derived Risk Indicators}
 \label{sec:interaction_features}
 
@@ -4481,6 +4575,24 @@ Kidney Disease: Improving Global Outcomes (KDIGO) CKD-MBD Update Work Group (201
 Kidney Disease: Improving Global Outcomes (KDIGO) Anemia Work Group (2012).
 \newblock KDIGO clinical practice guideline for anemia in chronic kidney disease.
 \newblock \textit{Kidney International Supplements}, 2(4):279--335.
+
+\bibitem{tentori2008}
+Tentori F, Blayney MJ, Albert JM, et al. (2008).
+\newblock Mortality risk for dialysis patients with different levels of serum calcium, phosphorus, and PTH: The Dialysis Outcomes and Practice Patterns Study (DOPPS).
+\newblock \textit{American Journal of Kidney Diseases}, 52(3):519--530.
+\newblock PMID: 18653268. DOI: 10.1053/j.ajkd.2008.05.015.
+
+\bibitem{foley1998cv}
+Foley RN, Parfrey PS, Sarnak MJ (1998).
+\newblock Clinical epidemiology of cardiovascular disease in chronic renal disease.
+\newblock \textit{American Journal of Kidney Diseases}, 32(5 Suppl 3):S112--S119.
+\newblock PMID: 9820470. DOI: 10.1053/ajkd.1998.v32.pm9820470.
+
+\bibitem{wizemann2009}
+Wizemann V, Wabel P, Chamney P, et al. (2009).
+\newblock The mortality risk of overhydration in haemodialysis patients.
+\newblock \textit{Nephrology Dialysis Transplantation}, 24(5):1574--1579.
+\newblock PMID: 19131355. DOI: 10.1093/ndt/gfn707.
 
 \end{thebibliography}
 
