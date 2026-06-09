@@ -2008,8 +2008,8 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{shemin2001residual} \\[4pt]
 
 \texttt{nombre\_hospitalisations} & SHAP top-24 &
-  Prior hospitalisations are an independent predictor of early mortality among incident HD patients in the DOPPS international cohort; count captures total clinical burden beyond individual comorbidities &
-  \cite{bradbury2007dopps, beddhu2000charlson} \\[4pt]
+  Hospitalisation count captures cumulative clinical burden; the Charlson comorbidity scale — which integrates hospitalisable conditions — independently predicts mortality and costs in dialysis patients &
+  \cite{beddhu2000charlson} \\[4pt]
 
 \texttt{pth\_basale} & SHAP top-24 &
   PTH $>$600~pg/mL associated with elevated all-cause mortality in the DOPPS cohort; parathyroid hormone is included among the 42 candidate features in the Sheng 2020 1-year HD mortality model &
@@ -2063,8 +2063,8 @@ Table~\ref{tab:var_evidence} details the clinical justification and key supporti
   \cite{beddhu2000charlson, foley1998cv} \\[4pt]
 
 \texttt{maladie\_renale\_hereditaire} & Lit. &
-  Polycystic kidney disease is an explicit etiology feature in the Sheng 2020 1-year HD mortality model; ERA-EDTA registry confirms ADPKD patients have better survival than diabetic ESRD patients &
-  \cite{spithoven2014, sheng2020} \\[4pt]
+  Polycystic kidney disease is an explicit etiology feature in the Sheng 2020 1-year HD mortality model; ADPKD has a distinct complication profile and lower cardiovascular mortality than diabetic CKD &
+  \cite{grantham2008adpkd, sheng2020} \\[4pt]
 
 \texttt{hemodialyse} & Lit. &
   Propensity-matched JASN study: HD and PD patients have significantly different 1-year mortality profiles; modality flag discriminates patients who switched to PD or other modalities during follow-up &
@@ -4682,13 +4682,6 @@ Grantham JJ (2008).
 \newblock \textit{New England Journal of Medicine}, 359(14):1477--1485.
 \newblock PMID: 18832244. DOI: 10.1056/NEJMcp0804458.
 
-\bibitem{spithoven2014}
-Spithoven EM, Kramer A, Meijer E, et al. (2014).
-\newblock Renal replacement therapy for autosomal dominant polycystic kidney
-  disease (ADPKD) in Europe: prevalence and survival --- an analysis of data
-  from the ERA-EDTA Registry.
-\newblock \textit{Nephrology Dialysis Transplantation}, 29(Suppl~4):iv15--iv25.
-\newblock PMID: 25165187. DOI: 10.1093/ndt/gfu017.
 
 \bibitem{weinhandl2010}
 Weinhandl ED, Foley RN, Gilbertson DT, Arneson TJ, Snyder JJ, Collins AJ
@@ -4714,13 +4707,6 @@ Liyanage T, Ninomiya T, Jha V, et al. (2015).
 \newblock \textit{Lancet}, 385(9981):1975--1982.
 \newblock PMID: 25777665. DOI: 10.1016/S0140-6736(14)61601-9.
 
-\bibitem{bradbury2007dopps}
-Bradbury BD, Fissell RB, Albert JM, et al. (2007).
-\newblock Predictors of early mortality among incident US hemodialysis patients
-  in the Dialysis Outcomes and Practice Patterns Study (DOPPS).
-\newblock \textit{Clinical Journal of the American Society of Nephrology},
-  2(1):89--99.
-\newblock PMID: 17699392. DOI: 10.2215/CJN.01170906.
 
 \end{thebibliography}
 
