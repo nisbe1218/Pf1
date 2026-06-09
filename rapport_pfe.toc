@@ -50,166 +50,166 @@
 \contentsline {subsection}{\numberline {3.2.1}Full-Stack Architecture}{38}{subsection.3.2.1}%
 \contentsline {subsection}{\numberline {3.2.2}Integrated Data Pipeline}{38}{subsection.3.2.2}%
 \contentsline {section}{\numberline {3.3}Layered Architecture}{39}{section.3.3}%
-\contentsline {section}{\numberline {3.4}Technology Stack}{41}{section.3.4}%
+\contentsline {section}{\numberline {3.4}Technology Stack}{42}{section.3.4}%
 \contentsline {subsection}{\numberline {3.4.1}Backend: Django REST Framework}{42}{subsection.3.4.1}%
 \contentsline {subsection}{\numberline {3.4.2}Frontend: React}{42}{subsection.3.4.2}%
-\contentsline {subsection}{\numberline {3.4.3}Database: PostgreSQL}{42}{subsection.3.4.3}%
-\contentsline {subsection}{\numberline {3.4.4}Containerization: Docker}{42}{subsection.3.4.4}%
-\contentsline {chapter}{\numberline {4}Data Engineering Pipeline}{44}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Data Sources}{44}{section.4.1}%
-\contentsline {subsection}{\numberline {4.1.1}Hospital Patient Records}{44}{subsection.4.1.1}%
-\contentsline {subsection}{\numberline {4.1.2}Excel / CSV Imports}{44}{subsection.4.1.2}%
-\contentsline {subsection}{\numberline {4.1.3}Pre-Computed Clinical Attributes}{44}{subsection.4.1.3}%
-\contentsline {section}{\numberline {4.2}Data Ingestion}{45}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}File Upload Endpoints}{45}{subsection.4.2.1}%
-\contentsline {subsection}{\numberline {4.2.2}Parsing with Pandas}{45}{subsection.4.2.2}%
-\contentsline {subsection}{\numberline {4.2.3}Import-Time Normalization}{45}{subsection.4.2.3}%
-\contentsline {section}{\numberline {4.3}Manual Data Curation of the HD-478 Dataset}{46}{section.4.3}%
-\contentsline {subsection}{\numberline {4.3.1}Overview of Modifications}{46}{subsection.4.3.1}%
-\contentsline {subsection}{\numberline {4.3.2}Column Restructuring}{47}{subsection.4.3.2}%
-\contentsline {subsection}{\numberline {4.3.3}Date Conversion from Excel Serial Numbers}{47}{subsection.4.3.3}%
-\contentsline {subsection}{\numberline {4.3.4}Correction of Biological Outliers}{47}{subsection.4.3.4}%
-\contentsline {subsection}{\numberline {4.3.5}DFGe MDRD Recalculation (109 values)}{48}{subsection.4.3.5}%
-\contentsline {subsection}{\numberline {4.3.6}Text-to-Numeric Conversions}{49}{subsection.4.3.6}%
-\contentsline {subsubsection}{Proteinuria (\texttt {proteinurie\_basale}) — 127 corrections}{49}{subsection.4.3.6}%
-\contentsline {subsubsection}{Vitamin D (\texttt {vitamine\_d\_basale}) — 6 corrections}{49}{subsection.4.3.6}%
-\contentsline {subsubsection}{Pre-dialysis follow-up (\texttt {suivi\_predialyse\_mois}) — 5 corrections}{49}{subsection.4.3.6}%
-\contentsline {subsection}{\numberline {4.3.7}Cleaning of 'X'/'x' Markers in Education Columns}{50}{subsection.4.3.7}%
-\contentsline {subsection}{\numberline {4.3.8}Logical NaN Imputation for Transplant Binary Variables}{50}{subsection.4.3.8}%
-\contentsline {subsection}{\numberline {4.3.9}Logical Recodings and Modality Corrections}{51}{subsection.4.3.9}%
-\contentsline {subsection}{\numberline {4.3.10}Final Dataset Structure}{51}{subsection.4.3.10}%
-\contentsline {subsection}{\numberline {4.3.11}Quantitative Summary of Manual Curation}{52}{subsection.4.3.11}%
-\contentsline {section}{\numberline {4.4}Data Storage \& Schema Design}{52}{section.4.4}%
-\contentsline {subsection}{\numberline {4.4.1}Entity-Relationship Diagram}{52}{subsection.4.4.1}%
-\contentsline {subsection}{\numberline {4.4.2}PostgreSQL Schema}{53}{subsection.4.4.2}%
-\contentsline {subsubsection}{\texttt {users\_role} and \texttt {users\_utilisateur}}{54}{table.caption.26}%
-\contentsline {subsubsection}{\texttt {patients\_patient}}{55}{table.caption.27}%
-\contentsline {subsubsection}{\texttt {patients\_preprocessvalidationrequest}}{56}{table.caption.28}%
-\contentsline {subsubsection}{\texttt {audit\_auditlog}}{57}{table.caption.29}%
-\contentsline {subsection}{\numberline {4.4.3}Flexible Schema with \texttt {extra\_data}}{58}{subsection.4.4.3}%
-\contentsline {subsection}{\numberline {4.4.4}Data Structuring and Payload Mapping}{58}{subsection.4.4.4}%
-\contentsline {section}{\numberline {4.5}Data Quality \& Validation}{58}{section.4.5}%
-\contentsline {subsection}{\numberline {4.5.1}Validation Rules}{59}{subsection.4.5.1}%
-\contentsline {subsection}{\numberline {4.5.2}Audit Logs}{59}{subsection.4.5.2}%
-\contentsline {section}{\numberline {4.6}Data Engineering Layer}{59}{section.4.6}%
-\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:14B)}{60}{subsection.4.6.1}%
-\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{62}{subsection.4.6.2}%
-\contentsline {subsection}{\numberline {4.6.3}Celery Asynchronous Task Queue}{62}{subsection.4.6.3}%
-\contentsline {section}{\numberline {4.7}Feature Engineering}{62}{section.4.7}%
-\contentsline {subsection}{\numberline {4.7.1}Clinical Feature Extraction}{62}{subsection.4.7.1}%
-\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{63}{subsection.4.7.2}%
-\contentsline {section}{\numberline {4.8}Discussion}{63}{section.4.8}%
-\contentsline {subsection}{\numberline {4.8.1}Why No External ETL}{63}{subsection.4.8.1}%
-\contentsline {subsection}{\numberline {4.8.2}Impact on Model Performance}{64}{subsection.4.8.2}%
-\contentsline {subsection}{\numberline {4.8.3}Trade-offs of Embedding Pipeline in Backend}{64}{subsection.4.8.3}%
-\contentsline {chapter}{\numberline {5}Machine Learning Layer}{66}{chapter.5}%
-\contentsline {section}{\numberline {5.1}ML Architecture}{66}{section.5.1}%
-\contentsline {subsection}{\numberline {5.1.1}Integrated Within Backend}{66}{subsection.5.1.1}%
-\contentsline {section}{\numberline {5.2}Models Evaluated}{66}{section.5.2}%
-\contentsline {subsection}{\numberline {5.2.1}Logistic Regression}{67}{subsection.5.2.1}%
-\contentsline {subsection}{\numberline {5.2.2}Support Vector Machine (Linear)}{67}{subsection.5.2.2}%
-\contentsline {subsection}{\numberline {5.2.3}Random Forest}{68}{subsection.5.2.3}%
-\contentsline {subsection}{\numberline {5.2.4}Extra Trees (Extremely Randomized Trees)}{68}{subsection.5.2.4}%
-\contentsline {subsection}{\numberline {5.2.5}Gradient Boosting}{68}{subsection.5.2.5}%
-\contentsline {subsection}{\numberline {5.2.6}AdaBoost}{69}{subsection.5.2.6}%
-\contentsline {subsection}{\numberline {5.2.7}XGBoost}{69}{subsection.5.2.7}%
-\contentsline {subsection}{\numberline {5.2.8}LightGBM}{69}{subsection.5.2.8}%
-\contentsline {subsection}{\numberline {5.2.9}CatBoost}{70}{subsection.5.2.9}%
-\contentsline {subsection}{\numberline {5.2.10}Voting Ensemble}{70}{subsection.5.2.10}%
-\contentsline {section}{\numberline {5.3}Feature Preprocessing Pipeline}{70}{section.5.3}%
-\contentsline {subsection}{\numberline {5.3.1}Missing Value Imputation (KNN)}{70}{subsection.5.3.1}%
-\contentsline {subsection}{\numberline {5.3.2}Categorical Encoding}{71}{subsection.5.3.2}%
-\contentsline {subsection}{\numberline {5.3.3}Power Transformation and Standardization}{71}{subsection.5.3.3}%
-\contentsline {section}{\numberline {5.4}Training Pipeline}{72}{section.5.4}%
-\contentsline {subsection}{\numberline {5.4.1}Data Preparation}{72}{subsection.5.4.1}%
-\contentsline {subsection}{\numberline {5.4.2}Class Imbalance Handling}{72}{subsection.5.4.2}%
-\contentsline {subsection}{\numberline {5.4.3}Hyperparameter Tuning}{73}{subsection.5.4.3}%
-\contentsline {subsection}{\numberline {5.4.4}Model Selection Criterion}{74}{subsection.5.4.4}%
-\contentsline {section}{\numberline {5.5}Model Comparison and Results}{74}{section.5.5}%
-\contentsline {subsection}{\numberline {5.5.1}Visual Performance Analysis}{76}{subsection.5.5.1}%
-\contentsline {section}{\numberline {5.6}Model Selection: Why SVM?}{86}{section.5.6}%
-\contentsline {subsection}{\numberline {5.6.1}Performance on All Metrics}{86}{subsection.5.6.1}%
-\contentsline {subsection}{\numberline {5.6.2}Suitability for Small Clinical Datasets}{86}{subsection.5.6.2}%
-\contentsline {subsection}{\numberline {5.6.3}Clinical Interpretability}{87}{subsection.5.6.3}%
-\contentsline {subsection}{\numberline {5.6.4}Regulatory Simplicity}{87}{subsection.5.6.4}%
-\contentsline {section}{\numberline {5.7}Probability Calibration and Risk Zones}{87}{section.5.7}%
-\contentsline {subsection}{\numberline {5.7.1}Probability Calibration — Platt Scaling}{87}{subsection.5.7.1}%
-\contentsline {subsection}{\numberline {5.7.2}Risk Zone Classification}{88}{subsection.5.7.2}%
-\contentsline {section}{\numberline {5.8}Prediction Workflow}{89}{section.5.8}%
-\contentsline {section}{\numberline {5.9}Model Evaluation Metrics}{90}{section.5.9}%
-\contentsline {subsection}{\numberline {5.9.1}AUC-ROC: Discrimination Ability}{91}{subsection.5.9.1}%
-\contentsline {subsection}{\numberline {5.9.2}PR-AUC and F1-score: Performance Under Class Imbalance}{91}{subsection.5.9.2}%
-\contentsline {subsection}{\numberline {5.9.3}Brier Score: Probability Calibration Quality}{92}{subsection.5.9.3}%
-\contentsline {section}{\numberline {5.10}Model Generalization and Statistical Validation}{92}{section.5.10}%
-\contentsline {subsection}{\numberline {5.10.1}Absence of Overfitting}{92}{subsection.5.10.1}%
-\contentsline {subsection}{\numberline {5.10.2}Statistical Significance}{93}{subsection.5.10.2}%
-\contentsline {subsection}{\numberline {5.10.3}Nested Cross-Validation}{93}{subsection.5.10.3}%
-\contentsline {section}{\numberline {5.11}Limitations of the ML Layer}{93}{section.5.11}%
-\contentsline {subsection}{\numberline {5.11.1}Data Bias and External Validity}{93}{subsection.5.11.1}%
-\contentsline {subsection}{\numberline {5.11.2}Population Specificity}{93}{subsection.5.11.2}%
-\contentsline {chapter}{\numberline {6}Backend \& Frontend Implementation}{95}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Backend Design}{95}{section.6.1}%
-\contentsline {subsection}{\numberline {6.1.1}Django Apps Structure}{95}{subsection.6.1.1}%
-\contentsline {subsection}{\numberline {6.1.2}Class Diagram}{96}{subsection.6.1.2}%
-\contentsline {subsection}{\numberline {6.1.3}REST API Endpoints}{97}{subsection.6.1.3}%
-\contentsline {section}{\numberline {6.2}Authentication \& Security}{99}{section.6.2}%
-\contentsline {subsection}{\numberline {6.2.1}JWT Authentication}{99}{subsection.6.2.1}%
-\contentsline {subsection}{\numberline {6.2.2}Role-Based Access Control (RBAC)}{100}{subsection.6.2.2}%
-\contentsline {subsection}{\numberline {6.2.3}Additional Security Measures}{101}{subsection.6.2.3}%
-\contentsline {section}{\numberline {6.3}API Design}{101}{section.6.3}%
-\contentsline {subsection}{\numberline {6.3.1}DRF Serializers and Validation}{101}{subsection.6.3.1}%
-\contentsline {subsection}{\numberline {6.3.2}Filtering and Search}{102}{subsection.6.3.2}%
-\contentsline {subsection}{\numberline {6.3.3}Prediction Response Structure}{102}{subsection.6.3.3}%
-\contentsline {section}{\numberline {6.4}Frontend Architecture}{102}{section.6.4}%
-\contentsline {subsection}{\numberline {6.4.1}React Structure}{103}{subsection.6.4.1}%
-\contentsline {subsection}{\numberline {6.4.2}Pages and Interfaces}{103}{subsection.6.4.2}%
-\contentsline {paragraph}{Carnet numérique (global floating notepad).}{105}{figure.caption.57}%
-\contentsline {paragraph}{KPI summary.}{106}{figure.caption.58}%
-\contentsline {paragraph}{User Management (CRUD).}{107}{figure.caption.60}%
-\contentsline {paragraph}{Import validation workflow.}{108}{figure.caption.62}%
-\contentsline {paragraph}{Click-to-expand interaction.}{110}{figure.caption.65}%
-\contentsline {paragraph}{Import decision notifications.}{110}{figure.caption.66}%
-\contentsline {paragraph}{Step 1 — File upload.}{111}{figure.caption.68}%
-\contentsline {paragraph}{Step 2 — Analysis pipeline (11 stages).}{112}{figure.caption.69}%
-\contentsline {paragraph}{Step 3 --- LLM correction review table.}{115}{figure.caption.71}%
-\contentsline {paragraph}{Step 4 --- Integration.}{117}{figure.caption.74}%
-\contentsline {section}{\numberline {6.5}Data Visualization}{126}{section.6.5}%
-\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{126}{subsection.6.5.1}%
-\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{127}{subsection.6.5.1}%
-\contentsline {subsubsection}{Sex Distribution and Key KPIs}{127}{figure.caption.88}%
-\contentsline {subsubsection}{Age Distribution by Sex}{128}{figure.caption.89}%
-\contentsline {subsubsection}{Complication Type Frequencies}{128}{figure.caption.90}%
-\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{129}{figure.caption.91}%
-\contentsline {subsubsection}{Top Comorbidity Combinations}{129}{figure.caption.92}%
-\contentsline {subsection}{\numberline {6.5.2}AI Cohort Analysis Charts (AI Model --- Analysis Dashboard)}{129}{subsection.6.5.2}%
-\contentsline {subsubsection}{Risk Zone Distribution}{130}{subsection.6.5.2}%
-\contentsline {subsubsection}{Predicted Outcome Distribution}{130}{figure.caption.94}%
-\contentsline {subsubsection}{Kaplan-Meier Survival Estimate by Risk Zone}{131}{figure.caption.95}%
-\contentsline {subsubsection}{Risk Factor Contribution Profile}{131}{figure.caption.96}%
-\contentsline {subsubsection}{Clinical Risk Profile Radar}{132}{figure.caption.97}%
-\contentsline {subsubsection}{Biological Indicators by Risk Zone}{133}{figure.caption.98}%
-\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{133}{section.6.6}%
-\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{133}{subsection.6.6.1}%
-\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{134}{subsection.6.6.2}%
-\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{135}{subsection.6.6.3}%
-\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{138}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Deployment Architecture}{138}{section.7.1}%
-\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{138}{subsection.7.1.1}%
-\contentsline {section}{\numberline {7.2}System Testing}{138}{section.7.2}%
-\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{138}{subsection.7.2.1}%
-\contentsline {subsection}{\numberline {7.2.2}API Tests}{139}{subsection.7.2.2}%
-\contentsline {section}{\numberline {7.3}Performance Evaluation}{140}{section.7.3}%
-\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{140}{subsection.7.3.1}%
-\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{140}{subsection.7.3.2}%
-\contentsline {section}{\numberline {7.4}Results \& Impact}{141}{section.7.4}%
-\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{141}{subsection.7.4.1}%
-\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{141}{subsection.7.4.2}%
-\contentsline {section}{\numberline {7.5}Limitations}{141}{section.7.5}%
-\contentsline {subsection}{\numberline {7.5.1}Data Availability}{142}{subsection.7.5.1}%
-\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{142}{subsection.7.5.2}%
-\contentsline {section}{\numberline {7.6}Future Work}{142}{section.7.6}%
-\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{142}{subsection.7.6.1}%
-\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{142}{subsection.7.6.2}%
-\contentsline {subsection}{\numberline {7.6.3}Cohort-Driven Real-Time Training and Per-Patient Prediction}{143}{subsection.7.6.3}%
-\contentsline {chapter}{General Conclusion}{144}{chapter*.104}%
-\contentsline {chapter}{Webography}{150}{chapter*.106}%
+\contentsline {subsection}{\numberline {3.4.3}Database: PostgreSQL}{43}{subsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.4.4}Containerization: Docker}{43}{subsection.3.4.4}%
+\contentsline {chapter}{\numberline {4}Data Engineering Pipeline}{45}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Data Sources}{45}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Hospital Patient Records}{45}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Excel / CSV Imports}{45}{subsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.1.3}Pre-Computed Clinical Attributes}{45}{subsection.4.1.3}%
+\contentsline {section}{\numberline {4.2}Data Ingestion}{46}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}File Upload Endpoints}{46}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Parsing with Pandas}{46}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Import-Time Normalization}{46}{subsection.4.2.3}%
+\contentsline {section}{\numberline {4.3}Manual Data Curation of the HD-478 Dataset}{47}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}Overview of Modifications}{47}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}Column Restructuring}{48}{subsection.4.3.2}%
+\contentsline {subsection}{\numberline {4.3.3}Date Conversion from Excel Serial Numbers}{48}{subsection.4.3.3}%
+\contentsline {subsection}{\numberline {4.3.4}Correction of Biological Outliers}{48}{subsection.4.3.4}%
+\contentsline {subsection}{\numberline {4.3.5}DFGe MDRD Recalculation (109 values)}{49}{subsection.4.3.5}%
+\contentsline {subsection}{\numberline {4.3.6}Text-to-Numeric Conversions}{50}{subsection.4.3.6}%
+\contentsline {subsubsection}{Proteinuria (\texttt {proteinurie\_basale}) — 127 corrections}{50}{subsection.4.3.6}%
+\contentsline {subsubsection}{Vitamin D (\texttt {vitamine\_d\_basale}) — 6 corrections}{50}{subsection.4.3.6}%
+\contentsline {subsubsection}{Pre-dialysis follow-up (\texttt {suivi\_predialyse\_mois}) — 5 corrections}{50}{subsection.4.3.6}%
+\contentsline {subsection}{\numberline {4.3.7}Cleaning of 'X'/'x' Markers in Education Columns}{51}{subsection.4.3.7}%
+\contentsline {subsection}{\numberline {4.3.8}Logical NaN Imputation for Transplant Binary Variables}{51}{subsection.4.3.8}%
+\contentsline {subsection}{\numberline {4.3.9}Logical Recodings and Modality Corrections}{52}{subsection.4.3.9}%
+\contentsline {subsection}{\numberline {4.3.10}Final Dataset Structure}{52}{subsection.4.3.10}%
+\contentsline {subsection}{\numberline {4.3.11}Quantitative Summary of Manual Curation}{53}{subsection.4.3.11}%
+\contentsline {section}{\numberline {4.4}Data Storage \& Schema Design}{53}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Entity-Relationship Diagram}{53}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}PostgreSQL Schema}{54}{subsection.4.4.2}%
+\contentsline {subsubsection}{\texttt {users\_role} and \texttt {users\_utilisateur}}{55}{table.caption.26}%
+\contentsline {subsubsection}{\texttt {patients\_patient}}{56}{table.caption.27}%
+\contentsline {subsubsection}{\texttt {patients\_preprocessvalidationrequest}}{57}{table.caption.28}%
+\contentsline {subsubsection}{\texttt {audit\_auditlog}}{58}{table.caption.29}%
+\contentsline {subsection}{\numberline {4.4.3}Flexible Schema with \texttt {extra\_data}}{59}{subsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.4.4}Data Structuring and Payload Mapping}{59}{subsection.4.4.4}%
+\contentsline {section}{\numberline {4.5}Data Quality \& Validation}{59}{section.4.5}%
+\contentsline {subsection}{\numberline {4.5.1}Validation Rules}{60}{subsection.4.5.1}%
+\contentsline {subsection}{\numberline {4.5.2}Audit Logs}{60}{subsection.4.5.2}%
+\contentsline {section}{\numberline {4.6}Data Engineering Layer}{60}{section.4.6}%
+\contentsline {subsection}{\numberline {4.6.1}LLM-Based Automated Cleaning (Qwen2.5:14B)}{61}{subsection.4.6.1}%
+\contentsline {subsection}{\numberline {4.6.2}RAG Knowledge Base (ChromaDB)}{63}{subsection.4.6.2}%
+\contentsline {subsection}{\numberline {4.6.3}Celery Asynchronous Task Queue}{63}{subsection.4.6.3}%
+\contentsline {section}{\numberline {4.7}Feature Engineering}{63}{section.4.7}%
+\contentsline {subsection}{\numberline {4.7.1}Clinical Feature Extraction}{63}{subsection.4.7.1}%
+\contentsline {subsection}{\numberline {4.7.2}Derived Risk Indicators}{64}{subsection.4.7.2}%
+\contentsline {section}{\numberline {4.8}Discussion}{64}{section.4.8}%
+\contentsline {subsection}{\numberline {4.8.1}Why No External ETL}{64}{subsection.4.8.1}%
+\contentsline {subsection}{\numberline {4.8.2}Impact on Model Performance}{65}{subsection.4.8.2}%
+\contentsline {subsection}{\numberline {4.8.3}Trade-offs of Embedding Pipeline in Backend}{65}{subsection.4.8.3}%
+\contentsline {chapter}{\numberline {5}Machine Learning Layer}{67}{chapter.5}%
+\contentsline {section}{\numberline {5.1}ML Architecture}{67}{section.5.1}%
+\contentsline {subsection}{\numberline {5.1.1}Integrated Within Backend}{67}{subsection.5.1.1}%
+\contentsline {section}{\numberline {5.2}Models Evaluated}{67}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Logistic Regression}{68}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Support Vector Machine (Linear)}{68}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Random Forest}{69}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Extra Trees (Extremely Randomized Trees)}{69}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}Gradient Boosting}{69}{subsection.5.2.5}%
+\contentsline {subsection}{\numberline {5.2.6}AdaBoost}{70}{subsection.5.2.6}%
+\contentsline {subsection}{\numberline {5.2.7}XGBoost}{70}{subsection.5.2.7}%
+\contentsline {subsection}{\numberline {5.2.8}LightGBM}{70}{subsection.5.2.8}%
+\contentsline {subsection}{\numberline {5.2.9}CatBoost}{71}{subsection.5.2.9}%
+\contentsline {subsection}{\numberline {5.2.10}Voting Ensemble}{71}{subsection.5.2.10}%
+\contentsline {section}{\numberline {5.3}Feature Preprocessing Pipeline}{71}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Missing Value Imputation (KNN)}{71}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Categorical Encoding}{72}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Power Transformation and Standardization}{72}{subsection.5.3.3}%
+\contentsline {section}{\numberline {5.4}Training Pipeline}{73}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Data Preparation}{73}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}Class Imbalance Handling}{73}{subsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.4.3}Hyperparameter Tuning}{74}{subsection.5.4.3}%
+\contentsline {subsection}{\numberline {5.4.4}Model Selection Criterion}{75}{subsection.5.4.4}%
+\contentsline {section}{\numberline {5.5}Model Comparison and Results}{75}{section.5.5}%
+\contentsline {subsection}{\numberline {5.5.1}Visual Performance Analysis}{77}{subsection.5.5.1}%
+\contentsline {section}{\numberline {5.6}Model Selection: Why SVM?}{87}{section.5.6}%
+\contentsline {subsection}{\numberline {5.6.1}Performance on All Metrics}{87}{subsection.5.6.1}%
+\contentsline {subsection}{\numberline {5.6.2}Suitability for Small Clinical Datasets}{87}{subsection.5.6.2}%
+\contentsline {subsection}{\numberline {5.6.3}Clinical Interpretability}{88}{subsection.5.6.3}%
+\contentsline {subsection}{\numberline {5.6.4}Regulatory Simplicity}{88}{subsection.5.6.4}%
+\contentsline {section}{\numberline {5.7}Probability Calibration and Risk Zones}{88}{section.5.7}%
+\contentsline {subsection}{\numberline {5.7.1}Probability Calibration — Platt Scaling}{88}{subsection.5.7.1}%
+\contentsline {subsection}{\numberline {5.7.2}Risk Zone Classification}{89}{subsection.5.7.2}%
+\contentsline {section}{\numberline {5.8}Prediction Workflow}{90}{section.5.8}%
+\contentsline {section}{\numberline {5.9}Model Evaluation Metrics}{91}{section.5.9}%
+\contentsline {subsection}{\numberline {5.9.1}AUC-ROC: Discrimination Ability}{92}{subsection.5.9.1}%
+\contentsline {subsection}{\numberline {5.9.2}PR-AUC and F1-score: Performance Under Class Imbalance}{92}{subsection.5.9.2}%
+\contentsline {subsection}{\numberline {5.9.3}Brier Score: Probability Calibration Quality}{93}{subsection.5.9.3}%
+\contentsline {section}{\numberline {5.10}Model Generalization and Statistical Validation}{93}{section.5.10}%
+\contentsline {subsection}{\numberline {5.10.1}Absence of Overfitting}{93}{subsection.5.10.1}%
+\contentsline {subsection}{\numberline {5.10.2}Statistical Significance}{94}{subsection.5.10.2}%
+\contentsline {subsection}{\numberline {5.10.3}Nested Cross-Validation}{94}{subsection.5.10.3}%
+\contentsline {section}{\numberline {5.11}Limitations of the ML Layer}{94}{section.5.11}%
+\contentsline {subsection}{\numberline {5.11.1}Data Bias and External Validity}{94}{subsection.5.11.1}%
+\contentsline {subsection}{\numberline {5.11.2}Population Specificity}{94}{subsection.5.11.2}%
+\contentsline {chapter}{\numberline {6}Backend \& Frontend Implementation}{96}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Backend Design}{96}{section.6.1}%
+\contentsline {subsection}{\numberline {6.1.1}Django Apps Structure}{96}{subsection.6.1.1}%
+\contentsline {subsection}{\numberline {6.1.2}Class Diagram}{97}{subsection.6.1.2}%
+\contentsline {subsection}{\numberline {6.1.3}REST API Endpoints}{98}{subsection.6.1.3}%
+\contentsline {section}{\numberline {6.2}Authentication \& Security}{100}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}JWT Authentication}{100}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Role-Based Access Control (RBAC)}{101}{subsection.6.2.2}%
+\contentsline {subsection}{\numberline {6.2.3}Additional Security Measures}{102}{subsection.6.2.3}%
+\contentsline {section}{\numberline {6.3}API Design}{102}{section.6.3}%
+\contentsline {subsection}{\numberline {6.3.1}DRF Serializers and Validation}{102}{subsection.6.3.1}%
+\contentsline {subsection}{\numberline {6.3.2}Filtering and Search}{103}{subsection.6.3.2}%
+\contentsline {subsection}{\numberline {6.3.3}Prediction Response Structure}{103}{subsection.6.3.3}%
+\contentsline {section}{\numberline {6.4}Frontend Architecture}{103}{section.6.4}%
+\contentsline {subsection}{\numberline {6.4.1}React Structure}{104}{subsection.6.4.1}%
+\contentsline {subsection}{\numberline {6.4.2}Pages and Interfaces}{104}{subsection.6.4.2}%
+\contentsline {paragraph}{Carnet numérique (global floating notepad).}{106}{figure.caption.57}%
+\contentsline {paragraph}{KPI summary.}{107}{figure.caption.58}%
+\contentsline {paragraph}{User Management (CRUD).}{108}{figure.caption.60}%
+\contentsline {paragraph}{Import validation workflow.}{109}{figure.caption.62}%
+\contentsline {paragraph}{Click-to-expand interaction.}{111}{figure.caption.65}%
+\contentsline {paragraph}{Import decision notifications.}{111}{figure.caption.66}%
+\contentsline {paragraph}{Step 1 — File upload.}{112}{figure.caption.68}%
+\contentsline {paragraph}{Step 2 — Analysis pipeline (11 stages).}{113}{figure.caption.69}%
+\contentsline {paragraph}{Step 3 --- LLM correction review table.}{116}{figure.caption.71}%
+\contentsline {paragraph}{Step 4 --- Integration.}{118}{figure.caption.74}%
+\contentsline {section}{\numberline {6.5}Data Visualization}{127}{section.6.5}%
+\contentsline {subsection}{\numberline {6.5.1}Clinical Analytics Charts (Patient Management --- Analysis Tab)}{127}{subsection.6.5.1}%
+\contentsline {subsubsection}{Monthly Dialysis Initiation Trend}{128}{subsection.6.5.1}%
+\contentsline {subsubsection}{Sex Distribution and Key KPIs}{128}{figure.caption.88}%
+\contentsline {subsubsection}{Age Distribution by Sex}{129}{figure.caption.89}%
+\contentsline {subsubsection}{Complication Type Frequencies}{129}{figure.caption.90}%
+\contentsline {subsubsection}{CKD Etiology by Inclusion Status}{130}{figure.caption.91}%
+\contentsline {subsubsection}{Top Comorbidity Combinations}{130}{figure.caption.92}%
+\contentsline {subsection}{\numberline {6.5.2}AI Cohort Analysis Charts (AI Model --- Analysis Dashboard)}{130}{subsection.6.5.2}%
+\contentsline {subsubsection}{Risk Zone Distribution}{131}{subsection.6.5.2}%
+\contentsline {subsubsection}{Predicted Outcome Distribution}{131}{figure.caption.94}%
+\contentsline {subsubsection}{Kaplan-Meier Survival Estimate by Risk Zone}{132}{figure.caption.95}%
+\contentsline {subsubsection}{Risk Factor Contribution Profile}{132}{figure.caption.96}%
+\contentsline {subsubsection}{Clinical Risk Profile Radar}{133}{figure.caption.97}%
+\contentsline {subsubsection}{Biological Indicators by Risk Zone}{134}{figure.caption.98}%
+\contentsline {section}{\numberline {6.6}User Workflows \& Sequence Diagrams}{134}{section.6.6}%
+\contentsline {subsection}{\numberline {6.6.1}Sequence Diagram 1: User Authentication}{134}{subsection.6.6.1}%
+\contentsline {subsection}{\numberline {6.6.2}Sequence Diagram 2: Patient Import \& LLM Preprocessing}{135}{subsection.6.6.2}%
+\contentsline {subsection}{\numberline {6.6.3}Sequence Diagram 3: Mortality Risk Prediction}{136}{subsection.6.6.3}%
+\contentsline {chapter}{\numberline {7}Deployment, Evaluation \& Perspectives}{139}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Deployment Architecture}{139}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}Docker Compose Setup}{139}{subsection.7.1.1}%
+\contentsline {section}{\numberline {7.2}System Testing}{139}{section.7.2}%
+\contentsline {subsection}{\numberline {7.2.1}Functional Tests}{139}{subsection.7.2.1}%
+\contentsline {subsection}{\numberline {7.2.2}API Tests}{140}{subsection.7.2.2}%
+\contentsline {section}{\numberline {7.3}Performance Evaluation}{141}{section.7.3}%
+\contentsline {subsection}{\numberline {7.3.1}Prediction Latency}{141}{subsection.7.3.1}%
+\contentsline {subsection}{\numberline {7.3.2}Data Processing Time}{141}{subsection.7.3.2}%
+\contentsline {section}{\numberline {7.4}Results \& Impact}{142}{section.7.4}%
+\contentsline {subsection}{\numberline {7.4.1}Clinical Usefulness}{142}{subsection.7.4.1}%
+\contentsline {subsection}{\numberline {7.4.2}Decision Support Value}{142}{subsection.7.4.2}%
+\contentsline {section}{\numberline {7.5}Limitations}{142}{section.7.5}%
+\contentsline {subsection}{\numberline {7.5.1}Data Availability}{143}{subsection.7.5.1}%
+\contentsline {subsection}{\numberline {7.5.2}Model Constraints}{143}{subsection.7.5.2}%
+\contentsline {section}{\numberline {7.6}Future Work}{143}{section.7.6}%
+\contentsline {subsection}{\numberline {7.6.1}Real-Time Hospital Integration}{143}{subsection.7.6.1}%
+\contentsline {subsection}{\numberline {7.6.2}Advanced Deep Learning Models}{143}{subsection.7.6.2}%
+\contentsline {subsection}{\numberline {7.6.3}Cohort-Driven Real-Time Training and Per-Patient Prediction}{144}{subsection.7.6.3}%
+\contentsline {chapter}{General Conclusion}{145}{chapter*.104}%
+\contentsline {chapter}{Webography}{151}{chapter*.106}%

@@ -8,29 +8,29 @@
 \contentsline {table}{\numberline {2.1}{\ignorespaces Selected ML studies predicting \textbf {1-year all-cause mortality} in hemodialysis patients. All studies share the same clinical endpoint, enabling direct AUC comparison.}}{32}{table.caption.13}%
 \addvspace {10\p@ }
 \contentsline {table}{\numberline {3.1}{\ignorespaces Layer responsibilities and inter-layer communication}}{41}{table.caption.16}%
-\contentsline {table}{\numberline {3.2}{\ignorespaces Complete technology stack}}{41}{table.caption.17}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Complete technology stack}}{42}{table.caption.17}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1}{\ignorespaces HD-478 dataset: original vs. corrected dataset}}{46}{table.caption.18}%
-\contentsline {table}{\numberline {4.2}{\ignorespaces Date conversion examples}}{47}{table.caption.19}%
-\contentsline {table}{\numberline {4.3}{\ignorespaces Biological outliers corrected in the corrected dataset}}{48}{table.caption.20}%
-\contentsline {table}{\numberline {4.4}{\ignorespaces Sample DFGe MDRD corrections (109 total)}}{49}{table.caption.21}%
-\contentsline {table}{\numberline {4.5}{\ignorespaces X/x marker cleanup by column (265 total)}}{50}{table.caption.22}%
-\contentsline {table}{\numberline {4.6}{\ignorespaces NaN $\rightarrow $ 0 imputation for transplant variables}}{51}{table.caption.23}%
-\contentsline {table}{\numberline {4.7}{\ignorespaces Variable type distribution in the corrected dataset (ML-ready)}}{52}{table.caption.24}%
-\contentsline {table}{\numberline {4.8}{\ignorespaces All tables in the \texttt {plateforme\_medicale} database — core vs. auxiliary}}{54}{table.caption.26}%
-\contentsline {table}{\numberline {4.9}{\ignorespaces Schema of \texttt {users\_role} and \texttt {users\_utilisateur}}}{55}{table.caption.27}%
-\contentsline {table}{\numberline {4.10}{\ignorespaces Key columns of \texttt {patients\_patient} (representative subset)}}{56}{table.caption.28}%
-\contentsline {table}{\numberline {4.11}{\ignorespaces Schema of \texttt {patients\_preprocessvalidationrequest}}}{57}{table.caption.29}%
-\contentsline {table}{\numberline {4.12}{\ignorespaces Schema of \texttt {audit\_auditlog}}}{57}{table.caption.30}%
-\contentsline {table}{\numberline {4.13}{\ignorespaces Clinical sections of the Patient data model (Django ORM)}}{58}{table.caption.31}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces HD-478 dataset: original vs. corrected dataset}}{47}{table.caption.18}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Date conversion examples}}{48}{table.caption.19}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Biological outliers corrected in the corrected dataset}}{49}{table.caption.20}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Sample DFGe MDRD corrections (109 total)}}{50}{table.caption.21}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces X/x marker cleanup by column (265 total)}}{51}{table.caption.22}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces NaN $\rightarrow $ 0 imputation for transplant variables}}{52}{table.caption.23}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Variable type distribution in the corrected dataset (ML-ready)}}{53}{table.caption.24}%
+\contentsline {table}{\numberline {4.8}{\ignorespaces All tables in the \texttt {plateforme\_medicale} database — core vs. auxiliary}}{55}{table.caption.26}%
+\contentsline {table}{\numberline {4.9}{\ignorespaces Schema of \texttt {users\_role} and \texttt {users\_utilisateur}}}{56}{table.caption.27}%
+\contentsline {table}{\numberline {4.10}{\ignorespaces Key columns of \texttt {patients\_patient} (representative subset)}}{57}{table.caption.28}%
+\contentsline {table}{\numberline {4.11}{\ignorespaces Schema of \texttt {patients\_preprocessvalidationrequest}}}{58}{table.caption.29}%
+\contentsline {table}{\numberline {4.12}{\ignorespaces Schema of \texttt {audit\_auditlog}}}{58}{table.caption.30}%
+\contentsline {table}{\numberline {4.13}{\ignorespaces Clinical sections of the Patient data model (Django ORM)}}{59}{table.caption.31}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1}{\ignorespaces Final hyperparameter configuration for each evaluated model}}{73}{table.caption.33}%
-\contentsline {table}{\numberline {5.2}{\ignorespaces Comparison of all nine ML models on HD-478 (10-fold stratified CV)}}{74}{table.caption.34}%
-\contentsline {table}{\numberline {5.3}{\ignorespaces Risk zone classification --- thresholds derived by ROC/Youden bootstrap ($n=1000$), HD-478 cohort}}{89}{table.caption.48}%
+\contentsline {table}{\numberline {5.1}{\ignorespaces Final hyperparameter configuration for each evaluated model}}{74}{table.caption.33}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Comparison of all nine ML models on HD-478 (10-fold stratified CV)}}{75}{table.caption.34}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces Risk zone classification --- thresholds derived by ROC/Youden bootstrap ($n=1000$), HD-478 cohort}}{90}{table.caption.48}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {6.1}{\ignorespaces Django application structure}}{96}{table.caption.50}%
-\contentsline {table}{\numberline {6.2}{\ignorespaces Principal REST API endpoints}}{98}{table.6.2}%
-\contentsline {table}{\numberline {6.3}{\ignorespaces RBAC permission matrix}}{100}{table.caption.54}%
-\contentsline {table}{\numberline {6.4}{\ignorespaces Preprocessing pipeline stages and corresponding interface labels}}{112}{table.caption.70}%
+\contentsline {table}{\numberline {6.1}{\ignorespaces Django application structure}}{97}{table.caption.50}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces Principal REST API endpoints}}{99}{table.6.2}%
+\contentsline {table}{\numberline {6.3}{\ignorespaces RBAC permission matrix}}{101}{table.caption.54}%
+\contentsline {table}{\numberline {6.4}{\ignorespaces Preprocessing pipeline stages and corresponding interface labels}}{113}{table.caption.70}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{140}{table.caption.103}%
+\contentsline {table}{\numberline {7.1}{\ignorespaces Prediction endpoint latency (measured over 100 requests)}}{141}{table.caption.103}%

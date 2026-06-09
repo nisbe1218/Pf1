@@ -1037,7 +1037,7 @@ AI NéphroCare follows a five-layer architecture where each layer has a clear re
 \node[lbox,fill=primarydark!10,draw=primarydark,below=0.35cm of L4] (L5) {
   \textbf{\color{primarydark}Layer 5 — Data}\\[3pt]
   PostgreSQL 16 (flat TextField columns + \texttt{extra\_data} JSONB) \textbullet\ Redis 7 (cache \& broker)\\
-  \textit{\color{textsec}\footnotesize 160+ TextField columns per patient \textbullet\ GIN index on extra\_data \textbullet\ audit logs}
+  \textit{\color{textsec}\footnotesize 160+ TextField columns per patient \textbullet\ GIN index on extra\_data \textbullet\ \textbf{AuditLog} (auto-triggered on every write — patient CRUD, import, prediction)}
 };
 \node[tag,fill=primarydark!15,draw=primarydark,right=0.5cm of L5] (T5)
   {\color{primarydark} PostgreSQL\\\footnotesize port 5432};
@@ -1855,14 +1855,18 @@ The data engineering layer sits between raw data ingestion and ML inference. It 
 \draw[arr] (db)     -- (ml);
 \draw[arrd] (review.west) -- ++(-1.8,0)
   node[side, anchor=east]{Reject\\$\rightarrow$ re-edit file} |- (start.west);
-\node[sbox, right=2.5cm of rag,   anchor=west] (ann_rag) {ChromaDB\\(vector embeddings)};
-\node[sbox, right=2.5cm of llm,   anchor=west] (ann_llm) {Ollama\\local inference};
-\node[sbox, right=2.5cm of valid, anchor=west] (ann_val) {RBAC: Head of Dept.\\or Super Admin};
-\draw[arr, dashed, textsec] (ann_rag.west) -- (rag.east);
-\draw[arr, dashed, textsec] (ann_llm.west) -- (llm.east);
-\draw[arr, dashed, textsec] (ann_val.west) -- (valid.east);
+\node[sbox, right=2.5cm of rag,   anchor=west] (ann_rag)   {ChromaDB\\(vector embeddings)};
+\node[sbox, right=2.5cm of llm,   anchor=west] (ann_llm)   {Ollama\\local inference};
+\node[sbox, right=2.5cm of valid, anchor=west] (ann_val)   {RBAC: Head of Dept.\\or Super Admin};
+\node[sbox, right=2.5cm of db,    anchor=west,
+      draw=gray!55, fill=gray!8,
+      font=\footnotesize\itshape, text=gray!65!black] (ann_audit) {AuditLog\\auto-triggered};
+\draw[arr, dashed, textsec] (ann_rag.west)   -- (rag.east);
+\draw[arr, dashed, textsec] (ann_llm.west)   -- (llm.east);
+\draw[arr, dashed, textsec] (ann_val.west)   -- (valid.east);
+\draw[arr, dashed, gray!55] (ann_audit.west) -- (db.east);
 \end{tikzpicture}
-\caption{LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and approval by the Head of Department or Super Admin, the cleaned data enters the ML pipeline.}
+\caption{LLM-based automated preprocessing pipeline (Section 4.6). After file upload and profiling (Section 4.2), the Qwen2.5:14B model retrieves clinical context from ChromaDB (RAG), analyzes each row, and proposes justified corrections. After clinician review and approval by the Head of Department or Super Admin, the cleaned data enters the ML pipeline. Each integration into the database triggers an automatic AuditLog entry.}
 \label{fig:llm_pipeline}
 \end{figure}
 
@@ -2648,7 +2652,13 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
     minimum width=13.5cm, text width=13.0cm, minimum height=1.0cm,
     align=center, font=\small\bfseries, text=navydark
   },
-  arr/.style={-{Stealth[scale=1.2]}, thick, darkblue!65}
+  arr/.style={-{Stealth[scale=1.2]}, thick, darkblue!65},
+  auditb/.style={
+    rectangle, draw=gray!70, thick, dashed,
+    fill=gray!10, rounded corners=4pt,
+    minimum width=3.2cm, minimum height=1.1cm,
+    align=center, font=\small\itshape, text=gray!60!black
+  }
 ]
 
 %=== PIPELINE STEPS ===
@@ -2704,8 +2714,15 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \draw[thick, darkblue!60] (jl) -- (jr);
 \draw[arr] (jm) -- (output.north);
 
+%=== AUDIT LOG ===
+\node[auditb] (audit) at (8.8,-13.8)
+  {\textbf{AuditLog}\\[2pt]\footnotesize prediction\\auto-recorded};
+\draw[-{Stealth[scale=1.0]}, thick, dashed, gray!55]
+  (output.east) -- (audit.west)
+  node[midway, above, font=\scriptsize\itshape, text=gray!65]{via Django signal};
+
 \end{tikzpicture}
-\caption{Complete 1-year mortality prediction workflow for a single patient.}
+\caption{Complete 1-year mortality prediction workflow for a single patient. Each prediction triggers an automatic AuditLog entry via Django signals.}
 \label{fig:prediction_workflow}
 \end{figure}
 
