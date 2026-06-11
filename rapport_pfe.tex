@@ -3192,10 +3192,10 @@ Key endpoints are listed below:
 \endlastfoot
 POST   & /api/auth/login/                           & JWT login $\rightarrow$ access + refresh token \\
 POST   & /api/auth/token/refresh/                   & Refresh expired access token \\
-GET    & /api/auth/users/                           & List all users (admin) \\
-POST   & /api/auth/users/                           & Create user account \\
-PATCH  & /api/auth/users/\{id\}/                   & Update user profile \\
-DELETE & /api/auth/users/\{id\}/                   & Delete user (super admin) \\
+GET    & /api/auth/utilisateurs/                    & List all users (admin) \\
+POST   & /api/auth/utilisateurs/                    & Create user account \\
+PATCH  & /api/auth/utilisateurs/\{id\}/             & Update user profile \\
+DELETE & /api/auth/utilisateurs/\{id\}/             & Delete user (super admin) \\
 GET    & /api/patients/                             & List patients (paginated, filterable) \\
 POST   & /api/patients/                             & Create new patient record \\
 GET    & /api/patients/\{id\}/                      & Full patient record \\
@@ -3206,13 +3206,12 @@ GET    & /api/patients/flat/                        & Flat view for analytics ch
 POST   & /api/patients/preprocess/analyze/          & Start async LLM preprocessing \\
 GET    & /api/patients/preprocess/\{sid\}/status/   & Preprocessing session status \\
 GET    & /api/patients/preprocess/\{sid\}/rows/     & LLM-suggested corrections per row \\
-PATCH  & /api/patients/preprocess/\{sid\}/\newline{}cell-corrections/   & Override LLM correction per cell \\
+GET    & /api/patients/preprocess/\{sid\}/\newline{}cell-corrections/   & Per-cell diff between original and corrected rows \\
 POST   & /api/patients/preprocess/\{sid\}/\newline{}integrate/          & Finalize and integrate corrected data \\
 POST   & /api/predictions/train/                    & Retrain SVM on current dataset \\
 POST   & /api/predictions/predict-patient/          & Predict 1-year mortality for one patient \\
 GET    & /api/predictions/metrics/                  & Model performance metrics \\
-GET    & /api/audit/                                & Paginated audit log (admin only) \\
-DELETE & /api/audit/cleanup-old/                    & Manual cleanup of old log entries \\
+GET    & /api/audit/my-activity/                    & Last 10 actions of authenticated user \\
 \end{longtable}
 
 \section{Authentication \& Security}\label{sec:auth}
