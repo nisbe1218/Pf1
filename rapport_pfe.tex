@@ -3192,10 +3192,10 @@ Key endpoints are listed below:
 \endlastfoot
 POST   & /api/auth/login/                           & JWT login $\rightarrow$ access + refresh token \\
 POST   & /api/auth/token/refresh/                   & Refresh expired access token \\
-GET    & /api/auth/utilisateurs/                    & List all users (admin) \\
-POST   & /api/auth/utilisateurs/                    & Create user account \\
-PATCH  & /api/auth/utilisateurs/\{id\}/             & Update user profile \\
-DELETE & /api/auth/utilisateurs/\{id\}/             & Delete user (super admin) \\
+GET    & /api/auth/users/                    & List all users (admin) \\
+POST   & /api/auth/users/                    & Create user account \\
+PATCH  & /api/auth/users/\{id\}/             & Update user profile \\
+DELETE & /api/auth/users/\{id\}/             & Delete user (super admin) \\
 GET    & /api/patients/                             & List patients (paginated, filterable) \\
 POST   & /api/patients/                             & Create new patient record \\
 GET    & /api/patients/\{id\}/                      & Full patient record \\

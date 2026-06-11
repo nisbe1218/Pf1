@@ -216,7 +216,7 @@ function Dashboard() {
     try {
       const [rolesResponse, usersResponse] = await Promise.all([
         api.get('auth/roles/'),
-        api.get('auth/utilisateurs/'),
+        api.get('auth/users/'),
       ]);
       setRoles(rolesResponse.data);
       setUsers(usersResponse.data);
@@ -290,7 +290,7 @@ function Dashboard() {
       const resolvedRole = resolveRoleById(form.role_id);
 
       if (form.id) {
-        const response = await api.put(`auth/utilisateurs/${form.id}/`, payload);
+        const response = await api.put(`auth/users/${form.id}/`, payload);
         setUsers((currentUsers) => currentUsers.map((existingUser) => (
           existingUser.id === form.id
             ? { ...existingUser, ...response.data, role: resolvedRole || existingUser.role }
@@ -301,7 +301,7 @@ function Dashboard() {
         }
         setSuccess('Compte modifié avec succès.');
       } else {
-        const response = await api.post('auth/utilisateurs/', {
+        const response = await api.post('auth/users/', {
           ...payload,
           password: form.password,
         });
@@ -361,7 +361,7 @@ function Dashboard() {
     setSuccess('');
 
     try {
-      await api.delete(`auth/utilisateurs/${deleteTargetUser.id}/`, {
+      await api.delete(`auth/users/${deleteTargetUser.id}/`, {
         data: { confirmation_password: deletePassword },
       });
       setUsers((currentUsers) => currentUsers.filter((managedUser) => managedUser.id !== deleteTargetUser.id));
