@@ -422,7 +422,7 @@ This report presents \textbf{AI NéphroCare}, a full-stack clinical decision sup
 
 \vspace{0.2cm}
 
-Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{SVC(probability=True)}, internal 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%): \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
+Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%): \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
 
 \vspace{0.2cm}
 
@@ -444,7 +444,7 @@ La maladie rénale chronique (MRC) touche plus de 850 millions de personnes dans
 
 Ce rapport présente \textbf{AI NéphroCare}, une plateforme d'aide à la décision clinique développée au sein du \textbf{Centre HAIM} (Health Artificial Intelligence \& Modeling Center, FMPDF -- Université Sidi Mohamed Ben Abdellah), en collaboration avec le Service de Néphrologie du CHU Hassan II de Fès. Elle intègre : (1) un module de gestion structurée des dossiers patients couvrant plus de 160 champs cliniques en 11 sections ; (2) un pipeline de prétraitement IA combinant un modèle de langage (LLM, Ollama qwen2.5:14b) et une génération augmentée par récupération (RAG, ChromaDB) ; et (3) un moteur de prédiction ML entraîné sur la cohorte HD-478 (478 patients, 95 décès à 1 an, CHU Hassan II de Fès, 2020--2024).
 
-Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8262, PR-AUC = 0,4887, F1 = 0,5667, Brier = 0,1265). Les probabilités brutes sont calibrées par Platt scaling interne (\texttt{SVC(probability=True)}, sigmoïde 5-fold) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--29\%, Élevée $\geq29\%$) dont les seuils ont été dérivés par analyse de la courbe ROC (T1 = 10\%, Sensibilité $\geq$ 90\%) et indice de Youden bootstrappé (T2 = 29\%, $n=1000$, médiane = 28,9\%), validés cliniquement par l'équipe de néphrologie du CHU Hassan II de Fès. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
+Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8262, PR-AUC = 0,4887, F1 = 0,5667, Brier = 0,1265). Les probabilités brutes sont calibrées par Platt scaling (\texttt{CalibratedClassifierCV}, sigmoïde 5-fold) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--29\%, Élevée $\geq29\%$) dont les seuils ont été dérivés par analyse de la courbe ROC (T1 = 10\%, Sensibilité $\geq$ 90\%) et indice de Youden bootstrappé (T2 = 29\%, $n=1000$, médiane = 28,9\%), validés cliniquement par l'équipe de néphrologie du CHU Hassan II de Fès. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
 
 \selectlanguage{english}
 
@@ -2226,7 +2226,7 @@ The ML layer comprises four components:
 \begin{enumerate}
   \item \textbf{Feature extractor} (\texttt{feature\_mapping.py}): Produces a 32-dimensional feature vector from a Patient ORM object
   \item \textbf{SVM pipeline} (\texttt{mortalite\_svm.joblib}): KNN imputer + Yeo-Johnson transformer + linear SVC
-  \item \textbf{Platt-scaled probability} (\texttt{SVC(probability=True)}, internal 5-fold sigmoid): Maps the SVM margin score to a calibrated probability $\hat{p}$
+  \item \textbf{Platt-scaled probability} (\texttt{CalibratedClassifierCV}, 5-fold sigmoid): Maps the SVM margin score to a calibrated probability $\hat{p}$
   \item \textbf{Risk zone classifier}: Low ($\hat{p}<10\%$), Moderate ($10\%\leq\hat{p}<29\%$), High ($\hat{p}\geq29\%$) — thresholds derived via bootstrapped ROC/Youden
 \end{enumerate}
 
@@ -2248,7 +2248,7 @@ Parameters $\mathbf{w}$ and $b$ are estimated by maximizing the $\ell_2$-regular
 \label{eq:lr_loss}
 \end{equation}
 
-\config{C=0.5, solver='saga', class\_weight='balanced', max\_iter=500}
+\config{C=0.1, penalty='l2', class\_weight='balanced', max\_iter=2000}
 
 \subsection{Support Vector Machine (Linear)}
 \label{sec:svm}
@@ -2267,7 +2267,7 @@ y_i(\mathbf{w}^T\mathbf{x}_i + b) &\geq 1 - \xi_i \quad \forall i \label{eq:svm_
 
 where $\xi_i$ are slack variables allowing misclassifications, and $C$ controls the regularization strength. A small $C=0.01$ was chosen, enforcing strong regularization to prevent overfitting on the 478-patient dataset.
 
-Probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: \texttt{SVC(probability=True)} fits a logistic regression $P(y=1 \mid f) = \sigma(Af + B)$ on the signed margin distances $f_i = \mathbf{w}^T\mathbf{x}_i + b$ via internal 5-fold cross-validation.
+Probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: fitting a logistic regression $P(y=1 \mid f) = \sigma(Af + B)$ on the signed margin distances $f_i = \mathbf{w}^T\mathbf{x}_i + b$ via \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}.
 
 \config{SVC(C=0.01, kernel='linear', class\_weight='balanced', probability=True)}
 
@@ -2281,7 +2281,7 @@ Random Forest (RF) \cite{breiman_rf_2001} constructs an ensemble of $B$ decorrel
 
 where $T_b$ is the $b$-th tree and $\Theta_b$ is the random seed governing bootstrap sampling and feature selection. Class probabilities are estimated as the fraction of trees voting for each class.
 
-\config{n\_estimators=200, class\_weight='balanced\_subsample', max\_features='sqrt'}
+\config{n\_estimators=500, max\_depth=3, min\_samples\_leaf=15, class\_weight='balanced', oob\_score=True}
 
 \subsection{Linear Discriminant Analysis (LDA)}
 
@@ -2292,7 +2292,7 @@ LDA seeks a linear projection $\mathbf{w}$ that maximizes the ratio of between-c
 \end{equation}
 where $\mathbf{S}_B = \sum_c n_c(\bm{\mu}_c - \bm{\mu})(\bm{\mu}_c - \bm{\mu})^T$ is the between-class scatter and $\mathbf{S}_W = \sum_c \sum_{i \in c}(\mathbf{x}_i - \bm{\mu}_c)(\mathbf{x}_i - \bm{\mu}_c)^T$ the within-class scatter. LDA assumes Gaussian class-conditionals with equal covariance, making it a natural linear baseline complementary to SVM.
 
-\config{solver='svd', shrinkage=None, \texttt{class\_prior=None}}
+\config{solver='lsqr', shrinkage=0.3}
 
 \subsection{LASSO (L1 Logistic Regression)}
 
@@ -2303,7 +2303,7 @@ LASSO applies L1 regularization to logistic regression, inducing sparsity by dri
 \end{equation}
 Unlike L2 regularization (Ridge/LR), L1 performs implicit feature selection, setting irrelevant feature weights to exactly zero. This property is useful as a baseline to quantify which features the regularizer deems non-contributive.
 
-\config{C=0.1, penalty='l1', solver='liblinear', class\_weight='balanced'}
+\config{C=0.05, penalty='l1', solver='saga', class\_weight='balanced', max\_iter=2000}
 
 \subsection{XGBoost}
 
@@ -2315,7 +2315,7 @@ XGBoost \cite{chen_xgboost_2016} optimizes a regularized ensemble objective:
 
 where $\Omega(f) = \gamma T + \frac{1}{2}\lambda \|w\|^2$ penalizes tree complexity ($T$ = number of leaves, $w$ = leaf weights). Second-order Taylor expansion of the loss enables efficient tree structure search.
 
-\config{scale\_pos\_weight=4.03, eval\_metric='logloss', subsample=0.8, colsample\_bytree=0.8}
+\config{n\_estimators=30, max\_depth=1, learning\_rate=0.2, subsample=0.7, colsample\_bytree=0.7, scale\_pos\_weight=4, eval\_metric='logloss'}
 
 \section{Feature Preprocessing Pipeline}\label{sec:dyn_pipeline}
 
@@ -2413,11 +2413,11 @@ Table~\ref{tab:hyperparams} summarizes the final configuration retained for each
 \textbf{Model} & \textbf{Key hyperparameters} \\
 \midrule
 \textbf{Linear SVM} & \textbf{\texttt{C=0.01, kernel='linear', class\_weight='balanced'}} \\
-LDA & \texttt{solver='svd', shrinkage=None} \\
-Logistic Regression & \texttt{C=0.5, solver='saga', penalty='l2', class\_weight='balanced', max\_iter=500} \\
-XGBoost & \texttt{scale\_pos\_weight=4.03, n\_estimators=150, subsample=0.8, colsample\_bytree=0.8} \\
-Random Forest & \texttt{n\_estimators=200, class\_weight='balanced\_subsample', max\_features='sqrt'} \\
-LASSO & \texttt{C=0.1, penalty='l1', solver='liblinear', class\_weight='balanced'} \\
+LDA & \texttt{solver='lsqr', shrinkage=0.3} \\
+Logistic Regression & \texttt{C=0.1, penalty='l2', class\_weight='balanced', max\_iter=2000} \\
+XGBoost & \texttt{n\_estimators=30, max\_depth=1, learning\_rate=0.2, subsample=0.7, colsample\_bytree=0.7, scale\_pos\_weight=4} \\
+Random Forest & \texttt{n\_estimators=500, max\_depth=3, min\_samples\_leaf=15, class\_weight='balanced'} \\
+LASSO & \texttt{C=0.05, penalty='l1', solver='saga', class\_weight='balanced', max\_iter=2000} \\
 \bottomrule
 \end{tabularx}
 \smallskip\\
@@ -2706,7 +2706,7 @@ For a clinical AI tool intended for real hospital deployment, model simplicity i
 
 \subsection{Probability Calibration — Platt Scaling}
 
-The raw LinearSVC output is a signed margin score that does not directly represent an observed mortality rate. Calibrated probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: \texttt{SVC(probability=True)} internally fits a logistic regression $\sigma(A\,f + B)$ on the signed margin $f_i$ via 5-fold cross-validation:
+The raw LinearSVC output is a signed margin score that does not directly represent an observed mortality rate. Calibrated probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: fitting a logistic regression $\sigma(A\,f + B)$ on the signed margin $f_i$ via 5-fold cross-validation, implemented through \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}:
 
 \begin{equation}
 \hat{p} = \sigma\!\left(A\cdot f_{\text{SVM}} + B\right) = \frac{1}{1 + e^{-(A f_{\text{SVM}} + B)}}
@@ -2784,7 +2784,7 @@ The relative risk is: $\text{RR} = \hat{p} \;/\; 0.199$ (base rate = 19.9\% coho
 
 \section{Prediction Workflow}
 
-Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{SVC(probability=True)} which applies Platt scaling internally to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
+Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{LinearSVC} and applies Platt scaling (\texttt{CalibratedClassifierCV}, method=\texttt{'sigmoid'}) to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
 
 \begin{figure}[htbp]
 \centering
@@ -2846,7 +2846,7 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \node[pipe] (p5) at (0,-6.0)
   {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.01, linear)} $\longrightarrow$ $p_{\text{raw}}$};
 \node[pipe] (p6) at (0,-7.5)
-  {\textbf{6.}~Platt scaling --- $\hat{p} = \sigma(A\cdot f_{\text{SVM}}+B)$ via \texttt{SVC(probability=True)}};
+  {\textbf{6.}~Platt scaling --- $\hat{p} = \sigma(A\cdot f_{\text{SVM}}+B)$ via \texttt{CalibratedClassifierCV}};
 
 %=== DECISION DIAMOND ===
 \node[diam] (zone) at (0,-9.3) {Risk Zone Classification};
@@ -3358,7 +3358,7 @@ The \texttt{POST /api/predictions/predict-patient/} endpoint assembles the patie
 \begin{itemize}
   \item \texttt{risk\_level} — categorical classification: \textit{Low} ($<$10\,\%), \textit{Moderate} (10–29\,\%), or \textit{High} ($\geq$29\,\%)
   \item \texttt{score} — mortality risk expressed as a percentage (0–100)
-  \item \texttt{probability} — Platt-scaled probability of 1-year mortality (0–1), output of \texttt{SVC(probability=True)}
+  \item \texttt{probability} — Platt-scaled probability of 1-year mortality (0–1), output of \texttt{CalibratedClassifierCV}
   \item \texttt{factors} — ordered list of the most influential clinical features with their SVM weight and direction
   \item \texttt{recommendation} — auto-generated clinical text summarising the risk level and key factors
   \item \texttt{features\_used} — list of feature keys actually used in the prediction
@@ -4199,7 +4199,7 @@ Figure~\ref{fig:seq_preproc} details the asynchronous patient import and LLM pre
 
 Figure~\ref{fig:seq_predict} traces the complete workflow triggered when a clinician requests a 1-year mortality prediction for a patient. The sequence involves five actors: the clinician navigating the React frontend, the Django REST API, the PostgreSQL database, and the pre-trained SVM pipeline loaded from a \texttt{.joblib} file.
 
-The flow begins when the clinician clicks the \textit{Predict} button (Step~1), which sends \texttt{GET /api/predictions/patient/\{patient\_id\}/mortalite/} to the backend (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features\_for\_patient()} to build the 32-feature clinical vector (Step~5). The vector is passed to the SVM pipeline (Step~6), which internally applies KNN imputation ($k=3$), Yeo-Johnson power transformation, and linear SVC, before returning the Platt-calibrated probability $\hat{p}$ via a single \texttt{predict\_proba()} call on \texttt{SVC(probability=True)} (Step~7) --- there is no separate raw probability step.
+The flow begins when the clinician clicks the \textit{Predict} button (Step~1), which sends \texttt{GET /api/predictions/patient/\{patient\_id\}/mortalite/} to the backend (Step~2). The API retrieves the full patient record from PostgreSQL (Steps~3--4) and calls \texttt{extract\_features\_for\_patient()} to build the 32-feature clinical vector (Step~5). The vector is passed to the SVM pipeline (Step~6), which internally applies KNN imputation ($k=3$), Yeo-Johnson power transformation, and linear SVC, before returning the Platt-calibrated probability $\hat{p}$ via a single \texttt{predict\_proba()} call on the \texttt{CalibratedClassifierCV} (Step~7) --- there is no separate raw probability step.
 
 The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ and assigns a categorical risk level using dynamic clinical thresholds ($T_1$/$T_2$ loaded from \texttt{seuils\_classification.joblib}, defaulting to 10\%/29\%): \textbf{Low} ($\hat{p} < T_1$), \textbf{Moderate} ($T_1 \leq \hat{p} < T_2$), or \textbf{High} ($\hat{p} \geq T_2$) (Step~8). The prediction result is then saved to a JSON cache on the filesystem via \texttt{\_save\_last\_prediction()} (Step~9). The structured JSON response (Step~10) contains \texttt{risk\_level}, \texttt{risk\_score}, \texttt{mortality\_probability}, \texttt{factors}, and \texttt{recommendation}, which the frontend uses to render the risk gauge and results panel (Step~11).
 
@@ -4236,7 +4236,7 @@ The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ a
 \draw[msgfwd] (14,-6.2)  -- node[msglbl,xshift=1cm]{SVC(C=0.01, linear)} (14,-6.2);
   \draw[msgfwd] (14.13,-6.4) arc(90:-270:0.2cm);
 
-\draw[msgret] (14,-7.3)  -- node[msglbl]{7. $\hat{p}$ $\in$ [0,1] — single predict\_proba() (Platt-scaled by \texttt{SVC(probability=True)})} (7,-7.3);
+\draw[msgret] (14,-7.3)  -- node[msglbl]{7. $\hat{p}$ $\in$ [0,1] — single predict\_proba() (Platt-scaled by CalibratedClassifierCV)} (7,-7.3);
 \draw[msgfwd] (7,-8.0)   -- node[msglbl]{8. $\hat{p}<T_1$$\rightarrow$Low,\ $T_1{\leq}\hat{p}<T_2$$\rightarrow$Moderate,\ $\hat{p}{\geq}T_2$$\rightarrow$High} (7,-8.0);
   \draw[msgfwd] (7.13,-8.5) arc(90:-270:0.25cm);
 \draw[msgfwd] (7,-9.4)   -- node[msglbl]{9. Save prediction to JSON cache (filesystem)} (7,-9.4);
