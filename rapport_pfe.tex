@@ -2344,7 +2344,7 @@ Ordinal encoding is preferred over one-hot encoding for the linear SVM because: 
 
 \subsection{Power Transformation and Standardization}
 
-Clinical features typically exhibit strong positive skewness (e.g., creatinine, ferritin, proteinuria). Before SVM training, each feature is transformed using the \textbf{Yeo-Johnson power transformation} \cite{yeo_johnson_2000} to reduce this skewness, followed by z-score standardization.
+Clinical features typically exhibit strong positive skewness (e.g., creatinine, ferritin, proteinuria). Before SVM training, each feature is transformed using the \textbf{Yeo-Johnson power transformation} \cite{yeo_johnson_2000} to reduce this skewness. Z-score standardization is applied automatically within \texttt{PowerTransformer} via its default \texttt{standardize=True} parameter.
 
 The Yeo-Johnson transformation is defined as:
 
@@ -2358,7 +2358,7 @@ The Yeo-Johnson transformation is defined as:
 \label{eq:yeo_johnson}
 \end{equation}
 
-The optimal $\lambda$ for each feature is estimated by maximum likelihood on the training set. Unlike Box-Cox, Yeo-Johnson handles both positive and negative values. After transformation, z-score standardization is applied:
+The optimal $\lambda$ for each feature is estimated by maximum likelihood on the training set. Unlike Box-Cox, Yeo-Johnson handles both positive and negative values. Z-score standardization is then applied internally by \texttt{PowerTransformer(standardize=True)}:
 
 \begin{equation}
 z = \frac{x - \mu_{\text{train}}}{\sigma_{\text{train}}}
@@ -2386,7 +2386,7 @@ The 32 features (24 raw clinical features + 8 interaction features) are extracte
 The dataset is partitioned into 75\% training (358 patients) and 25\% test (120 patients) sets using \textbf{stratified sampling} on the target variable \texttt{deces\_1an}. Stratification ensures that both subsets preserve the original 19.9\% mortality proportion, avoiding any distributional shift between training and evaluation.
 
 \textbf{Step 5 — Preprocessing pipeline application.}
-The three-step preprocessing pipeline (KNN imputation $\rightarrow$ Yeo-Johnson transformation $\rightarrow$ z-score standardization, detailed in Section~\ref{sec:dyn_pipeline}) is fitted exclusively on the training set, then applied to both training and test sets. This strict separation prevents any leakage of test set statistics into the model.
+The two-step preprocessing pipeline (KNN imputation $\rightarrow$ \texttt{PowerTransformer} with Yeo-Johnson + built-in z-score standardization, detailed in Section~\ref{sec:dyn_pipeline}) is fitted exclusively on the training set, then applied to both training and test sets. This strict separation prevents any leakage of test set statistics into the model.
 
 \subsection{Class Imbalance Handling}
 
@@ -2784,7 +2784,7 @@ The relative risk is: $\text{RR} = \hat{p} \;/\; 0.199$ (base rate = 19.9\% coho
 
 \section{Prediction Workflow}
 
-Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies three deterministic preprocessing steps (KNN imputation, Yeo-Johnson normalization, z-score standardization), runs the trained \texttt{LinearSVC} and applies Platt scaling (\texttt{CalibratedClassifierCV}, method=\texttt{'sigmoid'}) to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
+Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies two deterministic preprocessing steps (KNN imputation, \texttt{PowerTransformer} with Yeo-Johnson + built-in z-score standardization), runs the trained \texttt{LinearSVC} and applies Platt scaling (\texttt{CalibratedClassifierCV}, method=\texttt{'sigmoid'}) to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
 
 \begin{figure}[htbp]
 \centering
@@ -2842,7 +2842,7 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \node[pipe] (p3) at (0,-3.0)
   {\textbf{3.}~Missing value imputation --- \texttt{KNNImputer(k\,=\,3)}};
 \node[pipe] (p4) at (0,-4.5)
-  {\textbf{4.}~Normalization --- PowerTransformer (Yeo-Johnson) + StandardScaler};
+  {\textbf{4.}~Normalization --- \texttt{PowerTransformer(method='yeo-johnson', standardize=True)}};
 \node[pipe] (p5) at (0,-6.0)
   {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.01, linear)} $\longrightarrow$ $p_{\text{raw}}$};
 \node[pipe] (p6) at (0,-7.5)
