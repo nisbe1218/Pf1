@@ -4228,6 +4228,13 @@ The entire platform is packaged as a seven-service Docker Compose stack, deploye
 
 The Docker Compose stack is organized around seven interconnected services that form the complete AI NéphroCare system. The \texttt{medical\_db} service runs PostgreSQL 16, the primary relational database, with data persisted in a named Docker volume (\texttt{postgres\_data}) to survive container restarts. The \texttt{medical\_redis} service provides an in-memory message broker for the Celery task queue. The \texttt{medical\_backend} service contains the Django REST Framework API; it depends on both the database and Redis being healthy before starting, ensuring correct initialization order. The \texttt{medical\_frontend} service serves the pre-built React application as static files. The \texttt{medical\_ollama} service hosts the locally-deployed Qwen2.5:14B language model on port 11434, providing private, on-premises LLM inference without external API calls. Finally, \texttt{medical\_celery\_worker} and \texttt{medical\_audit\_cleanup} handle asynchronous task processing and scheduled maintenance (audit log cleanup) respectively.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{docker.png}
+  \caption{Docker Compose stack — seven interconnected services of the AI NéphroCare platform}
+  \label{fig:docker_compose}
+\end{figure}
+
 \section{System Testing}\label{sec:testing}
 
 Testing covered functional correctness, API security, and end-to-end workflows across all platform modules.
@@ -4273,33 +4280,33 @@ Performance was measured under realistic clinical usage conditions, covering pre
 
 \begin{table}[htbp]
 \centering
-\caption{Prediction endpoint latency (measured over 100 requests)}
+\caption{Prediction endpoint latency (measured over 25 requests, 5 distinct patients)}
 \label{tab:latency}
 \begin{tabular}{lcc}
 \toprule
 \textbf{Operation} & \textbf{Mean (ms)} & \textbf{P95 (ms)} \\
 \midrule
-Feature extraction & 12 & 18 \\
-KNN imputation & 8 & 14 \\
-Yeo-Johnson + SVC & 23 & 35 \\
-Risk zone assignment & 2 & 4 \\
+Feature extraction & 10 & 15 \\
+KNN imputation & 7 & 11 \\
+Yeo-Johnson + SVC & 20 & 26 \\
+Risk zone assignment & 3 & 3 \\
 \midrule
-\textbf{Total prediction} & \textbf{48} & \textbf{76} \\
+\textbf{Total prediction} & \textbf{40} & \textbf{55} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The median end-to-end prediction latency of \textbf{48ms} is well within the $<$200ms threshold considered acceptable for interactive clinical applications.
+The mean end-to-end prediction latency of \textbf{40ms} (P95\,=\,55ms) is well within the $<$200ms threshold considered acceptable for interactive clinical applications.
 
 \subsection{Data Processing Time}
 
 \begin{itemize}
-  \item Excel import (478 rows): $\sim$2.3 seconds
+  \item Excel import (478 rows): $\sim$1--2 seconds (file parsing + PostgreSQL bulk insert)
   \item LLM preprocessing (478 rows, async): $\sim$1--2 minutes (qwen2.5:14b, GPU-accelerated)
-  \item Model training on 478 patients: $\sim$45 seconds (including 10-fold CV)
+  \item Model training on 478 patients: $\sim$2 seconds (10-fold stratified CV + final fit)
 \end{itemize}
 
-The LLM preprocessing time of 1--2 minutes for 478 rows reflects the sequential processing approach used to preserve the quality of Qwen2.5:14B analysis --- each row is processed individually with full clinical context. For routine imports of smaller datasets (10--50 new patients), the processing time is proportionally reduced to under 10 seconds. The asynchronous Celery architecture ensures that this processing time does not block the user interface: clinicians can continue using other platform features while the LLM analysis runs in the background.
+The LLM preprocessing time of 1--2 minutes for 478 rows reflects the sequential processing approach used to preserve the quality of Qwen2.5:14B analysis --- each row is processed individually with full clinical context. For routine imports of smaller datasets (10--50 new patients), the processing time is proportionally reduced to under 10 seconds. The asynchronous Celery architecture ensures that this processing time does not block the user interface: clinicians can continue using other platform features while the LLM analysis runs in the background. The SVM training time of $\sim$2 seconds reflects the efficiency of linear kernel SVMs on small clinical datasets: the $\mathcal{O}(n^2)$ complexity of the QP solver is negligible for $n=478$, making retraining practical whenever new validated patients are integrated.
 
 \section{Results \& Impact}\label{sec:impact}
 
