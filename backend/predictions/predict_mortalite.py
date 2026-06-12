@@ -204,7 +204,7 @@ class PredictMortalitePatientView(APIView):
         T1, T2, threshold_method = _resolve_thresholds(metadata)
         mort_rates_sim = metadata.get('iso_mortality_rates',
                          metadata.get('gmm_mortality_rates',
-                         {'Faible': 3.8, 'Modéré': 15.6, 'Élevé': 46.5}))
+                         {'Faible': 5.6, 'Modéré': 14.6, 'Élevé': 40.3}))
 
         if proba < T1:
             niveau = 'Faible'
@@ -327,17 +327,17 @@ class PredictMortalitePatientView(APIView):
         T1, T2, threshold_method = _resolve_thresholds(metadata)
         mort_rates = metadata.get('iso_mortality_rates',
                      metadata.get('gmm_mortality_rates',
-                     {'Faible': 3.8, 'Modéré': 15.6, 'Élevé': 46.5}))
+                     {'Faible': 5.6, 'Modéré': 14.6, 'Élevé': 40.3}))
 
         if proba < T1:
             niveau = 'Faible'
-            recommendation = f"Zone Faible — mortalité observée : {mort_rates.get('Faible', 3.8)} % (cohorte HD-478). Le modèle ne détecte pas de signal de risque élevé. Suivi standard recommandé."
+            recommendation = f"Zone Faible — mortalité observée : {mort_rates.get('Faible', 5.6)} % (cohorte HD-478). Le modèle ne détecte pas de signal de risque élevé. Suivi standard recommandé."
         elif proba < T2:
             niveau = 'Modéré'
-            recommendation = f"Zone Modérée — mortalité observée : {mort_rates.get('Modéré', 15.6)} % (cohorte HD-478). Signal de risque intermédiaire détecté. Surveillance renforcée et réévaluation clinique recommandées."
+            recommendation = f"Zone Modérée — mortalité observée : {mort_rates.get('Modéré', 14.6)} % (cohorte HD-478). Signal de risque intermédiaire détecté. Surveillance renforcée et réévaluation clinique recommandées."
         else:
             niveau = 'Élevé'
-            recommendation = f"Zone Élevée — mortalité observée : {mort_rates.get('Élevé', 46.5)} % (cohorte HD-478). Risque majeur détecté. Prise en charge prioritaire et discussion multidisciplinaire urgente."
+            recommendation = f"Zone Élevée — mortalité observée : {mort_rates.get('Élevé', 40.3)} % (cohorte HD-478). Risque majeur détecté. Prise en charge prioritaire et discussion multidisciplinaire urgente."
 
         factors = _build_svm_factors(pipeline, feature_keys)
 

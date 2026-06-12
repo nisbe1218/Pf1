@@ -262,11 +262,18 @@ def extract_features_for_patient(patient):
 
         # Champs binaires oui/non
         elif feat in BINARY_FIELD_MAP:
-            raw = _get_field(patient, BINARY_FIELD_MAP[feat])
-            # Fallback extra_data pour du_residuelle (imports legacy)
-            if feat == 'du_residuelle' and (raw is None or raw == ''):
-                raw = _get_field(patient, 'du_residuelle')
-            features[feat] = _to_binary(raw)
+            if feat == 'du_residuelle':
+                # Priorité 1 : extra_data['du_residuelle'] (valeur 0/1 directe depuis import Excel)
+                ed_val = (getattr(patient, 'extra_data', None) or {}).get('du_residuelle')
+                if ed_val is not None and ed_val != '':
+                    features[feat] = _to_binary(ed_val)
+                else:
+                    # Priorité 2 : champ structuré dialyse_statut_fonction_renale_residuelle
+                    raw = _get_field(patient, BINARY_FIELD_MAP[feat])
+                    features[feat] = _to_binary(raw)
+            else:
+                raw = _get_field(patient, BINARY_FIELD_MAP[feat])
+                features[feat] = _to_binary(raw)
 
         # Champs à logique spéciale
         elif feat == 'fistule_arterioveineuse_creee':
@@ -285,20 +292,28 @@ def extract_features_for_patient(patient):
             features[feat] = _get_diabete(patient)
 
         elif feat == 'annee_inclusion':
-            # dialyse_date_debut en priorité — date_evaluation_initiale est souvent la date d'import système
-            raw = _get_field(patient, 'dialyse_date_debut') or _get_field(patient, 'date_evaluation_initiale')
-            if raw:
-                try:
-                    from datetime import date, datetime
-                    if isinstance(raw, (date, datetime)):
-                        features[feat] = float(raw.year)
-                    else:
-                        year = int(str(raw)[:4])
-                        features[feat] = float(year) if 1990 <= year <= 2050 else None
-                except Exception:
-                    features[feat] = None
+            # Le modèle a été entraîné sur un encodage ordinal : 0=2020, 1=2021, ..., 4=2024
+            # Priorité : extra_data['annee_inclusion'] (valeur directe du Excel si importée)
+            # puis dialyse_date_debut pour dériver l'année
+            ed_val = (getattr(patient, 'extra_data', None) or {}).get('annee_inclusion')
+            if ed_val is not None and ed_val != '':
+                v = _to_float(ed_val)
+                # Si la valeur est déjà un ordinal 0-4 on la garde, sinon on convertit
+                features[feat] = v if (v is not None and 0 <= v <= 10) else (float(v - 2020) if v and v > 2000 else v)
             else:
-                features[feat] = None
+                raw = _get_field(patient, 'dialyse_date_debut') or _get_field(patient, 'date_evaluation_initiale')
+                if raw:
+                    try:
+                        from datetime import date, datetime
+                        if isinstance(raw, (date, datetime)):
+                            features[feat] = float(raw.year - 2020)
+                        else:
+                            year = int(str(raw)[:4])
+                            features[feat] = float(year - 2020) if 1990 <= year <= 2050 else None
+                    except Exception:
+                        features[feat] = None
+                else:
+                    features[feat] = None
 
         elif feat in KEYWORD_FEATURES:
             features[feat] = _keyword_present(patient, feat)
