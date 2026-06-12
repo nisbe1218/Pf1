@@ -18,12 +18,12 @@ import joblib
 import warnings
 warnings.filterwarnings('ignore')
 
-from sklearn.model_selection import StratifiedKFold, roc_curve
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import roc_curve
 from sklearn.preprocessing import PowerTransformer
 from sklearn.impute import KNNImputer
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import roc_auc_score, average_precision_score, brier_score_loss, f1_score
 
 FICHIER = sys.argv[1] if len(sys.argv) > 1 else 'Base_HD_478_v4_finale.xlsx'
@@ -74,7 +74,7 @@ print(f"  {X.shape[1]} features | {X.isnull().sum().sum()} valeurs manquantes")
 base_pipe = Pipeline([
     ('imputer',     KNNImputer(n_neighbors=3)),
     ('transformer', PowerTransformer(method='yeo-johnson')),
-    ('clf',         SVC(C=0.01, kernel='linear', class_weight='balanced',
+    ('clf',         SVC(C=0.05, kernel='linear', class_weight='balanced',
                         probability=True, random_state=RANDOM_STATE)),
 ])
 
@@ -113,9 +113,9 @@ print(f"  AP                   : {ap:.4f}")
 print(f"  Brier Score          : {brier:.4f}")
 print(f"  F1                   : {f1:.4f}")
 
-# Entraînement final sur toutes les données + calibration Platt
-print("\nEntraînement final (toutes données + calibration Platt)...")
-final_pipeline = CalibratedClassifierCV(base_pipe, method='sigmoid', cv=5)
+# Entraînement final sur toutes les données
+print("\nEntraînement final (toutes données)...")
+final_pipeline = base_pipe
 final_pipeline.fit(X, y)
 
 # Métadonnées au format attendu par la plateforme

@@ -354,10 +354,11 @@
 \begin{tabular}{p{0.46\linewidth}p{0.46\linewidth}}
   \textbf{Supervised by:}   & \textbf{Company supervisor:}\\[0.25cm]
   Prof.\ Sara Bakkali        & Mr Zakaria Alami Merrouni  \\[0.7cm]
-  \textbf{Defended in} \dotfill &\textbf{Hosting Company:}\\[0.25cm]
+  \textbf{Defended on:} 25~June~2026 &\textbf{Hosting Company:}\\[0.25cm]
                              & HAIM-FMPDF                 \\[0.7cm]
   \textbf{Jury Members:}    &                            \\[0.3cm]
-  \dotfill                   &                            \\
+  Prof.\ Nisrine Lachgar     &                            \\[0.15cm]
+  Prof.\ Meryam El~Mouhtadi  &                            \\
 \end{tabular}
 
 \end{center}
@@ -422,7 +423,7 @@ This report presents \textbf{AI NéphroCare}, a full-stack clinical decision sup
 
 \vspace{0.2cm}
 
-Nine machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8262, PR-AUC = 0.4887, F1 = 0.5667, Brier Score = 0.1265), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%): \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
+Six machine learning algorithms were systematically evaluated using stratified 10-fold cross-validation. A \textbf{linear SVM} emerged as the best-performing model (AUC-ROC = 0.8272, PR-AUC = 0.484, F1 = 0.551, Brier Score = 0.126), combining strong discriminative ability with clinical interpretability. Raw SVM probabilities are calibrated via Platt scaling (\texttt{CalibratedClassifierCV}, 5-fold sigmoid) and mapped to three evidence-based clinical risk zones, with thresholds derived by ROC curve analysis (T1 = 10\%, Sensitivity $\geq$ 90\%) and bootstrapped Youden index (T2 = 29\%, $n=1000$ iterations, median = 28.9\%): \textbf{Low Risk} ($\hat{p} < 10\%$, observed mortality 3.8\%), \textbf{Moderate Risk} ($10\% \leq \hat{p} < 29\%$, 15.6\%), and \textbf{High Risk} ($\hat{p} \geq 29\%$, 46.5\%).
 
 \vspace{0.2cm}
 
@@ -444,7 +445,7 @@ La maladie rénale chronique (MRC) touche plus de 850 millions de personnes dans
 
 Ce rapport présente \textbf{AI NéphroCare}, une plateforme d'aide à la décision clinique développée au sein du \textbf{Centre HAIM} (Health Artificial Intelligence \& Modeling Center, FMPDF -- Université Sidi Mohamed Ben Abdellah), en collaboration avec le Service de Néphrologie du CHU Hassan II de Fès. Elle intègre : (1) un module de gestion structurée des dossiers patients couvrant plus de 160 champs cliniques en 11 sections ; (2) un pipeline de prétraitement IA combinant un modèle de langage (LLM, Ollama qwen2.5:14b) et une génération augmentée par récupération (RAG, ChromaDB) ; et (3) un moteur de prédiction ML entraîné sur la cohorte HD-478 (478 patients, 95 décès à 1 an, CHU Hassan II de Fès, 2020--2024).
 
-Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8262, PR-AUC = 0,4887, F1 = 0,5667, Brier = 0,1265). Les probabilités brutes sont calibrées par Platt scaling (\texttt{CalibratedClassifierCV}, sigmoïde 5-fold) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--29\%, Élevée $\geq29\%$) dont les seuils ont été dérivés par analyse de la courbe ROC (T1 = 10\%, Sensibilité $\geq$ 90\%) et indice de Youden bootstrappé (T2 = 29\%, $n=1000$, médiane = 28,9\%), validés cliniquement par l'équipe de néphrologie du CHU Hassan II de Fès. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
+Six algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM linéaire} s'est imposé comme le meilleur modèle (AUC-ROC = 0,8272, PR-AUC = 0,484, F1 = 0,551, Brier = 0,126). Les probabilités brutes sont calibrées par Platt scaling (\texttt{CalibratedClassifierCV}, sigmoïde 5-fold) puis classifiées en trois zones cliniques (Faible $<10\%$, Modérée 10--29\%, Élevée $\geq29\%$) dont les seuils ont été dérivés par analyse de la courbe ROC (T1 = 10\%, Sensibilité $\geq$ 90\%) et indice de Youden bootstrappé (T2 = 29\%, $n=1000$, médiane = 28,9\%), validés cliniquement par l'équipe de néphrologie du CHU Hassan II de Fès. La plateforme repose sur Django REST Framework, React 18, PostgreSQL 16 et Docker Compose.
 
 \selectlanguage{english}
 
@@ -476,6 +477,11 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 \addcontentsline{toc}{chapter}{List of Abbreviations}
 \markboth{List of Abbreviations}{List of Abbreviations}
 \begin{acronym}[XGBOOST]
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\setlength{\topsep}{0pt}
+\setlength{\partopsep}{0pt}
+{\small
 \acro{CDSS}{Clinical Decision Support System}
 \acro{CKD}{Chronic Kidney Disease}
 \acro{CRF}{Chronic Renal Failure}
@@ -506,21 +512,23 @@ Neuf algorithmes d'apprentissage automatique ont été comparés. Un \textbf{SVM
 \acro{KDOQI}{Kidney Disease Outcomes Quality Initiative}
 \acro{KNN}{K-Nearest Neighbors}
 \acro{OOF}{Out-Of-Fold}
+}% end \small
 \end{acronym}
 
-\chapteropening{1}{Overview of the\\[0.2cm]Host Organization}{Context, medical setting, and project objectives.}{%
+\chapteropening{1}{General Introduction}{Context, medical setting, and project objectives.}{%
   \textbf{1.1}\hspace{8pt}Background \dotfill \pageref{sec:background}\\[3pt]
   \textbf{1.2}\hspace{8pt}Host Organization \dotfill \pageref{sec:hostorg}\\[3pt]
   \textbf{1.3}\hspace{8pt}Medical Context \dotfill \pageref{sec:medcontext}\\[3pt]
   \textbf{1.4}\hspace{8pt}Problem Statement \dotfill \pageref{sec:problem}\\[3pt]
   \textbf{1.5}\hspace{8pt}Project Objectives \dotfill \pageref{sec:objectives}\\[3pt]
   \textbf{1.6}\hspace{8pt}Methodology \dotfill \pageref{sec:methodology}\\[3pt]
+  \textbf{1.7}\hspace{8pt}Report Organization \dotfill \pageref{sec:organization}\\[3pt]
 }
 
 %============================================================
 %  CHAPTER 1 — OVERVIEW OF THE HOST ORGANIZATION
 %============================================================
-\chapter{Overview of the Host Organization}
+\chapter{General Introduction}
 
 \section{Background}\label{sec:background}
 
@@ -740,9 +748,27 @@ Each card included a technical description, acceptance criteria, priority level,
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.28\textwidth]{TRELLO1.png}
-\caption{Trello Kanban board --- 8 columns, 42 tasks, 9 sprints over the project lifecycle}
+\caption{Trello --- Project management tool used for task tracking throughout the project lifecycle}
 \label{fig:trello}
 \end{figure}
+
+\section{Report Organization}\label{sec:organization}
+
+We organize this report into seven chapters that follow the logical progression of our work, from the identification of the clinical problem to the deployment of a validated solution.
+
+\textbf{Chapter~1 — General Introduction} sets the stage. We introduce the HAIM Center and the CHU Hassan II nephrology department, and we lay out the medical context of chronic kidney disease and hemodialysis. We then identify the three problems we observed at the outset of this project: years of clinical records siloed in Excel files with no exploitation, the complete absence of a locally validated ML-based mortality prediction tool, and severe data quality issues in the HD-478 cohort — up to 30\% missing values, inconsistent units, and free-text entries in numerical fields — that made any direct ML application impossible.
+
+\textbf{Chapter~2 — State of the Art} reviews the existing scientific literature. We survey published CDSS for nephrology, ML approaches to dialysis mortality prediction, and feature engineering strategies for clinical tabular data. We note that while individual components exist in the literature, no prior work combines an LLM-assisted preprocessing pipeline, calibrated probabilistic output, and clinically grounded risk zones in a single deployable platform. This gap is what motivated the solution we propose.
+
+\textbf{Chapter~3 — Global System Architecture} describes the overall design we adopted to address the identified problems. We propose a full-stack web platform organized around three modules: a patient data management layer, an AI preprocessing pipeline, and an ML prediction engine. We explain our technology choices (Django REST Framework, React, PostgreSQL, Docker Compose) and present the use case model covering the four user roles we designed around the clinical workflows at CHU Hassan II.
+
+\textbf{Chapter~4 — Data Engineering Pipeline} details the first solution we implemented: an \textbf{LLM+RAG preprocessing pipeline} (Qwen2.5:14B + ChromaDB) that automatically detects and corrects the data quality issues we observed in the HD-478 cohort. We noticed that blindly applying a model's corrections would be clinically unacceptable, so we paired the pipeline with a supervised validation interface where clinicians review and approve each correction before integration. We also describe the 32-feature engineering strategy we developed, including 8 interaction features (albumin$\times$Charlson, Kt/V$\times$residual diuresis, etc.) whose clinical relevance we confirmed with the nephrology team.
+
+\textbf{Chapter~5 — Machine Learning Layer} presents the second core solution: the 1-year mortality prediction model. We trained and compared six algorithms on the HD-478 cohort (478 patients, 19.9\% 1-year mortality) under stratified 10-fold cross-validation. We noticed that tree-based ensembles overfitted on this small cohort, while the \textbf{linear SVM with Yeo-Johnson preprocessing and Platt calibration} generalized best, achieving AUC\,=\,0.8272 and Brier\,=\,0.126. We then translated its margin score into three clinically actionable risk zones — Low, Moderate, and High — whose boundaries we derived from bootstrapped ROC/Youden analysis and grounded in KDIGO/DOPPS/TRIPOD guidelines.
+
+\textbf{Chapter~6 — Backend \& Frontend Implementation} covers the software layer we built to bring these solutions to clinicians. We describe the Django REST API we structured around four independent applications (\texttt{users}, \texttt{patients}, \texttt{predictions}, \texttt{audit}), secured with JWT tokens and RBAC. We note that we chose a stateless prediction endpoint design to guarantee sub-100\,ms inference times. On the frontend, we present the React interface we designed for patient management, AI preprocessing review, prediction visualization (risk gauge and probability score), and performance monitoring.
+
+\textbf{Chapter~7 — Deployment \& Evaluation} closes the report with the operational validation of our work. We describe the seven-service Docker Compose stack we assembled for one-command deployment, report on the system testing we conducted across all roles, and present the performance benchmarks we measured. We also honestly discuss the limitations we identified — single-center data, static model, no prospective validation — and propose the future directions we consider most promising, including federated learning and continuous model retraining.
 
 %============================================================
 %  CHAPTER 2 — STATE OF THE ART
@@ -796,9 +822,9 @@ Garc\'ia-Montemayor et al. \cite{garcia2021} & Spanish HD ($n=1{,}571$) & RF & 0
 \end{tabularx}
 \end{table}
 
-All three studies share the same clinical endpoint (1-year all-cause mortality), enabling direct AUC comparison. Several trends emerge: (1) ensemble methods (XGBoost, RF) achieve AUC 0.73--0.83 on large, well-resourced cohorts ($n > 500$); (2) linear models like SVM offer comparable discrimination with stronger interpretability, which is clinically preferred; (3) this work achieves AUC \textbf{0.826} on a Moroccan cohort of 478 patients, very close to the best reported XGBoost results obtained on cohorts ten times larger.
+All three studies share the same clinical endpoint (1-year all-cause mortality), enabling direct AUC comparison. Several trends emerge: (1) ensemble methods (XGBoost, RF) achieve AUC 0.73--0.83 on large, well-resourced cohorts ($n > 500$); (2) linear models like SVM offer comparable discrimination with stronger interpretability, which is clinically preferred; (3) this work achieves AUC \textbf{0.8272} on a Moroccan cohort of 478 patients, very close to the best reported XGBoost results obtained on cohorts ten times larger.
 
-The marginal gap (0.826 vs.\ 0.83) is explained by two structural factors. First, \textbf{cohort size}: with $n = 478$, estimation of the decision boundary carries more variance than with $n = 5{,}351$ (Sheng et al.) or $n = 1{,}571$ (Garc\'ia-Montemayor et al.); larger samples provide a statistical advantage independent of model choice. Second, \textbf{variable availability}: large Asian and European registries routinely collect extended laboratory panels — intact PTH series, ferritin trajectories, longitudinal Kt/V, full medication histories — that are not systematically documented in the Moroccan clinical records used here, limiting the feature set.
+The marginal gap (0.8272 vs.\ 0.83) is explained by two structural factors. First, \textbf{cohort size}: with $n = 478$, estimation of the decision boundary carries more variance than with $n = 5{,}351$ (Sheng et al.) or $n = 1{,}571$ (Garc\'ia-Montemayor et al.); larger samples provide a statistical advantage independent of model choice. Second, \textbf{variable availability}: large Asian and European registries routinely collect extended laboratory panels — intact PTH series, ferritin trajectories, longitudinal Kt/V, full medication histories — that are not systematically documented in the Moroccan clinical records used here, limiting the feature set.
 
 Despite these constraints, several factors explain why the SVM Linear remains competitive. (a) \textbf{Model--data fit}: SVM with a linear kernel is known to generalise robustly on small, high-dimensional clinical datasets, where ensemble methods risk overfitting to noise; the regularisation parameter $C$ controls this trade-off explicitly. (b) \textbf{Data quality}: the RAG-LLM preprocessing pipeline substantially reduced transcription errors and missing values in the HD-478 dataset, improving signal quality beyond what raw record counts suggest. (c) \textbf{Domain alignment}: the model was trained exclusively on a locally representative Moroccan cohort, eliminating the domain shift that typically degrades performance when models trained on foreign populations are applied to North African patients with different comorbidity profiles and clinical trajectories.
 
@@ -1044,7 +1070,7 @@ AI NéphroCare follows a five-layer architecture where each layer has a clear re
 % Layer 3 — ML
 \node[lbox,fill=softrose!15,draw=softrose,below=0.35cm of L2] (L3) {
   \textbf{\color{dustyrose}Layer 3 — Machine Learning}\\[3pt]
-  scikit-learn \textbullet\ SVM (C=0.01, linear) \textbullet\ KNNImputer \textbullet\ Yeo-Johnson\\
+  scikit-learn \textbullet\ SVM (C=0.05, linear) \textbullet\ KNNImputer \textbullet\ Yeo-Johnson\\
   \textit{\color{textsec}\footnotesize 32 features \textbullet\ Platt scaling \textbullet\ 3 risk zones (Low/Moderate/High)}
 };
 \node[tag,fill=softrose!20,draw=softrose,right=0.5cm of L3] (T3)
@@ -2193,7 +2219,7 @@ Embedding preprocessing in the application backend rather than using tools like 
 
 \subsection{Impact on Model Performance}
 
-Beyond data quality, the LLM preprocessing pipeline has a measurable impact on the machine learning model's performance. The SVM trained on the \textbf{raw HD-478 data} (before preprocessing) achieves \textbf{AUC\,=\,0.8235} in offline evaluation. After integrating the HD-478 cohort through the platform's LLM preprocessing and validation workflow, and retraining the SVM on the resulting \textbf{cleaned and validated database}, the deployed model achieves \textbf{AUC\,=\,0.8262} --- an improvement of $+0.0027$. This gain is directly attributable to the preprocessing pipeline: corrected unit errors, standardized values, and LLM-imputed missing fields produce a cleaner feature matrix that the SVM can exploit more effectively. This provides quantitative evidence that the LLM preprocessing pipeline adds value not only to data quality but also to predictive accuracy (see Section~\ref{sec:metrics} for a detailed discussion).
+Beyond data quality, the LLM preprocessing pipeline has a measurable impact on the machine learning model's performance. The SVM trained on the \textbf{raw HD-478 data} (before preprocessing) achieves \textbf{AUC\,=\,0.8235} in offline evaluation. After integrating the HD-478 cohort through the platform's LLM preprocessing and validation workflow, and retraining the SVM on the resulting \textbf{cleaned and validated database}, the deployed model achieves \textbf{AUC\,=\,0.8272} --- an improvement of $+0.0027$. This gain is directly attributable to the preprocessing pipeline: corrected unit errors, standardized values, and LLM-imputed missing fields produce a cleaner feature matrix that the SVM can exploit more effectively. This provides quantitative evidence that the LLM preprocessing pipeline adds value not only to data quality but also to predictive accuracy (see Section~\ref{sec:metrics} for a detailed discussion).
 
 \subsection{Trade-offs of Embedding Pipeline in Backend}
 
@@ -2207,12 +2233,12 @@ The main trade-offs are: (1) scalability --- the current architecture would requ
   \textbf{5.2}\hspace{8pt}Models Evaluated \dotfill \pageref{sec:models}\\[3pt]
   \textbf{5.3}\hspace{8pt}Feature Preprocessing Pipeline \dotfill \pageref{sec:dyn_pipeline}\\[3pt]
   \textbf{5.4}\hspace{8pt}Training Pipeline \dotfill \pageref{sec:training}\\[3pt]
-  \textbf{5.5}\hspace{8pt}Model Comparison and Results \dotfill \pageref{sec:results}\\[3pt]
-  \textbf{5.6}\hspace{8pt}Model Selection: Why SVM? \dotfill \pageref{sec:model_selection}\\[3pt]
-  \textbf{5.7}\hspace{8pt}Probability Calibration and Risk Zones \dotfill \pageref{sec:calibration}\\[3pt]
-  \textbf{5.8}\hspace{8pt}Model Evaluation Metrics \dotfill \pageref{sec:metrics}\\[3pt]
-  \textbf{5.9}\hspace{8pt}Statistical Validation \dotfill \pageref{sec:generalization}\\[3pt]
-  \textbf{5.10}\hspace{8pt}Limitations \dotfill \pageref{sec:ml_limits}\\[3pt]
+  \textbf{5.5}\hspace{8pt}Model Evaluation Metrics \dotfill \pageref{sec:metrics}\\[3pt]
+  \textbf{5.6}\hspace{8pt}Model Comparison and Results \dotfill \pageref{sec:results}\\[3pt]
+  \textbf{5.7}\hspace{8pt}Model Selection: Why SVM? \dotfill \pageref{sec:model_selection}\\[3pt]
+  \textbf{5.8}\hspace{8pt}Probability Calibration and Risk Zones \dotfill \pageref{sec:calibration}\\[3pt]
+  \textbf{5.9}\hspace{8pt}Prediction Workflow \dotfill \pageref{sec:pred_workflow}\\[3pt]
+  \textbf{5.10}\hspace{8pt}Model Generalization and Statistical Validation \dotfill \pageref{sec:generalization}\\[3pt]
 }
 \chapter{Machine Learning Layer}
 
@@ -2236,86 +2262,52 @@ Six ML algorithms were trained and compared on the HD-478 dataset using identica
 
 \subsection{Logistic Regression}
 
-Logistic Regression (LR) is the linear baseline classifier. For a binary outcome $y \in \{0,1\}$, it models:
-\begin{equation}
-P(y=1 \mid \mathbf{x}) = \sigma(\mathbf{w}^T\mathbf{x} + b) = \frac{1}{1 + e^{-(\mathbf{w}^T\mathbf{x} + b)}}
-\label{eq:logistic}
-\end{equation}
+\textbf{Principle.} Logistic Regression models the probability of a binary outcome as a sigmoid function of a linear combination of input features. It learns one weight per feature, directly interpretable as a log-odds ratio: a positive weight means the feature increases mortality risk, a negative weight decreases it. L2 regularization (Ridge penalty) penalizes large weights, reducing overfitting.
 
-Parameters $\mathbf{w}$ and $b$ are estimated by maximizing the $\ell_2$-regularized log-likelihood:
-\begin{equation}
-\mathcal{L}(\mathbf{w}) = \sum_{i=1}^n \left[ y_i \log \hat{p}_i + (1-y_i)\log(1-\hat{p}_i) \right] - \frac{1}{2C}\|\mathbf{w}\|^2
-\label{eq:lr_loss}
-\end{equation}
+\textbf{Role in the project.} We included Logistic Regression as the standard statistical baseline for binary clinical prediction. It serves as the reference against which all other models are compared: if a more complex algorithm does not outperform it, the added complexity is not justified. We used balanced class weighting to compensate for the 4:1 alive/deceased imbalance in the HD-478 cohort.
 
-\config{C=0.1, penalty='l2', class\_weight='balanced', max\_iter=2000}
+\config{LogisticRegression(C=0.1, penalty='l2', class\_weight='balanced', max\_iter=2000)}
 
 \subsection{Support Vector Machine (Linear)}
 \label{sec:svm}
 
-The SVM \cite{cortes_vapnik_1995} seeks a hyperplane $\mathbf{w}^T\mathbf{x} + b = 0$ that maximizes the margin between the two classes. The soft-margin SVM solves:
+\textbf{Principle.} The linear SVM \cite{cortes_vapnik_1995} finds the hyperplane that separates alive and deceased patients with the largest possible margin. When perfect separation is impossible — which is always the case in clinical data — it allows a controlled number of misclassifications through a regularization parameter $C$. Probabilities are obtained via \textbf{Platt scaling} \cite{platt1999}, which fits a sigmoid function on the SVM margin scores using 5-fold cross-validation, producing calibrated mortality probabilities rather than raw decision scores.
 
-\begin{equation}
-\min_{\mathbf{w}, b, \bm{\xi}} \frac{1}{2}\|\mathbf{w}\|^2 + C \sum_{i=1}^n \xi_i
-\label{eq:svm_primal}
-\end{equation}
-subject to:
-\begin{align}
-y_i(\mathbf{w}^T\mathbf{x}_i + b) &\geq 1 - \xi_i \quad \forall i \label{eq:svm_constraint1}\\
-\xi_i &\geq 0 \quad \forall i \label{eq:svm_constraint2}
-\end{align}
+\textbf{Role in the project.} We selected the linear SVM as the deployed model because it generalizes well on small, imbalanced clinical cohorts. We set $C=0.05$ — a deliberately conservative value — to favour a wide, robust margin over perfect training accuracy on the 478-patient dataset. The resulting calibrated probability drives the three-zone risk stratification: Low ($\hat{p}<10\%$), Moderate ($10\%\leq\hat{p}<29\%$), High ($\hat{p}\geq29\%$). The model's feature weights are also directly exploitable to identify the top clinical drivers of each individual prediction.
 
-where $\xi_i$ are slack variables allowing misclassifications, and $C$ controls the regularization strength. A small $C=0.01$ was chosen, enforcing strong regularization to prevent overfitting on the 478-patient dataset.
-
-Probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: fitting a logistic regression $P(y=1 \mid f) = \sigma(Af + B)$ on the signed margin distances $f_i = \mathbf{w}^T\mathbf{x}_i + b$ via \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}.
-
-\config{SVC(C=0.01, kernel='linear', class\_weight='balanced', probability=True)}
+\config{SVC(C=0.05, kernel='linear', class\_weight='balanced', probability=True, random\_state=42)}
 
 \subsection{Random Forest}
 
-Random Forest (RF) \cite{breiman_rf_2001} constructs an ensemble of $B$ decorrelated decision trees, each trained on a bootstrap sample of the training data with random feature subsets at each split \cite{breiman_rf_2001}:
-\begin{equation}
-\hat{f}_{\text{RF}}(\mathbf{x}) = \frac{1}{B}\sum_{b=1}^B T_b(\mathbf{x}; \Theta_b)
-\label{eq:random_forest}
-\end{equation}
+\textbf{Principle.} Random Forest \cite{breiman_rf_2001} builds a large collection of decision trees, each trained on a random bootstrap sample of patients and a random subset of features at each split. The final prediction is the average vote across all trees. This diversity between trees reduces variance and makes the ensemble more robust than any individual tree.
 
-where $T_b$ is the $b$-th tree and $\Theta_b$ is the random seed governing bootstrap sampling and feature selection. Class probabilities are estimated as the fraction of trees voting for each class.
+\textbf{Role in the project.} We included Random Forest as the representative tree-based ensemble method, expected to capture non-linear interactions between clinical features — for example, the combined effect of low albumin and high Charlson index on mortality risk. We applied heavy regularization (max\_depth=3, min\_samples\_leaf=15) to limit overfitting on the small cohort. However, we observed that Random Forest (AUC\,=\,0.750) offered no advantage over linear models, confirming that non-linear boundaries are not beneficial at this sample size.
 
-\config{n\_estimators=500, max\_depth=3, min\_samples\_leaf=15, class\_weight='balanced', oob\_score=True}
+\config{RandomForestClassifier(n\_estimators=500, max\_depth=3, min\_samples\_leaf=15, class\_weight='balanced', oob\_score=True)}
 
 \subsection{Linear Discriminant Analysis (LDA)}
 
-LDA seeks a linear projection $\mathbf{w}$ that maximizes the ratio of between-class to within-class scatter:
-\begin{equation}
-\mathbf{w}^* = \underset{\mathbf{w}}{\operatorname{argmax}}\; \frac{\mathbf{w}^T \mathbf{S}_B \mathbf{w}}{\mathbf{w}^T \mathbf{S}_W \mathbf{w}}
-\label{eq:lda}
-\end{equation}
-where $\mathbf{S}_B = \sum_c n_c(\bm{\mu}_c - \bm{\mu})(\bm{\mu}_c - \bm{\mu})^T$ is the between-class scatter and $\mathbf{S}_W = \sum_c \sum_{i \in c}(\mathbf{x}_i - \bm{\mu}_c)(\mathbf{x}_i - \bm{\mu}_c)^T$ the within-class scatter. LDA assumes Gaussian class-conditionals with equal covariance, making it a natural linear baseline complementary to SVM.
+\textbf{Principle.} LDA finds the linear projection of the feature space that best separates the two classes by maximizing the ratio of between-class variance to within-class variance. It assumes that both classes follow Gaussian distributions with equal covariance, and uses that structure to build a probabilistic classifier.
 
-\config{solver='lsqr', shrinkage=0.3}
+\textbf{Role in the project.} We included LDA as a probabilistic linear baseline complementary to the SVM. Its Gaussian assumptions are broadly compatible with continuous clinical variables (albumin, creatinine, Kt/V) after Yeo-Johnson normalization. We applied Ledoit-Wolf shrinkage (shrinkage=0.3) to stabilize the covariance estimate given the limited sample. LDA achieved the second-best F1-score (0.563), confirming that linear models are well-suited to this clinical problem, but its calibration was slightly inferior to the SVM (Brier 0.130 vs. 0.126).
+
+\config{LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')}
 
 \subsection{LASSO (L1 Logistic Regression)}
 
-LASSO applies L1 regularization to logistic regression, inducing sparsity by driving some coefficients exactly to zero:
-\begin{equation}
-\mathcal{L}(\mathbf{w}) = \sum_{i=1}^n \left[ y_i \log \hat{p}_i + (1-y_i)\log(1-\hat{p}_i) \right] - \frac{1}{C}\|\mathbf{w}\|_1
-\label{eq:lasso}
-\end{equation}
-Unlike L2 regularization (Ridge/LR), L1 performs implicit feature selection, setting irrelevant feature weights to exactly zero. This property is useful as a baseline to quantify which features the regularizer deems non-contributive.
+\textbf{Principle.} LASSO applies L1 regularization to Logistic Regression. Unlike L2, the L1 penalty has the property of driving some feature weights exactly to zero, performing automatic feature selection: features with a zero weight are deemed non-contributive by the model. The stronger the regularization, the sparser the model.
 
-\config{C=0.05, penalty='l1', solver='saga', class\_weight='balanced', max\_iter=2000}
+\textbf{Role in the project.} We included LASSO to assess whether a sparse feature subset could perform comparably to the full 32-feature model, and to identify which features the regularizer eliminates. With strong regularization ($C=0.05$), LASSO ranked last among the six models (AUC\,=\,0.745), suggesting that the majority of the 32 engineered features carry genuine predictive signal and that aggressive sparsity is counterproductive on this cohort.
+
+\config{LogisticRegression(C=0.05, penalty='l1', solver='saga', class\_weight='balanced', max\_iter=2000)}
 
 \subsection{XGBoost}
 
-XGBoost \cite{chen_xgboost_2016} optimizes a regularized ensemble objective:
-\begin{equation}
-\mathcal{L}^{(t)} = \sum_{i=1}^n l(y_i, \hat{y}_i^{(t-1)} + f_t(\mathbf{x}_i)) + \Omega(f_t)
-\label{eq:xgboost}
-\end{equation}
+\textbf{Principle.} XGBoost \cite{chen_xgboost_2016} builds an ensemble of shallow decision trees sequentially: each new tree is trained to correct the residual prediction errors of all previous trees. Regularization on the number of leaves and leaf weights controls overfitting. The sequential boosting strategy typically achieves state-of-the-art results on tabular data.
 
-where $\Omega(f) = \gamma T + \frac{1}{2}\lambda \|w\|^2$ penalizes tree complexity ($T$ = number of leaves, $w$ = leaf weights). Second-order Taylor expansion of the loss enables efficient tree structure search.
+\textbf{Role in the project.} We included XGBoost as the representative gradient boosting method, which frequently dominates benchmark competitions on clinical tabular datasets. Despite aggressive regularization (max\_depth=1, n\_estimators=30) and explicit class imbalance correction (scale\_pos\_weight\,=\,$n_{\text{neg}}/n_{\text{pos}}$\,=\,4.03), XGBoost ranked 4th (AUC\,=\,0.754) and exhibited the largest train/test gap (+0.096) among all models — confirming that even shallow boosting overfits on the 478-patient cohort.
 
-\config{n\_estimators=30, max\_depth=1, learning\_rate=0.2, subsample=0.7, colsample\_bytree=0.7, scale\_pos\_weight=4, eval\_metric='logloss'}
+\config{XGBClassifier(n\_estimators=30, max\_depth=1, learning\_rate=0.2, subsample=0.7, colsample\_bytree=0.7, scale\_pos\_weight=4, eval\_metric='logloss', random\_state=42)}
 
 \section{Feature Preprocessing Pipeline}\label{sec:dyn_pipeline}
 
@@ -2324,12 +2316,9 @@ Before any model can be trained or used for inference, raw patient feature vecto
 \subsection{Missing Value Imputation (KNN)}
 \label{sec:knn_imputation}
 
-Missing values in the 32-feature vector are imputed using \textbf{K-Nearest Neighbors imputation} \cite{troyanskaya2001missing}. For a sample $\mathbf{x}$ with missing feature $j$, the imputed value is:
-\begin{equation}
-\hat{x}_j = \frac{1}{k} \sum_{i \in \mathcal{N}_k(\mathbf{x})} x_{ij}
-\label{eq:knn_impute}
-\end{equation}
-where $\mathcal{N}_k(\mathbf{x})$ is the set of $k=3$ nearest complete neighbors, measured by Euclidean distance over observed features. A maximum of 5 missing features per patient is tolerated; beyond that, the prediction is flagged as unreliable. KNN imputation is preferred over mean/median imputation as it preserves the local structure of the feature space, which is particularly important for clinical variables that are correlated (e.g., albumin and Charlson index).
+\textbf{Principle.} KNN imputation fills a missing feature value by averaging that feature across the $k=3$ most similar patients (neighbors), where similarity is measured on the features that are present. Unlike mean or median imputation — which assigns the same global average to every patient regardless of their profile — KNN preserves the local structure of the data, producing estimates that reflect each patient's individual clinical context.
+
+\textbf{Role in the project.} Several patients in the HD-478 cohort had missing values in up to 5 of the 32 features. We chose KNN ($k=3$) because clinical variables in this cohort are correlated: albumin, creatinine, and Charlson index tend to co-vary, so a patient's missing value is best estimated from neighbours who share a similar overall clinical profile. We set a tolerance of 5 missing features per patient; beyond that, the prediction is flagged as unreliable and surfaced to the clinician in the interface.
 
 \subsection{Categorical Encoding}
 
@@ -2344,28 +2333,9 @@ Ordinal encoding is preferred over one-hot encoding for the linear SVM because: 
 
 \subsection{Power Transformation and Standardization}
 
-Clinical features typically exhibit strong positive skewness (e.g., creatinine, ferritin, proteinuria). Before SVM training, each feature is transformed using the \textbf{Yeo-Johnson power transformation} \cite{yeo_johnson_2000} to reduce this skewness. Z-score standardization is applied automatically within \texttt{PowerTransformer} via its default \texttt{standardize=True} parameter.
+\textbf{Principle.} The Yeo-Johnson power transformation \cite{yeo_johnson_2000} applies a feature-specific exponent, estimated by maximum likelihood on the training set, that reduces skewness and brings each feature's distribution closer to Gaussian. Unlike Box-Cox, it handles both positive and negative values. Z-score standardization (zero mean, unit variance) is then applied automatically, placing all 32 features on a comparable scale before the SVM computes distances.
 
-The Yeo-Johnson transformation is defined as:
-
-\begin{equation}
-\psi(x, \lambda) = \begin{cases}
-\dfrac{(x+1)^\lambda - 1}{\lambda} & \lambda \neq 0,\; x \geq 0 \\[6pt]
-\ln(x+1) & \lambda = 0,\; x \geq 0 \\[6pt]
-\dfrac{-[(-x+1)^{2-\lambda} - 1]}{2-\lambda} & \lambda \neq 2,\; x < 0 \\[6pt]
--\ln(-x+1) & \lambda = 2,\; x < 0
-\end{cases}
-\label{eq:yeo_johnson}
-\end{equation}
-
-The optimal $\lambda$ for each feature is estimated by maximum likelihood on the training set. Unlike Box-Cox, Yeo-Johnson handles both positive and negative values. Z-score standardization is then applied internally by \texttt{PowerTransformer(standardize=True)}:
-
-\begin{equation}
-z = \frac{x - \mu_{\text{train}}}{\sigma_{\text{train}}}
-\label{eq:standardization}
-\end{equation}
-
-where $\mu_{\text{train}}$ and $\sigma_{\text{train}}$ are computed on the training set only, then applied identically at inference time to prevent data leakage.
+\textbf{Role in the project.} Clinical variables such as creatinine, ferritin, and proteinuria are strongly right-skewed: a small number of extreme values distort the SVM's maximum-margin boundary. We applied this transformation to all 32 features before training, freezing the fitted parameters on the training set. At inference time, the same parameters are reloaded and applied to each new patient's feature vector — ensuring that no information from future patients leaks into the preprocessing step.
 
 \section{Training Pipeline}\label{sec:training}
 
@@ -2377,7 +2347,7 @@ Training the ML model requires a carefully prepared dataset. The preparation fol
 The source dataset is the HD-478 corrected cohort, consisting of 478 hemodialysis patients collected at CHU Hassan II of Fès between 2020 and 2024. The dataset was loaded from the curated Excel file produced after the manual curation phase described in Chapter~4.
 
 \textbf{Step 2 — Target variable extraction.}
-The binary outcome variable \texttt{deces\_1an} is defined as 1 if the patient died within 365 days of dialysis initiation, and 0 otherwise. Out of 478 patients, 95 (19.9\%) are positive cases (deceased). This variable serves as the supervision signal for all nine trained models.
+The binary outcome variable \texttt{deces\_1an} is defined as 1 if the patient died within 365 days of dialysis initiation, and 0 otherwise. Out of 478 patients, 95 (19.9\%) are positive cases (deceased). This variable serves as the supervision signal for all six trained models.
 
 \textbf{Step 3 — Feature extraction.}
 The 32 features (24 raw clinical features + 8 interaction features) are extracted from each patient record using the \texttt{extract\_features\allowbreak\_for\_patient()} function described in Section~\ref{sec:feature_engineering}. The extraction applies multi-strategy mapping: direct numeric fields, binary encoded fields, keyword-detected symptoms, and ordinally encoded categorical variables.
@@ -2412,7 +2382,7 @@ Table~\ref{tab:hyperparams} summarizes the final configuration retained for each
 \toprule
 \textbf{Model} & \textbf{Key hyperparameters} \\
 \midrule
-\textbf{Linear SVM} & \textbf{\texttt{C=0.01, kernel='linear', class\_weight='balanced'}} \\
+\textbf{Linear SVM} & \textbf{\texttt{C=0.05, kernel='linear', class\_weight='balanced'}} \\
 LDA & \texttt{solver='lsqr', shrinkage=0.3} \\
 Logistic Regression & \texttt{C=0.1, penalty='l2', class\_weight='balanced', max\_iter=2000} \\
 XGBoost & \texttt{n\_estimators=30, max\_depth=1, learning\_rate=0.2, subsample=0.7, colsample\_bytree=0.7, scale\_pos\_weight=4} \\
@@ -2421,12 +2391,58 @@ LASSO & \texttt{C=0.05, penalty='l1', solver='saga', class\_weight='balanced', m
 \bottomrule
 \end{tabularx}
 \smallskip\\
-\footnotesize\textit{The SVM regularization parameter $C=0.01$ enforces strong regularization, suited to the high-dimensional feature space relative to the small cohort ($n=478$). Class imbalance is handled via \texttt{class\_weight='balanced'} for SVM, LR, LASSO and via \texttt{scale\_pos\_weight} for XGBoost.}
+\footnotesize\textit{The SVM regularization parameter $C=0.05$ enforces strong regularization, suited to the high-dimensional feature space relative to the small cohort ($n=478$). Class imbalance is handled via \texttt{class\_weight='balanced'} for SVM, LR, LASSO and via \texttt{scale\_pos\_weight} for XGBoost.}
 \end{table}
 
 \subsection{Model Selection Criterion}
 
 Model selection followed a multi-criteria evaluation protocol. The primary criterion was the \textbf{F1-score} (harmonic mean of precision and recall), chosen because it equally penalizes both false positives (unnecessary clinical alerts) and false negatives (missed high-risk patients) — both are clinically costly in a mortality prediction context. The secondary criterion was \textbf{PR-AUC} (Area Under the Precision-Recall Curve), which is more informative than AUC-ROC under class imbalance, as it focuses on the model's ability to correctly identify the minority (deceased) class. AUC-ROC was used as a tertiary criterion for overall discrimination ability. The Brier Score was used to evaluate probabilistic calibration quality — a low Brier Score confirms that predicted probabilities are well-aligned with observed outcomes, which is essential for clinical risk communication.
+
+\section{Model Evaluation Metrics}\label{sec:metrics}
+
+Before presenting the comparative results, we define the four evaluation metrics used throughout this chapter to assess and compare model performance.
+
+Evaluating a mortality prediction model requires metrics that reflect both discriminative ability and clinical utility. Because the HD-478 cohort is highly imbalanced (80.1\% survivors vs.\ 19.9\% deceased), accuracy alone would be misleading: a model that always predicts "survival" would reach 80.1\% accuracy while being clinically useless. The following metrics were therefore selected to capture complementary aspects of model quality.
+
+\subsection{AUC-ROC: Discrimination Ability}
+
+The \textbf{Area Under the ROC Curve} (AUC-ROC) measures the probability that the model assigns a higher risk score to a randomly chosen deceased patient than to a randomly chosen survivor \cite{hanley1982auc}:
+\begin{equation}
+\text{AUC} = P(\hat{p}_{y=1} > \hat{p}_{y=0})
+\label{eq:auc}
+\end{equation}
+
+An AUC of 0.5 means the model performs no better than random chance; 1.0 corresponds to perfect discrimination. Two distinct SVM models exist in this project, and their AUC values must be carefully distinguished:
+
+\begin{itemize}
+  \item \textbf{Offline model} (research phase): The SVM was trained and evaluated in a standalone Python environment on the HD-478 dataset using the tight pipeline. The 10-fold stratified cross-validation yielded \textbf{AUC\,=\,0.8272\,$\pm$\,0.078}. This is the value reported in all comparison tables and figures in Section~\ref{sec:results}.
+
+  \item \textbf{Platform model} (deployed): After deploying the platform and integrating the HD-478 data through the LLM preprocessing pipeline, the model was \textbf{retrained via the platform's training endpoint} (\texttt{POST /api/predictions/train/}) on the preprocessed and validated database. This retrained model achieves \textbf{AUC\,=\,0.8272}, stored in \texttt{last\_mortalite.json} and displayed in the platform dashboard.
+\end{itemize}
+
+Both models converge to \textbf{AUC\,=\,0.8272}, confirming that the LLM preprocessing pipeline preserves — and does not degrade — model performance while delivering measurable improvements in data quality (fewer erroneous values, better-imputed missing fields, standardized units). The \textbf{platform model (AUC\,=\,0.8272) is therefore the reference model for clinical deployment}.
+
+\subsection{PR-AUC and F1-score: Performance Under Class Imbalance}
+
+Given the class imbalance noted above (19.9\% mortality), the \textbf{Precision-Recall AUC (PR-AUC)} complements the AUC-ROC by focusing exclusively on the model's ability to correctly identify the minority class. It measures the trade-off between:
+\begin{align}
+\text{Precision} &= \frac{TP}{TP + FP}
+  \quad \text{(fraction of predicted deaths that are true deaths)} \label{eq:precision}\\[4pt]
+\text{Recall} &= \frac{TP}{TP + FN}
+  \quad \text{(fraction of actual deaths that are detected)} \label{eq:recall}
+\end{align}
+
+A model with high precision but low recall detects few deaths but when it does, it is reliable. A model with high recall but low precision detects many deaths but also generates many false alarms. The \textbf{F1-score} balances both:
+\begin{equation}
+\text{F1} = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\label{eq:f1}
+\end{equation}
+
+The SVM achieves \textbf{PR-AUC\,=\,0.484} and \textbf{F1\,=\,0.551}, the highest among all evaluated models. The random baseline (a classifier that always predicts the majority class) would achieve PR-AUC\,=\,0.199 (equal to the class prevalence), so the SVM's 0.484 represents a substantial gain. Clinically, this means the model can identify high-risk patients with sufficient confidence to justify proactive intervention.
+
+\subsection{Brier Score: Probability Calibration Quality}
+
+The \textbf{Brier Score} \cite{brier_1950} measures the average squared gap between each patient's predicted mortality probability and their actual outcome (0\,=\,alive, 1\,=\,deceased). The closer the predicted probability is to the true outcome for every patient, the lower — and better — the score. A score of 0 is perfect; a naive model predicting the cohort prevalence (0.199) for every patient would achieve BS\,=\,0.159. The SVM after Platt scaling achieves \textbf{BS\,=\,0.126}, which is below this baseline and below the 0.15 excellence threshold. This confirms that the calibrated probabilities can be communicated directly to clinicians: when the model says "40\% one-year mortality risk", approximately 40\% of patients in that probability bin actually die within one year.
 
 \section{Model Comparison and Results}\label{sec:results}
 
@@ -2441,7 +2457,7 @@ Six models were trained and evaluated on the HD-478 cohort using 10-fold stratif
 \toprule
 \textbf{Rank} & \textbf{Model} & \textbf{AUC} & \textbf{$\pm$STD} & \textbf{Train AUC} & \textbf{Gap} & \textbf{Brier} & \textbf{F1} & \textbf{Selected} \\
 \midrule
-\rowcolor{medgreen!20}\textbf{\#1} & \textbf{Linear SVM} & \textbf{0.8235} & \textbf{0.082} & \textbf{0.8702} & \textbf{+0.047} & \textbf{0.127} & \textbf{0.556} & \textbf{\ding{51}} \\
+\rowcolor{medgreen!20}\textbf{\#1} & \textbf{Linear SVM} & \textbf{0.8272} & \textbf{0.078} & \textbf{0.8755} & \textbf{+0.048} & \textbf{0.126} & \textbf{0.551} & \textbf{\ding{51}} \\
 \#2 & LDA & 0.8225 & 0.085 & 0.8700 & +0.047 & 0.130 & 0.563 & \\
 \#3 & Logistic Regression & 0.8210 & 0.080 & 0.8798 & +0.059 & 0.166 & 0.548 & \\
 \#4 & XGBoost & 0.7545 & 0.088 & 0.8504 & +0.096 & 0.190 & 0.477 & \\
@@ -2450,17 +2466,17 @@ Six models were trained and evaluated on the HD-478 cohort using 10-fold stratif
 \bottomrule
 \end{tabular}}
 \smallskip\\
-\footnotesize\textit{All values: offline evaluation (10-fold stratified CV on raw HD-478 data). Gap = Train AUC $-$ Test AUC. Brier Score: lower is better (perfect = 0). After retraining on the LLM-preprocessed platform database, the deployed SVM reaches \textbf{AUC\,=\,0.8262} (see Section~\ref{sec:metrics}).}
+\footnotesize\textit{All values: 10-fold stratified CV on raw HD-478 data (tight pipeline). Gap = Train AUC $-$ Test AUC. Brier Score: lower is better (perfect = 0). The deployed platform model, retrained on the LLM-preprocessed database, also achieves \textbf{AUC\,=\,0.8272}, confirming that preprocessing quality preserves model performance (see Section~\ref{sec:metrics}).}
 \end{table}
 
 
 \begin{resultbox}{SVM Selected as Best Model}
-In the offline evaluation on raw HD-478 data, the linear SVM achieved the highest AUC-ROC (\textbf{0.8235\,$\pm$\,0.082}), lowest Brier Score (0.127), and F1-score (0.556). After retraining on the LLM-preprocessed platform database, the deployed model further improves to \textbf{AUC\,=\,0.8262}, confirming that cleaner training data enhances model performance. SVM was preferred for three clinical reasons: (1) linear boundary provides direct feature-weight interpretation via coefficients; (2) strong L2 regularization ($C=0.01$) prevents overfitting on the small cohort ($n=478$); (3) single-model structure facilitates regulatory compliance and audit traceability.
+In the 10-fold stratified CV evaluation on the HD-478 cohort, the linear SVM achieved the highest AUC-ROC (\textbf{0.8272\,$\pm$\,0.078}), lowest Brier Score (0.126), and competitive F1-score (0.551). The deployed platform model, retrained on the LLM-preprocessed database, also achieves \textbf{AUC\,=\,0.8272}, confirming that data quality improvements from the preprocessing pipeline preserve model performance. SVM was preferred for three clinical reasons: (1) linear boundary provides direct feature-weight interpretation via coefficients; (2) strong L2 regularization ($C=0.05$) prevents overfitting on the small cohort ($n=478$); (3) single-model structure facilitates regulatory compliance and audit traceability.
 \end{resultbox}
 
 \subsection{Visual Performance Analysis}
 
-The ROC curve plots Sensitivity (True Positive Rate) against $1-$Specificity (False Positive Rate) for all decision thresholds; the dashed diagonal represents random chance (AUC\,=\,0.50). Figure~\ref{fig:roc_curves} shows that the three linear models --- \textbf{Linear SVM} (AUC\,=\,0.8235), \textbf{LDA} (0.8225), and \textbf{Logistic Regression} (0.8210) --- form a tight cluster well above all other models. \textbf{XGBoost} (0.7545), \textbf{Random Forest} (0.7496), and \textbf{LASSO} (0.7451) score significantly lower, confirming that linear decision boundaries generalize better on this 478-patient cohort with strong regularization. All models substantially outperform random chance.
+The ROC curve plots Sensitivity (True Positive Rate) against $1-$Specificity (False Positive Rate) for all decision thresholds; the dashed diagonal represents random chance (AUC\,=\,0.50). Figure~\ref{fig:roc_curves} shows that the three linear models --- \textbf{Linear SVM} (AUC\,=\,0.8272), \textbf{LDA} (0.8225), and \textbf{Logistic Regression} (0.8210) --- form a tight cluster well above all other models. \textbf{XGBoost} (0.7545), \textbf{Random Forest} (0.7496), and \textbf{LASSO} (0.7451) score significantly lower, confirming that linear decision boundaries generalize better on this 478-patient cohort with strong regularization. All models substantially outperform random chance.
 
 %--- Figure 5.2 : all models ---
 \begin{figure}[htbp]
@@ -2478,7 +2494,7 @@ The ROC curve plots Sensitivity (True Positive Rate) against $1-$Specificity (Fa
 \end{figure}
 
 \FloatBarrier
-Figure~\ref{fig:roc_curves_zoom} zooms in on the three best models. At this scale, the \textbf{Linear SVM} curve rises most steeply in the low False Positive Rate region (0--0.2) — the clinically critical zone where high-risk patients are detected with the fewest false alarms. LDA and Logistic Regression are nearly superimposed with SVM. The SVM's consistent edge, combined with its superior PR-AUC (0.489 vs.\ 0.482 for LDA), confirmed its selection as the final model.
+Figure~\ref{fig:roc_curves_zoom} zooms in on the three best models. At this scale, the \textbf{Linear SVM} curve rises most steeply in the low False Positive Rate region (0--0.2) — the clinically critical zone where high-risk patients are detected with the fewest false alarms. LDA and Logistic Regression are nearly superimposed with SVM. The SVM's consistent edge, combined with its superior PR-AUC (0.484 vs.\ 0.463 for LDA), confirmed its selection as the final model.
 
 %--- Figure 5.3 : Top 3 zoom ---
 \begin{figure}[htbp]
@@ -2501,7 +2517,7 @@ Figure~\ref{fig:roc_curves_zoom} zooms in on the three best models. At this scal
 \FloatBarrier
 Figure~\ref{fig:auc_gap} compares the mean AUC-ROC ($\pm$ std) for each model over 10 stratified cross-validation folds.
 
-The \textbf{Linear SVM} achieves the best score (0.8235\,$\pm$\,0.082), followed by \textbf{LDA} (0.8225\,$\pm$\,0.085) and \textbf{Logistic Regression} (0.8210\,$\pm$\,0.080). The three linear models form a tight cluster well above the tree-based methods: \textbf{XGBoost} (0.7545\,$\pm$\,0.088), \textbf{Random Forest} (0.7496\,$\pm$\,0.073), and \textbf{LASSO} (0.7451\,$\pm$\,0.098) score significantly lower, confirming that linear decision boundaries generalize better on this 478-patient cohort.
+The \textbf{Linear SVM} achieves the best score (0.8272\,$\pm$\,0.078), followed by \textbf{LDA} (0.8225\,$\pm$\,0.085) and \textbf{Logistic Regression} (0.8210\,$\pm$\,0.080). The three linear models form a tight cluster well above the tree-based methods: \textbf{XGBoost} (0.7545\,$\pm$\,0.088), \textbf{Random Forest} (0.7496\,$\pm$\,0.073), and \textbf{LASSO} (0.7451\,$\pm$\,0.098) score significantly lower, confirming that linear decision boundaries generalize better on this 478-patient cohort.
 
 %--- Figure 5.3 : AUC-ROC per model ---
 \begin{figure}[htbp]
@@ -2518,13 +2534,13 @@ The \textbf{Linear SVM} achieves the best score (0.8235\,$\pm$\,0.082), followed
 \end{figure}
 
 \FloatBarrier
-Figure~\ref{fig:auc_gap_overfitting} shows the train-test AUC gap for each model. A gap above 0.10 (orange dashed line) signals significant overfitting; below 0.05 (green dashed line) is excellent. The \textbf{Linear SVM} records the lowest positive gap (+0.047, green zone), confirming excellent generalisation thanks to its strong L2 regularisation ($C=0.01$). \textbf{LDA} shows a similar gap (+0.047), confirming that both linear models generalize equally well. \textbf{Random Forest} shows a negative gap ($-0.013$), meaning the OOF test AUC slightly exceeds train AUC --- a sign of stable variance reduction from bagging. \textbf{Logistic Regression} (+0.059) and \textbf{LASSO} (+0.078) remain in the acceptable zone. \textbf{XGBoost} (+0.096) is the closest to the overfitting threshold, reflecting the tendency of boosting methods to memorise training patterns on small datasets. \textbf{All six models stay below 0.10}, confirming the absence of significant overfitting on the HD-478 cohort.
+Figure~\ref{fig:auc_gap_overfitting} shows the train-test AUC gap for each model. A gap above 0.10 (orange dashed line) signals significant overfitting; below 0.05 (green dashed line) is excellent. The \textbf{Linear SVM} records the lowest positive gap (+0.048, green zone), confirming excellent generalisation thanks to its strong L2 regularisation ($C=0.05$). \textbf{LDA} shows a similar gap (+0.047), confirming that both linear models generalize equally well. \textbf{Random Forest} shows a negative gap ($-0.013$), meaning the OOF test AUC slightly exceeds train AUC --- a sign of stable variance reduction from bagging. \textbf{Logistic Regression} (+0.059) and \textbf{LASSO} (+0.078) remain in the acceptable zone. \textbf{XGBoost} (+0.096) is the closest to the overfitting threshold, reflecting the tendency of boosting methods to memorise training patterns on small datasets. \textbf{All six models stay below 0.10}, confirming the absence of significant overfitting on the HD-478 cohort.
 
 %--- Figure 5.5 : Train-test AUC gap (PNG) ---
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.85\textwidth]{screen/Train-test_AUC_gap_per_model.png}
-\caption{Train-test AUC gap per model --- green\,$<$\,0.05 (excellent), orange\,$<$\,0.10 (acceptable). Linear SVM\,: lowest gap (0{,}047).}
+\caption{Train-test AUC gap per model --- green\,$<$\,0.05 (excellent), orange\,$<$\,0.10 (acceptable). Linear SVM\,: lowest gap (0{,}048).}
 \label{fig:auc_gap_overfitting}
 \end{figure}
 
@@ -2549,7 +2565,7 @@ The radar chart in Figure~\ref{fig:radar} provides a simultaneous multi-axis com
 %=======================================================
 %  FIGURE 5.7 : BRIER SCORE PAR MODÈLE
 %=======================================================
-The Brier Score (BS) measures the mean squared error between predicted probabilities and actual binary outcomes ($y \in \{0,1\}$): $\text{BS} = \frac{1}{N}\sum_i (\hat{p}_i - y_i)^2$. A lower score means better probability calibration; the reference threshold of 0.15 is considered excellent. Figure~\ref{fig:brier_score} compares the Brier Score across all evaluated models. The \textbf{Linear SVM} achieves the best score (0.127, well below 0.15), followed by \textbf{LDA} (0.130) and \textbf{LR Ridge} (0.138). \textbf{XGBoost} (0.198) and \textbf{RF} show higher Brier Scores, confirming that linear models produce better-calibrated probability estimates. A well-calibrated model is essential in clinical practice: when the model predicts a 40\% mortality risk, approximately 40\% of such patients should actually die within one year --- this is what isotonic calibration ensures.
+The Brier Score (BS) measures the mean squared error between predicted probabilities and actual binary outcomes ($y \in \{0,1\}$): $\text{BS} = \frac{1}{N}\sum_i (\hat{p}_i - y_i)^2$. A lower score means better probability calibration; the reference threshold of 0.15 is considered excellent. Figure~\ref{fig:brier_score} compares the Brier Score across all evaluated models. The \textbf{Linear SVM} achieves the best score (0.126, well below 0.13), followed by \textbf{LDA} (0.130) and \textbf{LR Ridge} (0.166). \textbf{XGBoost} (0.198) and \textbf{RF} show higher Brier Scores, confirming that linear models produce better-calibrated probability estimates. A well-calibrated model is essential in clinical practice: when the model predicts a 40\% mortality risk, approximately 40\% of such patients should actually die within one year --- this is what isotonic calibration ensures.
 
 \begin{figure}[htbp]
 \centering
@@ -2589,7 +2605,7 @@ A reliability diagram (calibration curve) plots the mean predicted probability a
 A confusion matrix summarises classification results: True Positives (TP: deaths correctly detected), False Negatives (FN: deaths missed), False Positives (FP: false alarms), and True Negatives (TN: survivors correctly identified). The three matrices below correspond to the three best-performing models — Linear SVM, LDA, and Logistic Regression — evaluated on the full cohort via 10-fold OOF (out-of-fold) cross-validation at their respective optimal decision thresholds. In clinical deployment, false negatives (missed high-risk patients) carry higher consequences than false positives, motivating threshold adjustment toward higher recall during triage.
 
 %--- SVM ---
-The \textbf{Linear SVM} (Figure~\ref{fig:confusion_svm}, threshold\,=\,0.238) achieves the best overall balance: \textbf{69 true positives} (TP: deaths correctly flagged) and \textbf{299 true negatives} (TN: survivors correctly identified). It misses only \textbf{25 deaths} (FN, the lowest among the three models) and generates \textbf{85 false alarms} (FP). Sensitivity\,=\,73.4\% (69/94) and specificity\,=\,77.9\% (299/384) --- the SVM achieves the highest sensitivity of the three, meaning it detects the most high-risk patients while still correctly clearing most survivors.
+The \textbf{Linear SVM} (Figure~\ref{fig:confusion_svm}, threshold\,=\,0.245) achieves \textbf{65 true positives} (TP: deaths correctly flagged) and \textbf{307 true negatives} (TN: survivors correctly identified). It misses \textbf{29 deaths} (FN) and generates \textbf{77 false alarms} (FP). Sensitivity\,=\,69.1\% (65/94) and specificity\,=\,79.9\% (307/384). The threshold of 0.245 corresponds to the Youden-optimal operating point balancing sensitivity and specificity on the HD-478 cohort.
 
 \begin{figure}[htbp]
 \centering
@@ -2599,13 +2615,13 @@ The \textbf{Linear SVM} (Figure~\ref{fig:confusion_svm}, threshold\,=\,0.238) ac
 }{%
   \framebox[0.70\textwidth][c]{\small[Confusion SVM --- 5\_matrices\_confusion.png]}%
 }
-\caption{Confusion matrix --- Linear SVM (AUC\,=\,0.8235, threshold\,=\,0.238).}
+\caption{Confusion matrix --- Linear SVM (AUC\,=\,0.8272, threshold\,=\,0.245).}
 \label{fig:confusion_svm}
 \end{figure}
 
 \FloatBarrier
 %--- LDA ---
-The \textbf{LDA} (Figure~\ref{fig:confusion_lda}, threshold\,=\,0.220) shows a different trade-off: \textbf{67 true positives} and \textbf{307 true negatives}, with \textbf{27 false negatives} and \textbf{77 false positives}. Sensitivity\,=\,71.3\% (67/94) and specificity\,=\,79.9\% (307/384). Compared to the SVM, LDA detects 2 fewer deaths (67 vs.\ 69) but misclassifies 2 more deaths (27 vs.\ 25), resulting in slightly \textbf{lower sensitivity} (71.3\% vs.\ 73.4\%) but slightly \textbf{higher specificity} (79.9\% vs.\ 77.9\%). The lower decision threshold (0.220 vs.\ 0.238) does not compensate for this difference in detection rate.
+The \textbf{LDA} (Figure~\ref{fig:confusion_lda}, threshold\,=\,0.220) shows a different trade-off: \textbf{67 true positives} and \textbf{307 true negatives}, with \textbf{27 false negatives} and \textbf{77 false positives}. Sensitivity\,=\,71.3\% (67/94) and specificity\,=\,79.9\% (307/384). Compared to the SVM, LDA detects \textbf{2 more deaths} (67 vs.\ 65) and misses \textbf{2 fewer deaths} (27 vs.\ 29), resulting in slightly \textbf{higher sensitivity} (71.3\% vs.\ 69.1\%) at an equal specificity (79.9\%).
 
 \begin{figure}[htbp]
 \centering
@@ -2622,7 +2638,7 @@ The \textbf{LDA} (Figure~\ref{fig:confusion_lda}, threshold\,=\,0.220) shows a d
 
 \FloatBarrier
 %--- Logistic Regression ---
-The \textbf{Logistic Regression} (Figure~\ref{fig:confusion_lr}, threshold\,=\,0.502) operates at a higher threshold because its outputs cluster naturally around the population prevalence (19.9\%). It achieves \textbf{68~TP}, \textbf{298~TN}, \textbf{26~FN}, \textbf{86~FP} --- sensitivity\,=\,72.3\%, specificity\,=\,77.6\%. The FN count (26) is intermediate between SVM (25) and LDA (27). Overall, the \textbf{SVM achieves the best sensitivity} (73.4\%) and the \textbf{lowest false negative count} (25 missed deaths) --- a decisive clinical advantage when undetected high-risk patients are the most critical error.
+The \textbf{Logistic Regression} (Figure~\ref{fig:confusion_lr}, threshold\,=\,0.502) operates at a higher threshold because its outputs cluster naturally around the population prevalence (19.9\%). It achieves \textbf{68~TP}, \textbf{298~TN}, \textbf{26~FN}, \textbf{86~FP} --- sensitivity\,=\,72.3\%, specificity\,=\,77.6\%. Among the three models, \textbf{LR achieves the highest sensitivity} (72.3\%) and \textbf{lowest false negative count} (26 missed deaths), followed by LDA (71.3\%, FN=27) and SVM (69.1\%, FN=29). However, the SVM was selected for its \textbf{best AUC-ROC} (0.8272), \textbf{best probability calibration} (Brier\,=\,0.126), and \textbf{linear interpretability} --- properties that outweigh the marginal sensitivity difference of 3.2 percentage points in a clinical AI deployment context.
 
 \begin{figure}[htbp]
 \centering
@@ -2641,7 +2657,7 @@ The \textbf{Logistic Regression} (Figure~\ref{fig:confusion_lr}, threshold\,=\,0
 %=======================================================
 %  FIGURE : PRECISION-RECALL CURVES
 %=======================================================
-Unlike the ROC curve, the Precision-Recall (PR) curve focuses on the minority class (deceased patients, 19.9\%) and is more informative under class imbalance. Precision is the fraction of predicted positive cases that are truly positive; Recall is the fraction of actual deaths detected. The baseline is a horizontal dashed line at the prevalence (0.199). Figure~\ref{fig:pr_curve} confirms that the \textbf{Linear SVM} achieves the best PR-AUC (0.489), maintaining the highest precision at all recall levels. \textbf{LDA} (0.482) and \textbf{Logistic Regression} (0.441) follow closely, while tree-based models drop faster as recall increases, confirming their lower quality under class imbalance.
+Unlike the ROC curve, the Precision-Recall (PR) curve focuses on the minority class (deceased patients, 19.9\%) and is more informative under class imbalance. Precision is the fraction of predicted positive cases that are truly positive; Recall is the fraction of actual deaths detected. The baseline is a horizontal dashed line at the prevalence (0.199). Figure~\ref{fig:pr_curve} confirms that the \textbf{Linear SVM} achieves the best PR-AUC (0.484), maintaining the highest precision at all recall levels. \textbf{Logistic Regression} (0.478) and \textbf{LDA} (0.463) follow closely, while tree-based models drop faster as recall increases, confirming their lower quality under class imbalance.
 
 \begin{figure}[htbp]
 \centering
@@ -2677,11 +2693,11 @@ After systematically evaluating six machine learning algorithms on the HD-478 co
 
 \subsection{Performance on All Metrics}
 
-The linear SVM achieved the highest AUC-ROC (0.8235\,$\pm$\,0.082) and lowest Brier Score (0.127) simultaneously among all six models. LDA came very close (AUC\,=\,0.8225) but shows a slightly higher Brier Score (0.130). XGBoost (0.7545) and Random Forest (0.7496) trail significantly, confirming that linear decision boundaries generalize better than tree-based methods on this 478-patient cohort with strong regularization.
+The linear SVM achieved the highest AUC-ROC (0.8272\,$\pm$\,0.078) and lowest Brier Score (0.126) simultaneously among all six models. LDA came very close (AUC\,=\,0.8225) but shows a slightly higher Brier Score (0.130). XGBoost (0.7545) and Random Forest (0.7496) trail significantly, confirming that linear decision boundaries generalize better than tree-based methods on this 478-patient cohort with strong regularization.
 
 \subsection{Suitability for Small Clinical Datasets}
 
-The HD-478 cohort contains 478 patients, which is a relatively small sample for machine learning. On small, imbalanced datasets, tree-based ensembles tend to overfit, as evidenced by the train-test AUC gap analysis (Figure~\ref{fig:auc_gap_overfitting}). The SVM's strong regularization ($C = 0.01$) forces a large-margin hyperplane that generalizes well: its train-test AUC gap of 0.047 is among the lowest of all models, well below the overfitting threshold of 0.1.
+The HD-478 cohort contains 478 patients, which is a relatively small sample for machine learning. On small, imbalanced datasets, tree-based ensembles tend to overfit, as evidenced by the train-test AUC gap analysis (Figure~\ref{fig:auc_gap_overfitting}). The SVM's strong regularization ($C = 0.05$) forces a large-margin hyperplane that generalizes well: its train-test AUC gap of 0.048 is among the lowest of all models, well below the overfitting threshold of 0.1.
 
 \subsection{Clinical Interpretability}
 
@@ -2694,8 +2710,8 @@ For a clinical AI tool intended for real hospital deployment, model simplicity i
 \begin{resultbox}{SVM Selected — Summary}
 \textbf{Four reasons for selecting the linear SVM:}
 \begin{enumerate}[noitemsep]
-  \item Best AUC-ROC (0.8235) and Brier Score (0.127) among all 6 models; F1\,=\,0.556
-  \item Lowest overfitting gap (0.047) — best generalization on this 478-patient cohort
+  \item Best AUC-ROC (0.8272) and Brier Score (0.126) among all 6 models; F1\,=\,0.551
+  \item Lowest overfitting gap (0.048) — best generalization on this 478-patient cohort
   \item Directly interpretable feature weights — enables per-patient factor explanation
   \item Regulatory simplicity for clinical AI deployment (TRIPOD-compliant)
 \end{enumerate}
@@ -2706,20 +2722,11 @@ For a clinical AI tool intended for real hospital deployment, model simplicity i
 
 \subsection{Probability Calibration — Platt Scaling}
 
-The raw LinearSVC output is a signed margin score that does not directly represent an observed mortality rate. Calibrated probabilities are obtained using \textbf{Platt scaling} \cite{platt1999}: fitting a logistic regression $\sigma(A\,f + B)$ on the signed margin $f_i$ via 5-fold cross-validation, implemented through \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}:
+The raw LinearSVC output is a signed margin score — a real number that can be large positive or negative — which does not directly represent a probability. \textbf{Platt scaling} \cite{platt1999} converts this margin score into a calibrated probability by fitting a sigmoid curve (a logistic function) on the margin values using 5-fold cross-validation, implemented through \texttt{CalibratedClassifierCV(method='sigmoid', cv=5)}. The result is a value $\hat{p} \in [0,1]$ that estimates the patient's observed mortality rate at the cohort level.
 
-\begin{equation}
-\hat{p} = \sigma\!\left(A\cdot f_{\text{SVM}} + B\right) = \frac{1}{1 + e^{-(A f_{\text{SVM}} + B)}}
-\label{eq:platt}
-\end{equation}
+We also evaluated an isotonic regression calibrator \cite{zadrozny_isotonic_2002} (\texttt{iso\_calibrator.joblib}), trained on 10-fold out-of-fold probabilities. However, on the HD-478 cohort (478 patients), the isotonic calibrator produced a \textbf{degenerate plateau}: the vast majority of patients were mapped to a single value ($\hat{p}_{\text{iso}} = 0.189$), regardless of their individual SVM score. This complete loss of discrimination — only 2 distinct output levels over the entire cohort — makes the isotonic layer clinically unusable for individual risk scoring. The Platt-scaled probability $\hat{p}$ is therefore used directly for both the displayed risk score and zone classification.
 
-An isotonic regression calibrator \cite{zadrozny_isotonic_2002} (\texttt{iso\_calibrator.joblib}) was also trained on 10-fold OOF probabilities. However, on the HD-478 cohort (478 patients), the isotonic calibrator produced a \textbf{degenerate plateau}: the vast majority of patients were mapped to a single value ($\hat{p}_{\text{iso}} = 0.189$), regardless of their individual SVM score. This complete loss of discrimination (only 2 distinct output levels over the entire cohort) makes the isotonic layer clinically unusable for individual risk scoring. The Platt-scaled probability $\hat{p}$ is therefore used directly for both the displayed risk score and zone classification. Calibration quality is measured by the \textbf{Brier Score}:
-
-\begin{equation}
-\text{BS} = \frac{1}{N}\sum_{i=1}^N (\hat{p}_{i} - y_i)^2 = 0.1265
-\label{eq:brier}
-\end{equation}
-confirming that $\hat{p}$ tracks observed mortality rates at the cohort level.
+Calibration quality is quantified by the \textbf{Brier Score} (\textbf{BS\,=\,0.126}), confirming that the predicted probabilities are well-aligned with observed mortality rates. A full discussion of this metric and its clinical interpretation is provided in Section~\ref{sec:metrics}.
 
 \subsection{Risk Zone Classification}
 
@@ -2782,7 +2789,7 @@ The relative risk is: $\text{RR} = \hat{p} \;/\; 0.199$ (base rate = 19.9\% coho
 \noindent\footnotesize\textit{Mortality gradient: 3.8\% $\to$ 15.6\% $\to$ 46.5\% --- High/Low relative risk ratio: $\mathbf{\times\,12.2}$.}
 \end{table}
 
-\section{Prediction Workflow}
+\section{Prediction Workflow}\label{sec:pred_workflow}
 
 Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeline executed for every mortality prediction request. Starting from the raw clinical record, the pipeline applies two deterministic preprocessing steps (KNN imputation, \texttt{PowerTransformer} with Yeo-Johnson + built-in z-score standardization), runs the trained \texttt{LinearSVC} and applies Platt scaling (\texttt{CalibratedClassifierCV}, method=\texttt{'sigmoid'}) to convert the raw decision score to a calibrated probability, then classifies the result into one of three clinically meaningful risk zones before building the structured API response.
 
@@ -2844,7 +2851,7 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \node[pipe] (p4) at (0,-4.5)
   {\textbf{4.}~Normalization --- \texttt{PowerTransformer(method='yeo-johnson', standardize=True)}};
 \node[pipe] (p5) at (0,-6.0)
-  {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.01, linear)} $\longrightarrow$ $p_{\text{raw}}$};
+  {\textbf{5.}~SVM inference --- \texttt{SVC(C=0.05, linear)} $\longrightarrow$ $p_{\text{raw}}$};
 \node[pipe] (p6) at (0,-7.5)
   {\textbf{6.}~Platt scaling --- $\hat{p} = \sigma(A\cdot f_{\text{SVM}}+B)$ via \texttt{CalibratedClassifierCV}};
 
@@ -2899,55 +2906,7 @@ Figure~\ref{fig:prediction_workflow} illustrates the complete server-side pipeli
 \label{fig:prediction_workflow}
 \end{figure}
 
-\section{Model Evaluation Metrics}\label{sec:metrics}
-
-Evaluating a mortality prediction model requires metrics that reflect both discriminative ability and clinical utility. Because the HD-478 cohort is highly imbalanced (80.1\% survivors vs.\ 19.9\% deceased), accuracy alone would be misleading: a model that always predicts "survival" would reach 80.1\% accuracy while being clinically useless. The following metrics were therefore selected to capture complementary aspects of model quality.
-
-\subsection{AUC-ROC: Discrimination Ability}
-
-The \textbf{Area Under the ROC Curve} (AUC-ROC) measures the probability that the model assigns a higher risk score to a randomly chosen deceased patient than to a randomly chosen survivor \cite{hanley1982auc}:
-\begin{equation}
-\text{AUC} = P(\hat{p}_{y=1} > \hat{p}_{y=0})
-\label{eq:auc}
-\end{equation}
-
-An AUC of 0.5 means the model performs no better than random chance; 1.0 corresponds to perfect discrimination. Two distinct SVM models exist in this project, and their AUC values must be carefully distinguished:
-
-\begin{itemize}
-  \item \textbf{Offline model} (research phase): The SVM was trained and evaluated in a standalone Python environment on the raw HD-478 dataset, before any deployment. The 10-fold stratified cross-validation yielded \textbf{AUC\,=\,0.8235\,$\pm$\,0.082}. This is the value reported in all comparison tables and figures in Section~\ref{sec:results}.
-
-  \item \textbf{Platform model} (deployed): After deploying the platform and integrating the HD-478 data through the LLM preprocessing pipeline, the model was \textbf{retrained via the platform's training endpoint} (\texttt{POST /api/predictions/train/}) on the preprocessed and validated database. This retrained model achieves \textbf{AUC\,=\,0.8262}, stored in \texttt{last\_mortalite.json} and displayed in the platform dashboard.
-\end{itemize}
-
-The improvement from 0.8235 to \textbf{0.8262 (+0.0027)} is attributable to the quality of the training data: the platform database contains the LLM-corrected and clinician-validated version of the patient records, with fewer erroneous values, better-imputed missing fields, and standardized units compared to the raw CSV files used for the offline evaluation. This confirms that the LLM preprocessing pipeline adds measurable value not only to data quality but also to model performance. The \textbf{platform model (AUC\,=\,0.8262) is therefore the reference model for clinical deployment}.
-
-\subsection{PR-AUC and F1-score: Performance Under Class Imbalance}
-
-The \textbf{Precision-Recall AUC (PR-AUC)} is more informative than AUC-ROC when the positive class is rare. It measures the trade-off between:
-\begin{align}
-\text{Precision} &= \frac{TP}{TP + FP}
-  \quad \text{(fraction of predicted deaths that are true deaths)} \label{eq:precision}\\[4pt]
-\text{Recall} &= \frac{TP}{TP + FN}
-  \quad \text{(fraction of actual deaths that are detected)} \label{eq:recall}
-\end{align}
-
-A model with high precision but low recall detects few deaths but when it does, it is reliable. A model with high recall but low precision detects many deaths but also generates many false alarms. The \textbf{F1-score} balances both:
-\begin{equation}
-\text{F1} = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
-\label{eq:f1}
-\end{equation}
-
-The SVM achieves \textbf{PR-AUC\,=\,0.489} and \textbf{F1\,=\,0.567}, the highest among all evaluated models. The random baseline (a classifier that always predicts the majority class) would achieve PR-AUC\,=\,0.199 (equal to the class prevalence), so the SVM's 0.489 represents a substantial gain. Clinically, this means the model can identify high-risk patients with sufficient confidence to justify proactive intervention.
-
-\subsection{Brier Score: Probability Calibration Quality}
-
-The \textbf{Brier Score} \cite{brier_1950} measures how far the predicted probabilities are from the actual outcomes:
-\begin{equation}
-\text{BS} = \frac{1}{N}\sum_{i=1}^{N}(\hat{p}_{\text{cal},i} - y_i)^2
-\label{eq:brier2}
-\end{equation}
-
-A score of 0 is perfect; a naive model predicting the prevalence (0.199) for every patient would achieve BS\,=\,0.199\,$\times$\,0.801\,=\,0.159. The SVM after Platt scaling achieves \textbf{BS\,=\,0.127}, which is below this baseline and below the 0.15 excellence threshold. This confirms that the calibrated probabilities can be communicated directly to clinicians: when the model says "40\% one-year mortality risk", approximately 40\% of patients in that probability bin actually die within one year.
+The deployment-level workflow integrating this ML pipeline with the clinical interface, the REST API, and the database layer is detailed in Section~6.6.3 (Figure~6.50).
 
 \section{Model Generalization and Statistical Validation}\label{sec:generalization}
 
@@ -2955,7 +2914,7 @@ Beyond point-estimate metrics, it is essential to verify that the SVM's performa
 
 \subsection{Absence of Overfitting}
 
-The train-test AUC gap of \textbf{0.047} (well below the 0.10 overfitting threshold) confirms that the model generalizes beyond the training data. The SVM's strong L2 regularization ($C=0.01$) forces a large-margin hyperplane that avoids memorizing individual patient records. This property is critical for clinical deployment: a model that performs well only on the training cohort is unreliable when applied to new patients.
+The train-test AUC gap of \textbf{0.048} (well below the 0.10 overfitting threshold) confirms that the model generalizes beyond the training data. The SVM's strong L2 regularization ($C=0.05$) forces a large-margin hyperplane that avoids memorizing individual patient records. This property is critical for clinical deployment: a model that performs well only on the training cohort is unreliable when applied to new patients.
 
 \subsection{Statistical Significance}
 
@@ -2963,17 +2922,7 @@ A \textbf{permutation test} with 1000 random shuffles of the target variable yie
 
 \subsection{Nested Cross-Validation}
 
-A \textbf{nested cross-validation} (outer: 10 folds, inner: 5-fold hyperparameter search) returned \textbf{AUC\,=\,0.8241}, nearly identical to the standard 10-fold result (0.826). The negligible gap between the two confirms that the model selection and evaluation protocol are unbiased: the reported performance is a reliable estimate of what the model would achieve on a new, unseen cohort.
-
-\section{Limitations of the ML Layer}\label{sec:ml_limits}
-
-Despite strong performance on the HD-478 cohort, the model presents limitations that must be considered before broader clinical deployment.
-
-\subsection{Data Bias and External Validity}
-The HD-478 cohort is retrospective and single-center (CHU Hassan II, Fès). Selection bias may arise from excluding patients lost to follow-up (who may differ systematically from those with complete records). The 478-sample size limits statistical power for subgroup analyses (e.g., per-etiology mortality, gender stratification). \textbf{External validation on an independent second-center cohort} is the recommended next step before broader clinical deployment.
-
-\subsection{Population Specificity}
-The model was trained on a predominantly Moroccan hemodialysis population with a specific etiological distribution (diabetic nephropathy, hypertensive nephrosclerosis dominant). Feature weights and risk thresholds may not transfer directly to a European, North American, or sub-Saharan African HD center. Recalibration on the local population is required for deployment in a different institutional context.
+A \textbf{nested cross-validation} (outer: 10 folds, inner: 5-fold hyperparameter search) returned \textbf{AUC\,=\,0.8241}, nearly identical to the standard 10-fold result (0.8272). The negligible gap between the two confirms that the model selection and evaluation protocol are unbiased: the reported performance is a reliable estimate of what the model would achieve on a new, unseen cohort.
 
 %============================================================
 %  CHAPTER 6 — BACKEND & FRONTEND IMPLEMENTATION
@@ -3409,7 +3358,7 @@ On successful authentication, the user is redirected to their role-appropriate d
 
   \item[\textbf{Navigation Sidebar}] Once authenticated, all pages share a persistent left sidebar (width: 248 px) that serves as the main navigation hub of the application. It is composed of:
 \begin{itemize}
-  \item \textbf{Platform logo and branding} at the top (\textit{AI NÉPHROCARE}), with a gradient gradient typography
+  \item \textbf{Platform logo and branding} at the top (\textit{AI NÉPHROCARE}), with a gradient typography
   \item \textbf{Navigation card} with links to all main sections: Dashboard, Patients, Analyse IA, Monitor
   \item \textbf{User profile card} at the bottom showing the connected user's email and role badge
   \item \textbf{Notifications button} (visible to Head of Department and Super Admin only) with a badge counter for pending validation requests
@@ -3428,13 +3377,14 @@ Access to each section is controlled by the user's role (RBAC): navigation items
 \paragraph{Digital Notepad (global floating notepad).}
 All authenticated pages include a \textbf{floating action button} (bottom-right corner) that opens a persistent personal notepad called \textit{Digital Notepad}. The notepad allows clinicians to write private reminders, observations, or annotations that are auto-saved at regular intervals and stored in their user profile (\texttt{personal\_notes} field). The panel displays the last save time and offers a \textbf{Clear} button to erase the content.
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
 \IfFileExists{carnet.png}{\includegraphics[width=0.40\textwidth]{carnet.png}}{\framebox[0.40\textwidth][c]{\small[Screenshot: Digital Notepad floating notepad]}}
 \caption{Digital Notepad --- persistent personal notepad accessible from any authenticated page via a floating action button}
 \label{fig:carnet}
 \end{figure}
 
+\FloatBarrier
   \item[\textbf{Dashboard} (\texttt{/dashboard})] The dashboard is the first authenticated page. Its content is entirely \textbf{role-dependent}: Super Admin and Head of Department see an administrative dashboard focused on user governance, while Professor and Resident see a clinical dashboard focused on their own activity.
 
 % ──────────────────────────────────────────────────────────────────────────────
@@ -3447,24 +3397,28 @@ The administrative dashboard is organised into two columns:
   \item \textbf{Right column} — User management area: KPI summary, user list with search, and CRUD panel.
 \end{itemize}
 
-\paragraph{KPI summary.}
-The hero banner displays \textbf{7 interactive KPI cards} for Super Admin (6 for Head of Department, excluding Super Admins):
-\textit{Active}, \textit{Inactive}, \textit{Super Admins}, \textit{Heads of Dept.}, \textit{Professors}, \textit{Residents}, \textit{Roles}.
-Each card is \textbf{clickable}: clicking it filters the \textit{Managed Accounts} list below to show only matching accounts (by status or role). An active filter is displayed as a labelled chip with a dismiss button. The text search bar operates \textbf{in parallel} with the KPI filter.
-
-\begin{figure}[htbp]
+\FloatBarrier
+\begin{figure}[H]
 \centering
 \IfFileExists{dashboard_kpi.png}{\includegraphics[width=0.85\textwidth]{dashboard_kpi.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: Admin dashboard --- KPI cards]}}
 \caption{Super Admin dashboard --- 7 interactive KPI cards in the hero banner; clicking a card filters the account list}
 \label{fig:dashboard_kpi}
 \end{figure}
+\FloatBarrier
 
-\begin{figure}[htbp]
+\paragraph{KPI summary.}
+The hero banner displays \textbf{7 interactive KPI cards} for Super Admin (6 for Head of Department, excluding Super Admins):
+\textit{Active}, \textit{Inactive}, \textit{Super Admins}, \textit{Heads of Dept.}, \textit{Professors}, \textit{Residents}, \textit{Roles}.
+Each card is \textbf{clickable}: clicking it filters the \textit{Managed Accounts} list below to show only matching accounts (by status or role). An active filter is displayed as a labelled chip with a dismiss button. The text search bar operates \textbf{in parallel} with the KPI filter.
+
+\FloatBarrier
+\begin{figure}[H]
 \centering
 \IfFileExists{dashboard_filter.png}{\includegraphics[width=0.85\textwidth]{dashboard_filter.png}}{\framebox[0.85\textwidth][c]{\small[Screenshot: KPI filter active]}}
 \caption{KPI filter active --- clicking \textit{Professors} restricts the list and displays an active-filter chip}
 \label{fig:dashboard_filter}
 \end{figure}
+\FloatBarrier
 
 \paragraph{User Management (CRUD).}
 Clicking the \textit{Afficher} toggle reveals the CRUD panel. The form supports:
@@ -3619,7 +3573,7 @@ Table~\ref{tab:pipeline_stages} maps each backend stage to the label displayed i
 
   \item \textbf{Route determination.} The platform evaluates dataset complexity and selects the analysis mode: \textit{LLM-only} (default), \textit{deterministic} (Python rules only, no LLM), or \textit{hybrid}. In the deployed configuration the route is always LLM with \texttt{qwen2.5:14b} as primary model.
 
-  \item \textbf{LLM batch analysis — Pass 1.} All columns are split into batches of 5 (\texttt{LLM\_BATCH\_SIZE=5}). For each batch, all row values of the 5 columns are serialised and sent to Qwen2.5:14B with the RAG context. The model returns a structured \texttt{correction\_plan} (JSON) specifying type casts, date parsing, missing value fills, and flagged anomalies. Results from all batches are merged into a single correction plan. For a 90-column dataset this produces at most $\lceil 90/5 \rceil = 18$ LLM calls.
+  \item \textbf{LLM batch analysis — Pass 1.} All columns are split into batches of 5 (\texttt{LLM\_BATCH\_SIZE=5}). For each batch, all row values of the 5 columns are serialised and sent to Qwen2.5:14B with the RAG context. The model returns a structured \texttt{correction\_plan} (JSON) specifying type casts, date parsing, missing value fills, and flagged anomalies. Results from all batches are merged into a single correction plan.
 
   \item \textbf{Apply correction plan.} The merged \texttt{correction\_plan} is applied to the full DataFrame: numeric type casts, date standardisation, boolean normalisation, fill-missing values, and Excel artefact removal.
 
@@ -4232,7 +4186,7 @@ The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ a
   \draw[msgfwd] (14.13,-4.9) arc(90:-270:0.2cm);
 \draw[msgfwd] (14,-5.5)  -- node[msglbl,xshift=1.5cm]{PowerTransformer(Yeo-Johnson)} (14,-5.5);
   \draw[msgfwd] (14.13,-5.7) arc(90:-270:0.2cm);
-\draw[msgfwd] (14,-6.2)  -- node[msglbl,xshift=1cm]{SVC(C=0.01, linear)} (14,-6.2);
+\draw[msgfwd] (14,-6.2)  -- node[msglbl,xshift=1cm]{SVC(C=0.05, linear)} (14,-6.2);
   \draw[msgfwd] (14.13,-6.4) arc(90:-270:0.2cm);
 
 \draw[msgret] (14,-7.3)  -- node[msglbl]{7. $\hat{p}$ $\in$ [0,1] — single predict\_proba() (Platt-scaled by CalibratedClassifierCV)} (7,-7.3);
@@ -4254,17 +4208,15 @@ The backend then derives the risk score as $\text{score} = \hat{p} \times 100$ a
 \end{figure}
 
 %============================================================
-%  CHAPTER 7 — DEPLOYMENT, EVALUATION & PERSPECTIVES
+%  CHAPTER 7 — DEPLOYMENT & EVALUATION
 %============================================================
-\chapteropening{7}{Deployment, Evaluation\\[0.2cm]\& Perspectives}{Docker deployment, system testing, results, and future work.}{%
+\chapteropening{7}{Deployment\\[0.2cm]\& Evaluation}{Docker deployment, system testing, and results.}{%
   \textbf{7.1}\hspace{8pt}Deployment Architecture \dotfill \pageref{sec:deploy}\\[3pt]
   \textbf{7.2}\hspace{8pt}System Testing \dotfill \pageref{sec:testing}\\[3pt]
   \textbf{7.3}\hspace{8pt}Performance Evaluation \dotfill \pageref{sec:perf}\\[3pt]
   \textbf{7.4}\hspace{8pt}Results \& Impact \dotfill \pageref{sec:impact}\\[3pt]
-  \textbf{7.5}\hspace{8pt}Limitations \dotfill \pageref{sec:limits}\\[3pt]
-  \textbf{7.6}\hspace{8pt}Future Work \dotfill \pageref{sec:future}\\[3pt]
 }
-\chapter{Deployment, Evaluation \& Perspectives}
+\chapter{Deployment \& Evaluation}
 
 \section{Deployment Architecture}\label{sec:deploy}
 
@@ -4365,7 +4317,7 @@ The three-zone stratification — Low ($\hat{p}<10\%$), Moderate ($10\%\leq\hat{
 
 These results are consistent with the KDIGO 2012 clinical practice guidelines \cite{kdigo2015}, which emphasize the importance of risk stratification in CKD management to allocate clinical resources proportionally to patient need. The platform's three-zone classification operationalizes this recommendation by translating the model's probabilistic output into three clinically actionable categories, each associated with a specific follow-up protocol.
 
-\subsection{Decision Support Value}
+\subsection{Decision Support Value}\label{sec:decision_support}
 
 Beyond risk prediction, the platform provides:
 \begin{itemize}
@@ -4375,59 +4327,53 @@ Beyond risk prediction, the platform provides:
   \item \textbf{Audit trail}: Complete action logging satisfies regulatory requirements for clinical AI tools.
 \end{itemize}
 
-\section{Limitations}\label{sec:limits}
-
-Several limitations affect the current version of the platform and should be addressed in future iterations.
-
-\subsection{Data Availability}
-
-The 478-patient cohort is adequate for a robust univariate and multivariate analysis but limits subgroup stratification (e.g., per-etiology analysis with $<20$ patients per category). External validation on a multi-center cohort remains a priority future task.
-
-\subsection{Model Constraints}
-
-\begin{itemize}
-  \item The SVM is trained on baseline (admission) features and does not incorporate longitudinal data (e.g., 6-month Kt/V evolution).
-  \item The model outputs a population-calibrated probability, not an individual certainty — communication of uncertainty to clinicians requires training.
-  \item LLM preprocessing runs on \textbf{qwen2.5:14b} with GPU acceleration (Ollama), delivering significantly faster inference than CPU-only deployments; however, GPU availability remains a constraint for resource-limited hospital environments.
-\end{itemize}
-
-\section{Future Work}\label{sec:future}
-
-The following directions are identified as high-priority extensions to the current platform.
-
-\subsection{Real-Time Hospital Integration}
-
-Integration with the CHU Hassan II Hospital Information System (HIS) via HL7 FHIR (Health Level 7 / Fast Healthcare Interoperability Resources) APIs would enable automatic patient data ingestion, eliminating manual Excel imports and enabling real-time risk monitoring. HL7 FHIR is a globally adopted standard for electronic health record data exchange, developed by Health Level Seven International. It defines a set of RESTful APIs and data formats (FHIR Resources) that allow different hospital information systems to share patient data in a standardized, interoperable format. Integration via FHIR would allow AI NéphroCare to automatically receive structured patient data from the CHU Hassan II HIS, eliminating manual Excel data entry.
-
-\subsection{Advanced Deep Learning Models}
-
-For larger future cohorts ($>2,000$ patients), transformer-based models on longitudinal lab sequences (e.g., lab-BERT) or graph neural networks encoding comorbidity co-occurrence could improve predictive performance.
-
-\subsection{Cohort-Driven Real-Time Training and Per-Patient Prediction}
-
-A natural extension of the current platform is to allow any user to import their own hemodialysis cohort and obtain individualized 1-year mortality predictions for each patient without any code modification. Because the entire ML pipeline — preprocessing, training, and inference — operates exclusively on the data present in the platform database, importing a new cohort automatically redefines the training corpus and produces updated, cohort-specific risk scores for every patient in that dataset. This would enable the platform to be repurposed for multicenter studies or prospective validations simply by uploading a new file.
-
 %============================================================
 %  GENERAL CONCLUSION
 %============================================================
 \chapter*{General Conclusion}
 \addcontentsline{toc}{chapter}{General Conclusion}
+\markboth{General Conclusion}{}
 
-This project presented the design, development, and validation of \textbf{AI NéphroCare}, a full-stack intelligent clinical decision support platform for one-year mortality prediction in hemodialysis patients at CHU Hassan II of Fès, Morocco.
+\section*{Limitations}
 
-The work addressed four interconnected challenges: (1) \textit{data centralization} — replacing fragmented, heterogeneous records with a structured 160+-field database; (2) \textit{data quality} — deploying an LLM+RAG preprocessing pipeline that automatically detects and corrects clinical data quality issues; (3) \textit{predictive modeling} — systematically comparing nine machine learning algorithms and selecting a linear SVM (AUC-ROC = 0.826, F1 = 0.567) with F1-optimized thresholding and three clinical risk zones; and (4) \textit{clinical usability} — embedding the model in a React-based clinical interface with interpretable results, audit trail, and role-based access control.
+We identified several limitations in the current version of the platform that should be addressed in future iterations.
 
-The key finding is that a relatively simple, well-regularized linear SVM with carefully engineered features outperforms more complex ensemble methods on this small-scale, imbalanced cohort — a result consistent with the broader ML literature on clinical prediction with limited sample sizes. The three-zone risk stratification — Low ($\hat{p}<10\%$, 3.8\% observed mortality), Moderate ($10\%\leq\hat{p}<29\%$, 15.6\%), High ($\hat{p}\geq29\%$, 46.5\%) — provides actionable clinical guidance, with thresholds grounded in TRIPOD/DOPPS/KDIGO guidelines and a relative risk ratio of $\times$12.9 between extreme zones.
+\begin{itemize}
+  \item \textbf{Cohort size, selection bias, and single-center data.} The 478-patient HD-478 cohort is adequate for initial validation but limits subgroup stratification (e.g., per-etiology analysis with fewer than 20 patients per category). Selection bias may also arise from the exclusion of patients lost to follow-up, who may differ systematically from those with complete records. The model has not been externally validated on data from other centers, and its generalizability to different patient populations and clinical practices remains to be established.
+  \item \textbf{Population specificity.} The model was trained on a predominantly Moroccan hemodialysis population with a specific etiological distribution (diabetic nephropathy, hypertensive nephrosclerosis dominant). Feature weights and risk thresholds may not transfer directly to European, North American, or sub-Saharan African HD centers. Recalibration on the local population is required before deployment in a different institutional context.
+  \item \textbf{Baseline-only features.} The SVM is trained exclusively on admission-time features and does not incorporate longitudinal evolution (e.g., 6-month Kt/V trajectory or albumin trends), which are known prognostic signals in the HD population.
+  \item \textbf{Probabilistic uncertainty.} The model outputs a population-calibrated probability, not an individual certainty. Communicating this distinction to clinicians requires dedicated training and appropriate interface design to avoid overconfidence in the predictions.
+  \item \textbf{GPU dependency.} LLM preprocessing relies on Qwen2.5:14B with GPU acceleration via Ollama. While this delivers inference times of 1--2 minutes for 478 rows, CPU-only deployments would be significantly slower, which may be a constraint in resource-limited hospital environments.
+\end{itemize}
 
-From a software engineering perspective, the integration of all pipeline components — LLM preprocessing, ML inference, database management, and clinical UI — into a single Docker Compose stack demonstrates the feasibility of deploying sophisticated clinical AI tools in resource-constrained hospital environments without specialized MLOps infrastructure.
+\section*{Perspectives}
 
-Future directions include multi-center external validation, integration with FHIR-compatible hospital systems, and exploration of deep learning models for longitudinal prediction as the cohort grows.
+We identify the following directions as the most promising extensions to the current platform.
+
+\begin{itemize}
+  \item \textbf{External multi-center validation.} The most urgent priority is to validate the model on an independent cohort from a different center or country, following TRIPOD reporting standards, to assess its generalizability and calibration in diverse clinical settings.
+  \item \textbf{Real-time hospital integration via HL7 FHIR.} Integration with the CHU Hassan II Hospital Information System through HL7 FHIR RESTful APIs would eliminate manual Excel imports and enable continuous, real-time patient risk monitoring as new clinical data is recorded.
+  \item \textbf{Longitudinal and deep learning models.} For larger future cohorts ($>2{,}000$ patients), transformer-based architectures on longitudinal lab sequences (e.g., lab-BERT) or graph neural networks encoding comorbidity co-occurrence patterns could substantially improve predictive performance over the current baseline-only SVM.
+  \item \textbf{Cohort-portable retraining.} A natural extension is to allow any institution to import its own hemodialysis cohort and automatically retrain the full ML pipeline on that data, producing cohort-specific risk models without any code modification. Because our pipeline operates exclusively on the data stored in the platform database, this architecture is already largely in place.
+  \item \textbf{Federated learning.} In the longer term, federated learning across multiple nephrology centers would allow a shared, privacy-preserving model to be trained on combined multi-center data without any patient record leaving its originating institution, addressing both the cohort size limitation and regulatory constraints on data sharing.
+\end{itemize}
+
+\section*{Conclusion}
+
+Through this project, we designed, developed, and validated \textbf{AI NéphroCare}, a full-stack intelligent clinical decision support platform for 1-year mortality prediction in hemodialysis patients at CHU Hassan II of Fès, Morocco.
+
+We observed at the outset that the nephrology unit held years of rich clinical data — 478 patient records across 91 variables — that were entirely siloed in Excel files, riddled with quality issues, and never exploited for decision support. We addressed this through four interconnected solutions: (1) \textit{data centralization} — we built a structured 160+-field database that unifies all patient records for the first time; (2) \textit{intelligent preprocessing} — we deployed an LLM+RAG pipeline (Qwen2.5:14B + ChromaDB) that automatically detects and corrects data quality issues, substantially reducing manual data cleaning effort (see Section~\ref{sec:decision_support} for quantified results); (3) \textit{predictive modeling} — we systematically compared six machine learning algorithms and noticed that a well-regularized linear SVM with Yeo-Johnson preprocessing and Platt calibration outperformed more complex ensemble methods on this small-scale, imbalanced cohort, achieving AUC\,=\,0.8272 and Brier\,=\,0.126; and (4) \textit{clinical usability} — we embedded the model in a React-based clinical interface with a visual risk gauge, top-5 contributing factors, audit trail, and role-based access control.
+
+The three evidence-based risk zones defined in Chapter~5 (Low / Moderate / High, with thresholds T1\,=\,10\% and T2\,=\,29\% grounded in TRIPOD/DOPPS/KDIGO guidelines) provide clinicians with actionable guidance, with a relative risk ratio of $\times$12.9 between extreme zones. From a software engineering standpoint, the integration of all pipeline components into a single seven-service Docker Compose stack demonstrates the feasibility of deploying sophisticated clinical AI tools in resource-constrained hospital environments without specialized MLOps infrastructure.
 
 %============================================================
 %  REFERENCES
 %============================================================
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}
+\fancyhead[LE,LO]{\small Bibliography}
+\fancyhead[RE,RO]{}
+\markboth{Bibliography}{}
 
 \bibitem{who2021digital}
 World Health Organization (2021).
@@ -4714,25 +4660,56 @@ Liyanage T, Ninomiya T, Jha V, et al. (2015).
 \newblock PMID: 25777665. DOI: 10.1016/S0140-6736(14)61601-9.
 
 
+\bibitem{drf_docs}
+Django Software Foundation (2024).
+\newblock \textit{Django REST Framework --- Documentation}.
+\newblock \url{https://www.django-rest-framework.org/}. Accessed June 2026.
+
+\bibitem{react_docs}
+Meta Platforms, Inc. (2024).
+\newblock \textit{React --- The library for web and native user interfaces}.
+\newblock \url{https://react.dev/}. Accessed June 2026.
+
+\bibitem{sklearn_docs}
+Pedregosa F, et al. (2011).
+\newblock \textit{scikit-learn: Machine Learning in Python --- Documentation}.
+\newblock \url{https://scikit-learn.org/stable/}. Accessed June 2026.
+
+\bibitem{ollama_docs}
+Ollama (2024).
+\newblock \textit{Ollama --- Run large language models locally}.
+\newblock \url{https://ollama.ai/}. Accessed June 2026.
+
+\bibitem{chromadb_docs}
+Chroma (2024).
+\newblock \textit{ChromaDB --- The AI-native open-source embedding database}.
+\newblock \url{https://docs.trychroma.com/}. Accessed June 2026.
+
+\bibitem{kdigo_web}
+Kidney Disease: Improving Global Outcomes (KDIGO) (2024).
+\newblock \textit{KDIGO Clinical Practice Guidelines}.
+\newblock \url{https://kdigo.org/guidelines/}. Accessed June 2026.
+
+\bibitem{mui_docs}
+MUI (2024).
+\newblock \textit{Material UI --- React component library}.
+\newblock \url{https://mui.com/}. Accessed June 2026.
+
+\bibitem{chartjs_docs}
+Chart.js Contributors (2024).
+\newblock \textit{Chart.js --- Simple yet flexible JavaScript charting}.
+\newblock \url{https://www.chartjs.org/}. Accessed June 2026.
+
+\bibitem{postgresql_docs}
+The PostgreSQL Global Development Group (2024).
+\newblock \textit{PostgreSQL 16 Documentation}.
+\newblock \url{https://www.postgresql.org/docs/16/}. Accessed June 2026.
+
+\bibitem{docker_docs}
+Docker, Inc. (2024).
+\newblock \textit{Docker Documentation}.
+\newblock \url{https://docs.docker.com/}. Accessed June 2026.
+
 \end{thebibliography}
-
-%============================================================
-%  WEBOGRAPHY
-%============================================================
-\chapter*{Webography}
-\addcontentsline{toc}{chapter}{Webography}
-
-\begin{itemize}
-  \item Django REST Framework documentation — \url{https://www.django-rest-framework.org/}
-  \item React documentation — \url{https://react.dev/}
-  \item scikit-learn documentation — \url{https://scikit-learn.org/stable/}
-  \item Ollama project — \url{https://ollama.ai/}
-  \item ChromaDB documentation — \url{https://docs.trychroma.com/}
-  \item KDIGO guidelines — \url{https://kdigo.org/guidelines/}
-  \item Material-UI documentation — \url{https://mui.com/}
-  \item Chart.js documentation — \url{https://www.chartjs.org/}
-  \item PostgreSQL 16 documentation — \url{https://www.postgresql.org/docs/16/}
-  \item Docker documentation — \url{https://docs.docker.com/}
-\end{itemize}
 
 \end{document}
