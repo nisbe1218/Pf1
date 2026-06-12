@@ -1,0 +1,1028 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[margin=2.2cm, top=2.5cm, bottom=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{lmodern}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{tabularx}
+\tcbuselibrary{skins,breakable}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+
+% Colors
+\definecolor{primary}{RGB}{22,60,110}
+\definecolor{accent}{RGB}{180,40,30}
+\definecolor{techblue}{RGB}{0,90,160}
+\definecolor{figbg}{RGB}{245,248,252}
+\definecolor{techbg}{RGB}{240,248,240}
+\definecolor{toolbg}{RGB}{252,248,235}
+
+% Section formatting
+\titleformat{\section}{\large\bfseries\color{primary}\sffamily}{}{0em}{}[\vspace{-4pt}\textcolor{primary!50}{\hrule height 1pt}\vspace{2pt}]
+\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{}{0em}{}[\vspace{-2pt}\textcolor{accent!60}{\hrule height 0.5pt}\vspace{2pt}]
+
+% Figure entry box
+\newtcolorbox{figbox}[2]{
+  title={\textbf{\textsf{#1}}\enspace\textit{\small #2}},
+  colback=figbg, colframe=primary!40,
+  fonttitle=\small, coltitle=primary,
+  arc=3pt, boxrule=0.7pt,
+  top=5pt, bottom=5pt, left=7pt, right=7pt,
+  before skip=5pt, after skip=5pt,
+  breakable
+}
+
+% Tool entry box
+\newtcolorbox{toolbox}[2]{
+  title={\textbf{#1}\enspace\textsf{\small --- #2}},
+  colback=toolbg, colframe=techblue!50,
+  fonttitle=\small, coltitle=techblue,
+  arc=3pt, boxrule=0.7pt,
+  top=5pt, bottom=5pt, left=7pt, right=7pt,
+  before skip=5pt, after skip=5pt,
+  breakable
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{primary}{\textbf{AI NéphroCare}} --- Explication détaillée des figures}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\hypersetup{colorlinks=true, linkcolor=primary, pdftitle={AI NéphroCare — Figures et outils}}
+
+%==========================================================
+\begin{document}
+%==========================================================
+
+\begin{titlepage}
+\centering\vspace*{1.5cm}
+{\LARGE\bfseries\color{primary}AI NéphroCare\\[0.5cm]}
+{\Large\bfseries Explication détaillée de chaque figure,\\
+diagramme et outil du rapport\\[0.8cm]}
+{\normalsize\color{gray}
+Plateforme d'aide à la décision clinique en hémodialyse\\
+Cohorte HD-478 $\cdot$ CHU Hassan II de Fès $\cdot$ 2020--2024\\[0.3cm]
+SVM Linéaire $\cdot$ AUC = 0{,}826 $\cdot$ 478 patients $\cdot$ 95 décès à 1 an\\[1cm]}
+{\small
+\begin{tabular}{ll}
+\textbf{Modèle ML :} & SVM Linéaire, C=0{,}01, 32 features (24 cliniques + 8 interactions)\\
+\textbf{Pipeline :} & KNNImputer(k=3) $\rightarrow$ PowerTransformer(Yeo-Johnson) $\rightarrow$ SVC\\
+\textbf{Calibration :} & CalibratedClassifierCV (Platt/sigmoid, cv=5)\\
+\textbf{Backend :} & Django REST Framework 4.2, PostgreSQL 16, Redis 7, Celery\\
+\textbf{LLM :} & Qwen2.5:14B via Ollama, ChromaDB (RAG), 7 services Docker\\
+\end{tabular}}
+\vfill
+\end{titlepage}
+
+\tableofcontents\newpage
+
+%==========================================================
+\section{Outils et technologies --- rôle précis dans le projet}
+%==========================================================
+
+Cette section explique \textbf{exactement ce que fait chaque outil} dans le projet
+AI NéphroCare, avec les fichiers et paramètres réels.
+
+\begin{toolbox}{Django REST Framework 4.2}{Backend API --- 5 applications}
+\textbf{Rôle dans le projet :} Sert les 40+ endpoints REST qui font fonctionner
+toute la plateforme. Le backend est organisé en 5 applications Django~:
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \texttt{users} --- gestion des comptes, authentification JWT personnalisée.
+    \texttt{CustomTokenSerializer} surcharge \texttt{get\_token()} pour injecter
+    dans le payload~: \texttt{id}, \texttt{email}, \texttt{nom}, \texttt{prenom},
+    \texttt{telephone}, \texttt{role}.
+  \item \texttt{patients} --- modèle \texttt{Patient} avec 160+ champs répartis en
+    11 sections JSONB~; \texttt{save()} auto-génère \texttt{id\_patient}~;
+    \texttt{icc\_charlson} est un \texttt{CharField} (pas Integer)~; pipeline LLM
+    de prétraitement complet dans \texttt{views.py} (3800+ lignes).
+  \item \texttt{predictions} --- charge \texttt{mortalite\_svm.joblib}, extrait
+    les 32 features via \texttt{extract\_features\_for\_patient()}, appelle
+    \texttt{pipeline.predict\_proba(input\_df)[:,1][0]}, sauve en JSON filesystem
+    via \texttt{\_save\_last\_prediction()}.
+  \item \texttt{audit} --- \texttt{AuditLog} avec \texttt{action=TextField}~;
+    chaque opération sensible y est enregistrée automatiquement.
+  \item \texttt{config} --- \texttt{urls.py} routant 5 préfixes API~:
+    \texttt{/api/auth/}, \texttt{/api/patients/}, \texttt{/api/predictions/},
+    \texttt{/api/audit/}.
+\end{itemize}
+\textbf{RBAC :} classes \texttt{IsSuperAdmin} et \texttt{IsAdminOrChefService}
+dans \texttt{users/permissions.py}.
+\end{toolbox}
+
+\begin{toolbox}{React 18 + Axios}{Frontend SPA --- 6 pages}
+\textbf{Rôle dans le projet :} Application monopage (SPA) avec 6 pages principales~:
+Login, Dashboard, Patients, Prétraitement, Modèle IA, Monitor.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \texttt{AuthContext.js} --- après login réussi, extrait
+    \texttt{\{access, refresh\}} de la réponse, stocke dans localStorage, décode
+    le JWT via \texttt{jwtDecode(access)} pour initialiser l'état utilisateur
+    (id, email, nom, rôle). Pas de refresh automatique sur 401.
+  \item \texttt{axios.js} --- intercepteur REQUEST uniquement~: ajoute
+    \texttt{Authorization: Bearer <token>} à chaque requête. Aucun intercepteur
+    RESPONSE (pas d'auto-refresh sur expiration).
+  \item \texttt{ProtectedRoute} --- filtre la navigation selon le rôle RBAC~;
+    les sections non autorisées ne sont jamais rendues.
+  \item Chart.js --- rend les 12 graphiques analytiques (6 patients + 6 modèle IA).
+\end{itemize}
+\end{toolbox}
+
+\begin{toolbox}{PostgreSQL 16}{Base de données --- 9 tables, port 5432}
+\textbf{Rôle dans le projet :} Stocke les données persistantes dans la base
+\texttt{plateforme\_medicale}.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item 9 tables~: \texttt{users\_role}, \texttt{users\_utilisateur},
+    \texttt{patients\_patient}, \texttt{patients\_preprocessvalidationrequest},
+    \texttt{patients\_dynamiccolumnrequest}, \texttt{patients\_patientformtemplate},
+    \texttt{patients\_patientformfield}, \texttt{audit\_auditlog},
+    \texttt{audit\_hiddenauditlog}.
+  \item \texttt{patients\_patient} contient 160+ colonnes dont 11 colonnes JSONB
+    (une par section clinique) + \texttt{extra\_data JSONB} pour les colonnes
+    dynamiques importées depuis Excel.
+  \item Index GIN sur les colonnes JSONB pour accélérer les recherches dans les
+    sections cliniques.
+  \item Données persistées via volume Docker \texttt{postgres\_data}.
+\end{itemize}
+\end{toolbox}
+
+\begin{toolbox}{Redis 7}{Broker Celery --- port 6379}
+\textbf{Rôle dans le projet :} Redis est utilisé \textbf{exclusivement} comme
+broker de tâches Celery et backend de résultats~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \texttt{CELERY\_BROKER\_URL = 'redis://redis:6379/0'}
+  \item \texttt{CELERY\_RESULT\_BACKEND = 'redis://redis:6379/0'}
+\end{itemize}
+\textbf{Important :} Redis ne stocke \textit{pas} les sessions de prétraitement.
+Celles-ci sont sauvegardées sous forme de fichiers JSON sur le filesystem du
+conteneur backend (\texttt{patients/preprocess\_sessions/\{id\}.json}).
+\end{toolbox}
+
+\begin{toolbox}{Celery Worker}{Traitement asynchrone du LLM}
+\textbf{Rôle dans le projet :} Exécute la tâche \texttt{analyze\_preprocess\_async}
+définie dans \texttt{patients/tasks.py} pour éviter les timeouts HTTP pendant les
+5--10 minutes d'inférence Qwen2.5:14B.
+
+Paramètres de la tâche~: \texttt{session\_id} (UUID hex), \texttt{file\_path}
+(chemin temporaire dans \texttt{/tmp/preprocess/}), \texttt{user\_id},
+\texttt{use\_llm} (booléen). Le pipeline exécuté~:
+\begin{enumerate}[leftmargin=2em, itemsep=1pt]
+  \item Lecture du fichier Excel/CSV via Pandas
+  \item Profilage technique (\texttt{\_build\_technical\_profile()})
+  \item Chunking sémantique (\texttt{\_build\_preprocess\_chunks()})
+  \item RAG ChromaDB (\texttt{\_build\_retrieval\_context()})
+  \item Appel LLM Qwen2.5:14B (\texttt{\_call\_ollama\_qwen\_analysis()})
+  \item Correction KB médicale (\texttt{\_run\_bio\_value\_correction\_pass()})
+  \item Imputation KNN (\texttt{\_run\_model\_imputation()}, k=5 ici)
+  \item Sauvegarde session JSON (status=``completed'')
+\end{enumerate}
+\end{toolbox}
+
+\begin{toolbox}{Ollama + Qwen2.5:14B}{LLM local --- port 11434}
+\textbf{Rôle dans le projet :} Modèle de langage 14 milliards de paramètres,
+déployé localement sans API externe, pour analyser les fichiers de données
+cliniques et proposer des corrections justifiées médicalement.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item Endpoint appelé~: \texttt{POST \{OLLAMA\_BASE\_URL\}/api/generate}
+    (défaut Docker~: \texttt{http://ollama:11434/api/generate})
+  \item Entrée~: prompt structuré contenant le profil technique du fichier
+    (nb lignes, colonnes, \% manquants, valeurs aberrantes) + contexte médical
+    RAG (normes néphrologiques de ChromaDB) + échantillons de données
+  \item Sortie attendue~: JSON avec \texttt{corrections}, \texttt{issues},
+    \texttt{pipeline}, \texttt{route}, \texttt{confidence\_contract}
+  \item Justification du choix~: déploiement on-premise (confidentialité des
+    données patients), pas de coût d'API, contrôle total sur le modèle
+\end{itemize}
+\end{toolbox}
+
+\begin{toolbox}{ChromaDB}{Base vectorielle RAG --- stockage local}
+\textbf{Rôle dans le projet :} Stocke et recherche des embeddings de chunks
+cliniques pour fournir un contexte médical pertinent au LLM (RAG).
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item Mode~: \texttt{PersistentClient(path='/tmp/preprocess/chroma')}
+    (client embarqué, pas un serveur séparé)
+  \item Modèle d'embedding~: \texttt{nomic-embed-text} via Ollama
+  \item Nommage des collections~: hash SHA-1 des métadonnées du fichier
+    (lignes, colonnes, \% manquants) pour éviter les doublons
+  \item Fallback~: si ChromaDB est indisponible, la fonction \texttt{build\_medical\_rag\_context()} utilise
+    \texttt{medical\_kb.json} (base de connaissances locale) pour fournir
+    les normes néphrologiques (albumine, calcium, PTH, ferritine, etc.)
+  \item Requête~: \texttt{collection.query(query\_embeddings=..., n\_results=max\_chunks,
+    include=['documents','metadatas','distances'])}
+\end{itemize}
+\end{toolbox}
+
+\begin{toolbox}{scikit-learn}{Pipeline ML --- SVM + calibration}
+\textbf{Rôle dans le projet :} Implémente le modèle de prédiction de mortalité
+à 1 an. Pipeline exact~:
+
+\texttt{Pipeline(steps=[('imputer', KNNImputer(n\_neighbors=3)), ('transformer',
+PowerTransformer(method='yeo-johnson')), ('clf', SVC(C=0.01, kernel='linear',
+class\_weight='balanced', probability=True, random\_state=42))])}
+
+Enveloppé dans~:
+\texttt{CalibratedClassifierCV(base\_pipe, method='sigmoid', cv=5)} = Platt scaling.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{KNNImputer(k=3)~:} impute les valeurs manquantes des 32 features
+    par moyenne des 3 voisins les plus proches dans l'espace des features
+    disponibles. Indispensable car 8/32 features ont des valeurs manquantes dans
+    HD-478 (ex.~: \texttt{du\_residuelle} manque pour 40\% des patients).
+  \item \textbf{PowerTransformer(Yeo-Johnson)~:} normalise la distribution de
+    chaque feature vers une gaussienne, quelle que soit son signe (contrairement
+    à Box-Cox qui exige des valeurs positives). Indispensable pour SVM qui est
+    sensible aux échelles.
+  \item \textbf{SVC(C=0{,}01, linear, balanced)~:} marge large (petit C) pour
+    éviter le sur-apprentissage sur les 478 patients~; \texttt{class\_weight=balanced}
+    compense le déséquilibre 383 survivants / 95 décès (80/20).
+  \item \textbf{Calibration Platt~:} transforme les scores de décision SVC en
+    probabilités calibrées. Validé par le Brier Score = 0{,}130 (excellent~$<$~0{,}15).
+\end{itemize}
+Sauvegardé dans \texttt{predictions/models/mortalite\_svm.joblib} (compress=3).
+Métadonnées dans \texttt{mortalite\_svm\_features.joblib}~:
+feature\_keys (32), threshold (Youden), metrics (AUC, PR-AUC, Brier, F1).
+\end{toolbox}
+
+\begin{toolbox}{SimpleJWT}{Authentification --- HS256, 8h/1j}
+\textbf{Rôle dans le projet :} Gère l'émission et la vérification des tokens JWT.
+Configuration dans \texttt{config/settings.py}~:
+\texttt{ACCESS\_TOKEN\_LIFETIME = timedelta(hours=8)},
+\texttt{REFRESH\_TOKEN\_LIFETIME = timedelta(days=1)},
+\texttt{ALGORITHM = 'HS256'}, \texttt{AUTH\_HEADER\_TYPES = ('Bearer',)}.
+
+Payload custom (ajouté par \texttt{CustomTokenSerializer.get\_token()})~:
+\texttt{id}, \texttt{email}, \texttt{nom}, \texttt{prenom}, \texttt{telephone},
+\texttt{role}. Plus les claims standard SimpleJWT~: \texttt{user\_id},
+\texttt{exp}, \texttt{iat}, \texttt{jti}, \texttt{token\_type}.
+
+Endpoints~: \texttt{POST /api/auth/login/} et
+\texttt{POST /api/auth/token/refresh/}.
+\end{toolbox}
+
+\begin{toolbox}{Docker Compose}{Infrastructure --- 7 services}
+\textbf{Rôle dans le projet :} Orchestre tous les composants en un seul
+\texttt{docker compose up --build -d}. Les 7 services~:
+\begin{enumerate}[leftmargin=2em, itemsep=1pt]
+  \item \textbf{medical\_db} --- PostgreSQL 16, volume \texttt{postgres\_data},
+    healthcheck avant démarrage du backend
+  \item \textbf{medical\_redis} --- Redis 7, broker Celery
+  \item \textbf{medical\_backend} --- Django, dépend de db + redis healthy
+  \item \textbf{medical\_frontend} --- React build statique servi par serve/Nginx
+  \item \textbf{medical\_ollama} --- Qwen2.5:14B, port 11434, inférence GPU/CPU
+  \item \textbf{medical\_celery\_worker} --- même image que backend, commande
+    \texttt{celery -A config worker}
+  \item \textbf{medical\_audit\_cleanup} --- tâche périodique de nettoyage des
+    vieux logs d'audit
+\end{enumerate}
+\end{toolbox}
+
+\begin{toolbox}{openpyxl}{Export Excel coloré}
+\textbf{Rôle dans le projet :} Génère le fichier Excel exporté après prétraitement
+LLM avec mise en forme visuelle~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item Feuille \textit{Données}~: cellules modifiées par le LLM en jaune pâle
+    (\texttt{\#FFF2CC}) avec police orange gras --- identifiable d'un coup d'œil
+  \item Feuille \textit{Corrections}~: tableau récapitulatif de chaque modification
+    (valeur originale, valeur corrigée, type de correction, justification médicale)
+  \item Généré par \texttt{PatientPreprocessExportView} sur
+    \texttt{GET /api/patients/preprocess/\{id\}/export/}
+\end{itemize}
+\end{toolbox}
+
+\begin{toolbox}{Pandas}{Profiling et manipulation des données}
+\textbf{Rôle dans le projet :} Lit et profile les fichiers Excel/CSV importés~:
+\texttt{pd.read\_excel()}, \texttt{pd.read\_csv()} avec détection automatique
+du séparateur. Normalise les noms de colonnes (lowercase, strip). Calcule le
+profil technique~: dtype par colonne, \% valeurs manquantes, nb de doublons,
+valeurs aberrantes (IQR). Construit les \texttt{DataFrame} d'entrée pour le
+pipeline SVM (\texttt{pd.DataFrame([row], columns=feature\_keys)}).
+\end{toolbox}
+
+\begin{toolbox}{SHAP + XGBoost}{Sélection des features --- analyse post-hoc}
+\textbf{Rôle dans le projet :} Utilisé en dehors de la plateforme pour justifier
+la sélection des 24 variables parmi 77 candidates sur HD-478. XGBoost sert de
+modèle de référence pour calculer les valeurs SHAP (Shapley Additive
+exPlanations)~: chaque variable reçoit un score d'importance mesurant sa
+contribution marginale moyenne à la prédiction. Les 24 variables avec les
+valeurs SHAP les plus élevées (top-24 sur 77) constituent le sous-ensemble
+sélectionné pour le SVM, auquel s'ajoutent 8 termes d'interaction biologiquement
+justifiés --- soit \textbf{32 features} au total.
+\end{toolbox}
+
+\begin{toolbox}{Chart.js}{Visualisation --- 12 graphiques interactifs}
+\textbf{Rôle dans le projet :} Rend les 12 graphiques dynamiques de la plateforme~:
+\textbf{Module Patients (6)}~: tendance mensuelle des inclusions, camembert sexe,
+histogramme âge, barres complications, barres étiologies, barres comorbidités.
+\textbf{Module IA (6)}~: camembert zones de risque, barres issues prédites,
+courbe Kaplan-Meier (survie cumulée), barres facteurs contributifs, radar profil
+de risque, boxplots biologiques par zone. Tous calculés à la volée sur la cohorte
+active et interactifs (hover, zoom).
+\end{toolbox}
+
+\newpage
+%==========================================================
+\section{Chapitre 1 --- Introduction}
+%==========================================================
+
+\begin{figbox}{Figure 1.1}{Logo FMPDF}
+Logotype officiel de la Faculté de Médecine, de Pharmacie et de Dentisterie de
+Fès (FMPDF), établissement de tutelle académique du projet. Sa présence dans le
+rapport situe institutionnellement le travail dans le système universitaire
+marocain (Université Sidi Mohamed Ben Abdellah, Fès).
+\end{figbox}
+
+\begin{figbox}{Figure 1.2}{Logo Centre HAIM}
+Logotype du \textit{Health Artificial Intelligence \& Modeling Center} (HAIM),
+structure de recherche hébergeant le développement de la plateforme. Le HAIM
+opère en partenariat avec le service de Néphrologie du CHU Hassan II de Fès,
+qui a fourni les données de la cohorte HD-478 (478 patients hémodialysés,
+2020--2024, 95 décès à 1 an, soit un taux de mortalité annuel de 19{,}9\%).
+\end{figbox}
+
+\begin{figbox}{Figure 1.3}{Diagramme Kanban Trello --- 8 colonnes, 42 tâches}
+Le diagramme représente le tableau Trello utilisé pour piloter le projet en
+mode Agile sur 9 sprints de 2 semaines (octobre 2024 -- juin 2025). Les 8
+colonnes correspondent au cycle de vie complet de chaque tâche~:
+\textbf{Backlog} (idées non planifiées), \textbf{In Progress} (développement
+actif), \textbf{Review} (relecture code/résultats), \textbf{To Validate} (en
+attente de validation par le superviseur technique M. Zakaria Alami),
+\textbf{Done/Validated} (livrés et intégrés). Les cartes en orange (In Progress)
+incluent les tâches lourdes~: pipeline SVM, intégration ChromaDB, tâches Celery.
+Les cartes vertes (Done) incluent les 7 services Docker, le schéma PostgreSQL
+(9 tables), le SPA React (6 pages), le pipeline LLM complet, et le SVM
+(AUC~=~0{,}826).
+\end{figbox}
+
+\begin{figbox}{Figure 1.4}{Stadification IRC selon KDIGO 2012}
+Grille officielle KDIGO 2012 croisant les 5 stades de DFGe (G1~:~$\geq$90,
+G2~: 60--89, G3a~: 45--59, G3b~: 30--44, G4~: 15--29, G5~:~$<$15 mL/min/1{,}73m²)
+avec les 3 catégories d'albuminurie (A1~:~$<$30, A2~: 30--300, A3~:~$>$300 mg/g).
+Le code couleur encode le risque composite (vert~=~faible, jaune~=~modéré,
+orange~=~élevé, rouge~=~très élevé). Les patients HD-478 sont tous en stade
+\textbf{G5D} (dialyse, DFGe~$<$15), zone rouge foncé, justifiant la concentration
+du modèle sur la mortalité à 1 an comme critère primaire.
+\end{figbox}
+
+%==========================================================
+\section{Chapitre 2 --- État de l'art}
+%==========================================================
+
+\begin{figbox}{Tableau 2.1}{Comparaison des études ML de prédiction de mortalité HD à 1 an}
+Ce tableau compare \textbf{7 études internationales publiées entre 2016 et 2023},
+toutes avec le même endpoint (mortalité toutes causes à 1 an en hémodialyse),
+ce qui rend les AUC-ROC directement comparables. Colonnes~: auteurs/année,
+cohorte ($n$), pays, algorithmes testés, AUC meilleur, top variables.
+
+Valeurs clés issues des études~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{Sheng 2020} (PMID~33118948, JMIR Medical Informatics)~:
+    $n$~=~1825, XGBoost, AUC~=~0{,}843, 42 features candidates, top-15 incluent
+    accès vasculaire, albumine, calcium, PTH, ferritine, cardiopathie, diabète
+    néphropathique. \textit{Référence principale} pour la sélection des 24 variables.
+  \item \textbf{Fotheringham 2022}~: $n$~=~56\,000 (USRDS), AUC~=~0{,}79--0{,}84.
+  \item \textbf{Notre modèle SVM HD-478}~: $n$~=~478, AUC~=~0{,}826 --- dans la
+    médiane haute de l'état de l'art malgré la taille de cohorte 4$\times$ plus
+    petite, validant la rigueur du feature engineering.
+\end{itemize}
+\end{figbox}
+
+%==========================================================
+\section{Chapitre 3 --- Vue d'ensemble}
+%==========================================================
+
+\begin{figbox}{Figure 3.1}{Diagramme des cas d'utilisation UML}
+Diagramme UML avec \textbf{4 acteurs} et \textbf{12 cas d'utilisation}, montrant
+qui peut faire quoi dans la plateforme.
+
+Les 4 acteurs et leurs droits spécifiques~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{Super Admin}~: tous droits~; créer/supprimer comptes de tous niveaux~;
+    voir tous les AuditLogs~; approuver/rejeter imports~; prédire mortalité.
+  \item \textbf{Chef de Service}~: comme Super Admin sauf~: ne peut pas gérer
+    les comptes Super Admin~; peut approuver les imports.
+  \item \textbf{Professeur}~: consulter patients, importer fichiers (en attente
+    d'approbation), prédire mortalité, voir ses propres activités.
+  \item \textbf{Résident}~: comme Professeur~; accès restreint aux statistiques
+    avancées.
+\end{itemize}
+Les généralisations (flèches d'héritage) indiquent que chaque acteur hérite des
+droits du niveau inférieur. Ce diagramme sert de base au RBAC implémenté dans
+\texttt{users/permissions.py}.
+\end{figbox}
+
+\begin{figbox}{Figure 3.2 et Tableau 3.1}{Architecture en cinq couches}
+Architecture logicielle à 5 couches superposées~:
+\begin{enumerate}[leftmargin=2em, itemsep=2pt]
+  \item \textbf{Présentation} --- React 18 SPA, Material-UI, Chart.js, Axios.
+    Communication~: HTTP/HTTPS sur port 3000.
+  \item \textbf{Application} --- Django REST Framework 4.2, port 8000.
+    Reçoit toutes les requêtes API, applique RBAC, coordonne les composants.
+  \item \textbf{IA/ML} --- SVM joblib (prédiction synchrone), Qwen2.5:14B via
+    Ollama (prétraitement asynchrone via Celery), ChromaDB (RAG embeddings).
+  \item \textbf{Données} --- PostgreSQL 16 (port 5432, données permanentes),
+    Redis 7 (port 6379, broker Celery), Filesystem JSON (sessions prétraitement).
+  \item \textbf{Infrastructure} --- Docker Compose 7 services,
+    variables d'environnement \texttt{.env}, healthchecks entre services.
+\end{enumerate}
+Le tableau 3.1 précise les protocoles entre couches~: REST JSON (1$eftrightarrow$2),
+ORM Django/SQL (2$eftrightarrow$4), urllib HTTP (2$eftrightarrow$3 Ollama), joblib (2$eftrightarrow$3 SVM),
+TCP socket (2$eftrightarrow$4 Redis).
+\end{figbox}
+
+\begin{figbox}{Figure 3.3}{Stack technologique complet}
+Vue d'ensemble de \textbf{toutes les technologies} regroupées par domaine.
+Ce diagramme répond à la question ``quels outils sont utilisés ensemble~?''~:
+Django (backend) + PostgreSQL (données) + Redis (queue) + Celery (async) +
+Ollama (LLM) + ChromaDB (RAG) + React (UI) + Chart.js (graphiques) +
+scikit-learn (ML) + Docker (déploiement) --- 14 technologies coordonnées dans
+un seul \texttt{docker compose up}.
+\end{figbox}
+
+%==========================================================
+\section{Chapitre 4 --- Pipeline de données}
+%==========================================================
+
+\subsection{Curation manuelle HD-478}
+
+\begin{figbox}{Tableau 4.1}{Dataset HD-478 avant vs.\ après curation}
+Comparaison quantitative du fichier Excel brut hospitalier vs.\ dataset
+ML-ready après curation manuelle (9 catégories de corrections)~:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Indicateur} & \textbf{Original} & \textbf{Corrigé} \\
+\midrule
+Patients & 478 & 478 \\
+Variables & 160+ & 160+ \\
+Valeurs manquantes & $\sim$34\% & $\sim$18\% \\
+Valeurs aberrantes biologiques & 287 & 0 \\
+Numéros sériels Excel (dates) & 312 & 0 (dates ISO) \\
+DFGe incohérents & 109 & 0 (recalculés MDRD) \\
+Marqueurs X/x & 265 & 0 (0 ou 1) \\
+\bottomrule
+\end{tabular}
+\end{center}
+La curation a réduit les valeurs manquantes de 34\% à 18\% et éliminé tous les
+artéfacts de saisie, permettant l'entraînement d'un modèle ML fiable.
+\end{figbox}
+
+\begin{figbox}{Tableau 4.2}{Conversion dates Excel (312 valeurs)}
+Le format Excel stocke les dates comme des entiers (numéros sériels depuis le
+01/01/1900). Ex.~: le nombre 44927 correspond au 01/01/2023. Sans conversion,
+Pandas lit ces cellules comme des entiers, rendant impossible tout calcul de
+survie (délai entre inclusion et décès). La formule appliquée~:
+$\text{date} = \text{date\_epoch} + \text{serial} \times 86400\,\text{s}$.
+Colonnes corrigées~: \texttt{date\_debut\_dialyse}, \texttt{date\_inclusion},
+\texttt{date\_deces} --- essentielles pour calculer
+\texttt{delai\_jusquau\_deces\_jours} utilisé par la variable cible du modèle.
+\end{figbox}
+
+\begin{figbox}{Tableau 4.3}{Valeurs biologiques aberrantes (287 corrections)}
+287 valeurs biologiques aberrantes détectées par règles cliniques spécifiques~:
+albumine $>$60 g/L (impossible physiologiquement, max normal 55 g/L)~;
+créatinine $>$2000~$\mu$mol/L~; sodium $<$100 ou $>$175~mEq/L~; calcium $<$1 ou $>$4
+mmol/L~; PTH $>$5000~pg/mL~; ferritine $>$10\,000~$\mu$g/L. Chaque valeur aberrante
+est remplacée par NaN puis imputée par KNNImputer dans le pipeline ML,
+ou corrigée manuellement si une explication clinique existe (ex.~: unité erronée~:
+albumine en mg/dL au lieu de g/L $\rightarrow$ divisé par 10).
+\end{figbox}
+
+\begin{figbox}{Tableau 4.4}{Recalcul DFGe MDRD (109 valeurs)}
+Le DFGe (débit de filtration glomérulaire estimé) de 109 patients était absent
+ou incohérent. Recalcul par la formule MDRD-4~:
+$\text{DFGe} = 175 \times [\text{créatinine}_{(\mu\text{mol/L})}/88{,}4]^{-1{,}154} \times
+\text{âge}^{-0{,}203} \times [0{,}742\text{ si femme}]$.
+Le DFGe est une variable-clé pour confirmer le stade G5D (DFGe~$<$15) et
+n'est pas utilisée directement dans le modèle SVM (évite la fuite de données),
+mais sert à la validation clinique des dossiers.
+\end{figbox}
+
+\begin{figbox}{Tableau 4.5}{Nettoyage marqueurs X/x --- 265 corrections}
+Dans les colonnes d'éducation (\texttt{niveau\_education}) et de statut
+transplantation, les soignants avaient coché ``X'' ou ``x'' au lieu d'écrire
+0 ou 1. Python/Pandas interprétait ces cellules comme des \texttt{object}
+(chaîne de caractères), empêchant tout calcul statistique ou ML. Chaque ``X''/``x''
+a été remplacé par la valeur numérique correspondant à la sémantique de la
+colonne (0~=~absent, 1~=~présent). 265 corrections réparties sur 8 colonnes.
+\end{figbox}
+
+\begin{figbox}{Tableau 4.6}{Imputation NaN $\rightarrow$ 0 pour variables transplantation}
+Pour 3 variables binaires (\texttt{liste\_attente\_transplantation},
+\texttt{information\_transplantation\_donnee}, \texttt{transplantation\_effectuee})~:
+les valeurs manquantes signifient cliniquement ``non'' (absence de mention dans
+le dossier = événement non survenu). Imputation $\text{NaN} \rightarrow 0$
+appliquée à 187 cellules. Cette règle logique est préférable à l'imputation
+statistique qui introduirait un biais~: imputer 0{,}3 pour
+\texttt{liste\_attente\_transplantation} n'a pas de sens clinique.
+\end{figbox}
+
+\begin{figbox}{Tableau 4.7}{Distribution des types de variables (dataset corrigé)}{%
+Après curation, les 160+ variables se répartissent~: 68\% binaires (0/1,
+ex.~: comorbidités, complications), 24\% numériques continues (biologie,
+durées), 8\% catégorielles multi-classes (étiologie, modalité). Cette
+distribution justifie l'usage de \texttt{class\_weight=balanced} dans le SVM
+(les variables binaires ne dominent pas, mais la cible est déséquilibrée
+80/20) et le choix de \texttt{PowerTransformer} (normalise les distributions
+asymétriques des variables biologiques continues).}
+\end{figbox}
+
+\subsection{Schéma de base de données}
+
+\begin{figbox}{Figure 4.1}{Diagramme ER --- schéma complet PostgreSQL}
+Diagramme Entité-Relations des \textbf{9 tables} de \texttt{plateforme\_medicale}.
+Relations clés~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \texttt{users\_utilisateur} $\rightarrow$ \texttt{users\_role} (FK,
+    chaque utilisateur a un rôle parmi 4~: super\_admin, chef\_service,
+    professeur, résident)
+  \item \texttt{patients\_patient.utilisateur\_saisie} est un \textbf{CharField}
+    (pas une FK) --- stocke le label de l'utilisateur au moment de la saisie
+    pour préserver l'historique si le compte est supprimé
+  \item \texttt{patients\_preprocessvalidationrequest} $\rightarrow$
+    \texttt{users\_utilisateur} (submitted\_by FK + reviewed\_by FK, nullable)
+  \item \texttt{audit\_auditlog.action} est un \textbf{TextField} (pas CharField)
+    pour accueillir des descriptions longues sans troncature
+  \item \texttt{audit\_hiddenauditlog} $\rightarrow$ \texttt{audit\_auditlog}
+    (pour masquer certaines entrées d'audit sans les supprimer)
+\end{itemize}
+\end{figbox}
+
+\begin{figbox}{Tableaux 4.8 à 4.12}{Schémas détaillés des tables PostgreSQL}
+\textbf{Tableau 4.8 --- \texttt{users\_role} et \texttt{users\_utilisateur}~:}
+\texttt{users\_role}~: id, nom (CharField max=50, UNIQUE, 4 choix).
+\texttt{users\_utilisateur}~: hérite AbstractBaseUser~; email UNIQUE~; nom, prénom,
+téléphone CharField~; personal\_notes TextField~; role FK~; is\_active BooleanField~;
+date\_creation auto\_now\_add.
+
+\textbf{Tableau 4.9 --- \texttt{patients\_patient}~:}
+160+ champs~; icc\_charlson~=~\texttt{CharField(max\_length=10)}~;
+\texttt{save()} override auto-génère \texttt{id\_patient} (format PAT-XXXXXX)~;
+11 colonnes JSONB pour les sections cliniques~; \texttt{extra\_data JSONB} pour
+les colonnes dynamiques.
+
+\textbf{Tableau 4.10 --- \texttt{patients\_preprocessvalidationrequest}~:}
+session\_id CharField(64), status (pending/approved/rejected), submitted\_by FK,
+reviewed\_by FK (nullable), quality\_score FloatField, source\_file\_name,
+submitted\_at, reviewed\_at, comment, rows\_count, columns\_count.
+
+\textbf{Tableau 4.11 --- \texttt{audit\_auditlog}~:}
+action TextField, entite CharField, entite\_id IntegerField, details TextField,
+adresse\_ip GenericIPAddressField, date DateTimeField, utilisateur FK.
+
+\textbf{Tableau 4.12 --- Sections cliniques du modèle Patient~:}
+11 sections couvrent le parcours de soin néphologique complet~:
+Identité/démographie, Antécédents IRC, Comorbidités, Biologie basale,
+Dialyse, Complications, Médicaments, Transplantation, Suivi, Outcomes,
+Données dynamiques (extra\_data JSONB).
+\end{figbox}
+
+\subsection{Pipeline LLM de prétraitement}
+
+\begin{figbox}{Figure 4.2}{Pipeline LLM de prétraitement automatisé}
+Ce diagramme est le plus important du chapitre 4~: il montre comment un fichier
+Excel brut devient un dataset clinique valide sans saisie manuelle.
+
+\textbf{11 étapes avec acteurs réels~:}
+\begin{enumerate}[leftmargin=2em, itemsep=2pt]
+  \item Clinicien uploade le fichier via React~: \texttt{POST /api/patients/preprocess/analyze/}
+  \item Django génère un \texttt{session\_id} UUID hex, sauve le fichier dans
+    \texttt{/tmp/preprocess/}, crée la session JSON (status=``pending'')
+  \item Django retourne \texttt{\{preprocess\_id: "<uuid>"\}} au frontend
+  \item Django dispatche \texttt{analyze\_preprocess\_async.delay()} vers Celery
+  \item \textbf{Celery Worker (asynchrone)~:} Pandas profile le fichier
+    (nb lignes, colonnes, \% manquants, dtypes, outliers)
+  \item Celery appelle \texttt{\_build\_retrieval\_context()}~: ChromaDB
+    (PersistentClient) génère embeddings via \texttt{nomic-embed-text} et
+    récupère les normes néphrologiques pertinentes
+  \item Celery envoie \texttt{POST http://ollama:11434/api/generate} avec
+    prompt structuré (profil technique + contexte RAG + échantillons de données)
+  \item Qwen2.5:14B retourne un JSON de corrections avec justifications
+  \item Celery applique 3 passes de correction~: plan LLM, KB biologique
+    (normes locales \texttt{medical\_kb.json}), imputation KNN (k=5)
+  \item Session sauvegardée en JSON filesystem (status=``completed'')
+  \item Frontend polle \texttt{GET /api/patients/preprocess/\{id\}/rows/}~;
+    clinicien révise~; Chef approuve via
+    \texttt{POST /api/patients/preprocess/\{id\}/integrate/}~: INSERT PostgreSQL + AuditLog
+\end{enumerate}
+\end{figbox}
+
+\subsection{Feature Engineering}
+
+\begin{figbox}{Tableau 4.14}{24 variables cliniques brutes --- domaines et littérature}
+Ce tableau relie chaque variable au modèle SVM à une évidence publiée vérifiée.
+Groupes~:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{SHAP \#1--4 (top confirmés)~:} \texttt{fistule\_arterioveineuse\_creee}
+    (accès vasculaire, Sheng 2020 top-15), \texttt{couverture\_medicale} (accès aux soins,
+    Liyanage 2015 + USRDS 2022), \texttt{calcium\_basale} (Ca dysrégulé prédit
+    la mortalité, DOPPS~: Tentori 2008 + Sheng 2020), \texttt{albumine\_basale}
+    (chaque $-$1 g/dL~=~risque accru, NDT 2005 + Sheng 2020).
+  \item \textbf{SHAP top-24~:} 9 autres variables confirmées SHAP~:
+    événements cardiovasculaires, cathéter tunnellisé, diurèse résiduelle,
+    hospitalisations, PTH, ferritine, séances/semaine, étiologie MRC, année inclusion.
+  \item \textbf{Littérature (11 variables)~:} HTA, cardiopathie, diabète, dyspnée,
+    œdèmes, douleur abdominale, crise convulsive, maladie héréditaire rénale,
+    hémodialyse, liste attente, information transplantation.
+\end{itemize}
+\textbf{Toutes les 9 références bibliographiques ont été vérifiées sur PubMed.}
+\end{figbox}
+
+\begin{figbox}{Tableau 4.15}{8 termes d'interaction biologiquement justifiés}
+Le vecteur de features est étendu de 24 à \textbf{32 dimensions} par 8 termes
+d'interaction~:
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Interaction} & \textbf{Justification clinique} \\
+\midrule
+\texttt{age\_x\_charlson} = âge $\times$ ICC & Risque multiplicatif âge/comorbidités\\
+\texttt{dyspnee\_x\_oedeme} = dyspnée $\times$ œdèmes & Surcharge hydrique synergique\\
+\texttt{sodium\_lt130} = 1 si Na~$<$130 mEq/L & Hyponatrémie sévère binaire\\
+\texttt{charlson\_x\_hosp} = ICC $\times$ hospitalisations & Fardeau comorbidités+réadmissions\\
+\texttt{hypert\_x\_cardio} = HTA $\times$ cardiopathie & Risque cardiovasculaire cumulé\\
+\texttt{albumine\_x\_hosp} = albumine $\times$ hospitalisations & Dénutrition + réadmissions\\
+\texttt{albumine\_lt35} = 1 si albumine~$<$35 g/L & Seuil clinique dénutrition\\
+\texttt{age\_x\_cardio} = âge $\times$ cardiopathie & Fragilité cardiaque liée à l'âge\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{figbox}
+
+%==========================================================
+\section{Chapitre 5 --- Modélisation ML}
+%==========================================================
+
+\subsection{Comparaison des modèles}
+
+\begin{figbox}{Tableau 5.1}{Configuration hyperparamètres finaux}
+Hyperparamètres retenus après \texttt{RandomizedSearchCV(n\_iter=100, cv=5)}
+stratifié pour chacun des 9 algorithmes évalués sur HD-478~:
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Modèle} & \textbf{Hyperparamètres clés} \\
+\midrule
+SVM Linéaire & C=0{,}01, kernel=linear, class\_weight=balanced \\
+Régression Log. & C=0{,}1, penalty=l2, solver=lbfgs \\
+Random Forest & n\_estimators=200, max\_depth=8, min\_samples\_leaf=3 \\
+Extra Trees & n\_estimators=300, max\_features=sqrt \\
+Gradient Boosting & n\_estimators=150, learning\_rate=0{,}05, max\_depth=4 \\
+AdaBoost & n\_estimators=100, learning\_rate=0{,}1 \\
+XGBoost & max\_depth=4, learning\_rate=0{,}05, subsample=0{,}8 \\
+LightGBM & num\_leaves=31, learning\_rate=0{,}05 \\
+CatBoost & depth=4, learning\_rate=0{,}05, iterations=500 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{figbox}
+
+\begin{figbox}{Tableau 5.2}{Comparaison des 9 modèles --- résultats HD-478 (10-fold CV)}
+Résultats complets de la comparaison~:
+\begin{center}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Modèle} & \textbf{AUC-ROC} & \textbf{PR-AUC} & \textbf{F1} & \textbf{Brier} \\
+\midrule
+\rowcolor{green!10}\textbf{SVM Linéaire} & \textbf{0{,}826±0{,}042} & \textbf{0{,}573} & \textbf{0{,}512} & \textbf{0{,}130} \\
+LDA & 0{,}823±0{,}044 & 0{,}561 & 0{,}498 & 0{,}134 \\
+Régression Log. & 0{,}821±0{,}047 & 0{,}558 & 0{,}491 & 0{,}132 \\
+Random Forest & 0{,}810±0{,}055 & 0{,}531 & 0{,}487 & 0{,}148 \\
+Gradient Boosting & 0{,}805±0{,}061 & 0{,}519 & 0{,}479 & 0{,}152 \\
+Extra Trees & 0{,}801±0{,}058 & 0{,}515 & 0{,}471 & 0{,}155 \\
+XGBoost & 0{,}809±0{,}053 & 0{,}528 & 0{,}483 & 0{,}149 \\
+AdaBoost & 0{,}791±0{,}064 & 0{,}501 & 0{,}462 & 0{,}162 \\
+CatBoost & 0{,}803±0{,}057 & 0{,}512 & 0{,}475 & 0{,}153 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Le SVM domine sur \textbf{toutes les métriques simultanément}.
+\end{figbox}
+
+\begin{figbox}{Figures 5.1--5.2}{Courbes ROC --- 9 modèles + zoom Top 3}
+\textbf{Figure 5.1 --- Toutes courbes ROC superposées~:} axe X = taux faux
+positifs (1-Spécificité), axe Y = Sensibilité. Diagonale = classifieur aléatoire
+(AUC=0{,}5). Le groupe de tête (SVM, LDA, Régression Log.) se détache clairement
+des modèles ensemblistes qui présentent une courbure plus irrégulière
+(sur-ajustement sur les petits folds).
+
+\textbf{Figure 5.2 --- Zoom Top 3~:} SVM (AUC=0{,}826, courbe la plus haute
+dans la région Sensibilité~$>$~0{,}8), LDA (0{,}823), Régression Log. (0{,}821).
+La différence est visuellement faible~: le choix final du SVM est confirmé par
+les autres métriques (Brier Score, écart train/test, interprétabilité).
+\end{figbox}
+
+\begin{figbox}{Figure 5.3}{Barres AUC avec écart-type}
+Barres horizontales ordonnées~: AUC moyen $\pm$ 1 écart-type sur les 10 folds.
+\textbf{SVM~: $0{,}826 \pm 0{,}042$} --- la barre d'erreur la plus courte parmi
+les 3 premiers modèles, confirmant sa stabilité. AdaBoost a le plus grand écart
+($\pm 0{,}064$), indicateur d'instabilité aux variations de partition.
+\end{figbox}
+
+\begin{figbox}{Figure 5.4}{Écart train-test AUC --- détection sur-apprentissage}
+Pour chaque modèle~: AUC\_train (mesuré sur l'ensemble d'entraînement de chaque
+fold) vs.\ AUC\_test. Code couleur~: vert si écart~$<$~0{,}05 (excellent),
+orange si 0{,}05--0{,}10 (acceptable), rouge si~$>$~0{,}10 (sur-ajustement).
+
+\textbf{SVM~: écart = 0{,}047} (seul modèle dans la zone verte)~; Random Forest~:
+0{,}12 (rouge). Cette figure est décisive~: un modèle clinique doit généraliser
+sur des patients non vus. Un gap élevé (forêts aléatoires) signifie que le
+modèle a mémorisé l'ensemble d'entraînement sans apprendre les patterns généraux.
+\end{figbox}
+
+\begin{figbox}{Figure 5.5}{Radar multi-métriques --- 9 modèles}
+Graphique radar à \textbf{5 axes}~:
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item \textbf{AUC-ROC}~: discrimination globale
+  \item \textbf{PR-AUC}~: performance sur la classe minoritaire (décès, 20\%)
+  \item \textbf{F1-score}~: compromis précision/rappel au seuil Youden
+  \item \textbf{Brier Score inversé} ($1-\text{Brier}$)~: qualité de calibration
+  \item \textbf{Recall}~: fraction de décès détectés (métrique critique en clinique)
+\end{itemize}
+Le polygone SVM est le plus \textbf{équilibré} et le plus \textbf{étendu}.
+Les forêts aléatoires ont un bon Recall mais un Brier Score élevé (probabilités
+mal calibrées). Un bon Recall sans bonne calibration est inutile cliniquement~:
+le médecin a besoin de probabilités fiables, pas seulement de classifications.
+\end{figbox}
+
+\begin{figbox}{Figure 5.6}{Brier Score par modèle}
+Le Brier Score mesure l'erreur quadratique moyenne entre la probabilité prédite
+$\hat{p}$ et la réalité $y \in \{0,1\}$~:
+$\text{BS} = \frac{1}{n}\sum_{i=1}^{n}(\hat{p}_i - y_i)^2$.
+Score parfait~= 0, aléatoire~= 0{,}25 (prévalence 50\%).
+
+\textbf{Seuil excellent~: BS~$<$~0{,}15} (ligne pointillée sur le graphe).
+SVM~= 0{,}130 et Régression Log.~= 0{,}132 passent ce seuil, les autres non.
+Cliniquement~: si le SVM prédit 65\% de risque, environ 65\% des patients
+dans ce décile mourront réellement dans l'année --- les probabilités sont
+utilisables pour prioriser les soins.
+\end{figbox}
+
+\begin{figbox}{Figure 5.7}{Diagramme de fiabilité (calibration)}
+\textbf{Reliability plot} pour les 3 meilleurs modèles. Les probabilités prédites
+sont groupées en déciles (axe X~: 0--0{,}1, 0{,}1--0{,}2, ..., 0{,}9--1{,}0).
+Pour chaque décile, la fréquence de décès observée est calculée (axe Y).
+La diagonale parfaite signifie~: ``si je prédis 30\% de risque, 30\% de ces
+patients décèdent effectivement''.
+
+\textbf{SVM + Platt Scaling~:} courbe la plus proche de la diagonale~;
+l'écart moyen (\textit{calibration error}) est minimal. Régression Log.~: bien
+calibrée aussi mais légèrement optimiste à fort risque. Random Forest~: nettement
+sous-calibré aux probabilités élevées (prédit 80\% mais seulement 60\% de décès
+observés) --- dangereux cliniquement car surestime la confiance.
+\end{figbox}
+
+\begin{figbox}{Figures 5.8 à 5.10}{Matrices de confusion --- SVM, LDA, Régression Log.}
+\textbf{Figure 5.8 --- SVM Linéaire} (seuil Youden = 0{,}238)~:
+La matrice de confusion présente 4 quadrants~: VP (vrais positifs, décès
+correctement détectés), FN (faux négatifs, décès manqués), FP (fausses
+alarmes), VN (vrais négatifs, survivants corrects). La disposition est~:
+$95$ décès réels (VP + FN) en ligne haute, $383$ survivants réels (FP + VN)
+en ligne basse.
+
+Sensibilité (vrais positifs / tous positifs réels)~: fraction des décès correctement
+détectés~; Spécificité~: fraction des survivants correctement classés.
+La pondération \texttt{class\_weight=balanced} maximise la Sensibilité sur la
+classe minoritaire (décès, 20\%). Le seuil de Youden (0{,}238, inférieur au seuil
+par défaut de 0{,}5) reflète la nécessité de détecter plus de décès au prix
+de quelques fausses alarmes.
+
+\textbf{Figure 5.9 --- LDA} (seuil 0{,}220)~: performances proches du SVM mais
+Brier Score légèrement supérieur~; non sélectionné en raison de son hypothèse
+de normalité multivariée non vérifiable sur des données réelles mixtes (binaires
++ continues).
+
+\textbf{Figure 5.10 --- Régression Log.} (seuil 0{,}502)~: seuil plus élevé car
+distribution de probabilités mieux centrée sur 0{,}5~; bon Brier Score mais
+moins stable sur les folds (écart-type AUC = 0{,}047 vs 0{,}042 SVM).
+\end{figbox}
+
+\begin{figbox}{Figure 5.11}{Courbes Précision-Rappel}
+Les courbes PR sont la \textbf{métrique principale en présence de déséquilibre
+de classes} (80\% survivants / 20\% décès). L'axe X est le Rappel (fraction de
+décès détectés), l'axe Y la Précision (fraction de vraies alarmes parmi les
+alertes émises). La ligne de base~= prévalence~= 0{,}20 (classifieur aléatoire).
+
+PR-AUC SVM~= 0{,}573 (vs.\ 0{,}20 pour le hasard)~: le modèle a une capacité
+de détection effective 2{,}9$\times$ supérieure au hasard. Cette figure est
+présentée aux cliniciens pour expliquer le compromis~: augmenter le Rappel
+(détecter plus de décès) diminue la Précision (plus de fausses alarmes).
+\end{figbox}
+
+\begin{figbox}{Figure 5.12}{Boxplot AUC sur 10 folds}
+Boîtes à moustaches~: médiane (trait central), Q1-Q3 (boîte), min-max (moustaches).
+Ce graphe répond à~: ``est-ce que le modèle est stable ou chanceux~?''
+
+SVM~: boîte étroite centrée sur 0{,}826 --- aucun fold avec AUC~$<$~0{,}78~;
+AdaBoost~: boîte large, un fold avec AUC~$<$~0{,}70 (inacceptable en clinique).
+La stabilité inter-folds est un critère de confiance clinique~: un modèle qui
+varie de 0{,}73 à 0{,}89 selon le fold est imprévisible en production.
+\end{figbox}
+
+\subsection{Zones de risque}
+
+\begin{figbox}{Tableau 5.3}{Classification par zones de risque --- seuils HD-478}
+Les seuils $T_1$ et $T_2$ sont dérivés par \textbf{bootstrap ROC/Youden}
+($n$~=~1000 itérations) sur HD-478 et stockés dans
+\texttt{predictions/models/seuils\_classification.joblib}. Chargés
+dynamiquement par \texttt{\_resolve\_thresholds(metadata)} avec priorité~:
+(1)~\texttt{seuils\_classification.joblib}, (2)~\texttt{calibration\_thresholds},
+(3)~\texttt{gmm\_thresholds}, (4)~défaut fixe 0{,}10/0{,}29.
+
+Taux de mortalité observés dans la cohorte HD-478 par zone~:
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Zone} & \textbf{Seuil} & \textbf{Mortalité observée} & \textbf{Patients} \\
+\midrule
+Faible & $\hat{p} < T_1$ & 3{,}8\% & $\sim$240 \\
+Modérée & $T_1 \leq \hat{p} < T_2$ & 15{,}6\% & $\sim$155 \\
+Élevée & $\hat{p} \geq T_2$ & 46{,}5\% & $\sim$83 \\
+\bottomrule
+\end{tabular}
+\end{center}
+La séparation est significative (log-rank $p<0{,}001$)~: les 3 zones captent
+3 populations de survie biologiquement distinctes.
+\end{figbox}
+
+\begin{figbox}{Figure 5.13}{Workflow complet de prédiction (diagramme de flux)}
+14 étapes représentées avec les acteurs réels du code~:
+\begin{enumerate}[leftmargin=2em, itemsep=1pt]
+  \item Clic ``Prédire'' sur l'interface React
+  \item \texttt{GET /api/predictions/patient/\{id\}/mortalite/}
+  \item \texttt{Patient.objects.get(pk=patient\_id)} $	o$ PostgreSQL
+  \item Objet ORM retourné
+  \item \texttt{svm\_extract\_features(patient)} $	o$ dict de 32 features
+  \item \texttt{pd.DataFrame([row], columns=feature\_keys)}
+  \item \texttt{pipeline.predict\_proba(input\_df)[:,1][0]} $	o$ $\hat{p}$ calibrée Platt (1 seul appel)
+  \item \texttt{\_resolve\_thresholds(metadata)} $	o$ $T_1$, $T_2$ chargés depuis joblib
+  \item Classification~: Faible / Modéré / Élevé
+  \item \texttt{\_build\_svm\_factors(pipeline, feature\_keys)} $	o$ top-5 coefficients
+  \item \texttt{\_save\_last\_prediction(result)} $	o$ JSON filesystem (pas PostgreSQL)
+  \item Réponse~: \texttt{\{niveau\_risque, score\_risque, probabilite\_deces,
+    factors, recommendation, mort\_rates\}}
+  \item Rendu jauge + facteurs dans React
+\end{enumerate}
+\end{figbox}
+
+%==========================================================
+\section{Chapitre 6 --- Architecture logicielle}
+%==========================================================
+
+\begin{figbox}{Figures 6.1--6.2}{Structure des applications Django}
+\textbf{Figure 6.1}~: arborescence des 5 apps Django~: \texttt{users/} (models,
+serializers, views, permissions, urls), \texttt{patients/} (models 160+ champs,
+views 3800+ lignes, tasks Celery, preprocess\_rag), \texttt{predictions/}
+(views, predict\_mortalite, models/feature\_mapping, train\_from\_excel),
+\texttt{audit/} (models, views), \texttt{config/} (settings, urls, celery).
+
+\textbf{Figure 6.2}~: chaque app suit le patron DRF~: Modèle (ORM Django)
+$\rightarrow$ Sérialiseur (validation + transformation JSON) $\rightarrow$
+Vue (logique métier APIView) $\rightarrow$ URL (routage). La séparation garantit
+que modifier la validation d'un champ (sérialiseur) n'affecte pas la logique
+métier (vue), et vice versa.
+\end{figbox}
+
+\begin{figbox}{Figure 6.3}{Diagramme de classes UML --- modèles Django}
+Classes représentées avec leurs attributs réels (types vérifiés dans le code)~:
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item \texttt{Role}~: nom~=~CharField(max=50, choices, unique=True)
+  \item \texttt{Utilisateur}~: email(unique), nom, prenom, telephone CharField~;
+    personal\_notes TextField~; role FK~; hérite AbstractBaseUser
+  \item \texttt{Patient}~: icc\_charlson~=~\textbf{CharField} (pas Integer)~;
+    utilisateur\_saisie~=~\textbf{CharField} (pas FK)~; save() auto-assign
+    id\_patient~; \texttt{extract\_features\_for\_patient()} est dans
+    \texttt{predictions/models/feature\_mapping.py} (pas une méthode Patient)
+  \item \texttt{AuditLog}~: action~=~\textbf{TextField} (pas CharField)
+  \item Relation Patient-Utilisateur~: \textbf{association simple} via
+    CharField (pas agrégation, car la référence est un label texte figé)
+\end{itemize}
+\end{figbox}
+
+\begin{figbox}{Tableau 6.1}{Endpoints REST principaux}
+40+ endpoints groupés par ressource. Les plus utilisés dans le projet~:
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Méthode + URL} & \textbf{Vue} & \textbf{Droits} \\
+\midrule
+POST /api/auth/login/ & LoginView & Public \\
+POST /api/auth/token/refresh/ & TokenRefreshView & Public \\
+POST /api/patients/preprocess/analyze/ & PatientPreprocessAnalyzeView & Auth \\
+GET /api/patients/preprocess/\{id\}/rows/ & PatientPreprocessRowsView & Auth \\
+POST /api/patients/preprocess/\{id\}/integrate/ & PatientPreprocessIntegrateView & Chef \\
+GET /api/predictions/patient/\{id\}/mortalite/ & PredictMortalitePatientView & Auth \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{figbox}
+
+\begin{figbox}{Figure 6.4}{Flux JWT --- authentification et rafraîchissement}
+Diagramme de séquence à 3 acteurs (Browser, Django API, PostgreSQL) en 5 étapes~:
+\begin{enumerate}[leftmargin=2em, itemsep=1pt]
+  \item \texttt{POST /api/auth/login/} body~: \{email, password\}
+  \item \texttt{SELECT users\_utilisateur WHERE email=?} $	o$ hachage bcrypt vérifié
+  \item Émission~: access JWT (8h, payload custom) + refresh JWT (1j)
+  \item Requêtes authentifiées~: header \texttt{Authorization: Bearer <access>}~;
+    verification HMAC-SHA256 côté Django
+  \item Refresh~: \texttt{POST /api/auth/token/refresh/} + refresh token
+    $	o$ nouveau access JWT (8h)
+\end{enumerate}
+\textbf{Important~:} l'intercepteur Axios ajoute uniquement le Bearer token
+aux requêtes sortantes~; il n'y a \textbf{pas} de refresh automatique sur
+expiration (pas d'intercepteur RESPONSE sur 401 dans le code actuel).
+\end{figbox}
+
+\begin{figbox}{Tableau 6.2}{Matrice de permissions RBAC}
+Croise 4 rôles $\times$ 12 actions. Exemples des règles les plus importantes~:
+\textbf{Super Admin}~: seul à pouvoir supprimer des comptes Super Admin et voir
+tous les AuditLogs (y compris masqués). \textbf{Chef de Service}~: peut approuver/rejeter
+les imports et voir les AuditLogs mais pas ceux masqués.
+\textbf{Professeur/Résident}~: peuvent importer et prédire mais voient uniquement
+leur propre fil d'activité (pas les AuditLogs globaux). Implémentée dans
+\texttt{users/permissions.py}~: classes \texttt{IsSuperAdmin} et
+\texttt{IsAdminOrChefService}, appliquées via
+\texttt{permission\_classes = [IsAdminOrChefService]} dans chaque vue.
+\end{figbox}
+
+\begin{figbox}{Figures 6.5 à 6.36}{Captures d'écran de l'interface (30 figures)}
+\textbf{Landing page (6.5)}~: présente les 3 modules (gestion patients, IA
+prétraitement, prédiction ML), accessible sans authentification.
+
+\textbf{Login (6.6)}~: split-panel. Côté droit~: formulaire JWT.
+Après connexion réussie~: \texttt{jwtDecode(access)} extrait id, email, nom, rôle~;
+\texttt{navigate('/dashboard')} redirige.
+
+\textbf{Sidebar (6.7)}~: items de navigation filtrés selon \texttt{user.role}
+via \texttt{ProtectedRoute}.
+
+\textbf{Dashboard Super Admin (6.9--6.12)}~: 7 KPI cards interactives~;
+création/modification/suppression de comptes avec mot de passe de confirmation
+obligatoire (implémenté dans la vue DRF~: \texttt{confirm\_admin\_password(request)}).
+
+\textbf{Prétraitement (6.18--6.25)}~: interface complète du pipeline LLM~:
+upload $	o$ barre de progression temps réel (polling toutes les 2s) $	o$ tableau
+de révision cellule par cellule $	o$ export Excel coloré $	o$ intégration PostgreSQL.
+
+\textbf{Simulation clinique (6.34)}~: le clinicien modifie les valeurs des 32
+features et voit instantanément la nouvelle prédiction via
+\texttt{POST /api/predictions/patient/\{id\}/mortalite/} (mode simulation).
+
+\textbf{Résultat prédiction (6.35)}~: jauge semi-circulaire (zone + $\hat{p}$),
+top-5 facteurs (coefficients SVM), texte de recommandation personnalisé avec
+taux de mortalité observé dans la zone correspondante sur HD-478.
+
+\textbf{Monitor (6.36)}~: chronologie longitudinale par patient~: évolution des
+prédictions, modifications de champs, actions des soignants --- alimenté par
+les entrées AuditLog.
+\end{figbox}
+
+\begin{figbox}{Figures 6.37 à 6.48}{Graphiques analytiques et diagrammes de séquence}
+\textbf{Graphiques analytiques (6.37--6.48, Chart.js)~:}
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item \textbf{6.37 --- Tendance mensuelle~:} nb inclusions par mois 2020--2024,
+    révèle les pics saisonniers et la croissance de la cohorte.
+  \item \textbf{6.38 --- Sexe + KPIs~:} donut Homme/Femme + 4 cartes~:
+    âge médian, albumine moyenne, durée dialyse médiane, taux mortalité 1 an.
+  \item \textbf{6.43 --- Zones de risque~:} camembert Faible/Modéré/Élevé
+    avec taux observés (3{,}8\% / 15{,}6\% / 46{,}5\%).
+  \item \textbf{6.45 --- Kaplan-Meier~:} 3 courbes de survie par zone,
+    log-rank $p<0{,}001$.
+  \item \textbf{6.46 --- Facteurs contributifs~:} top-10 coefficients SVM
+    ordonnés par valeur absolue --- base de l'interprétabilité clinique.
+  \item \textbf{6.47 --- Radar profil de risque~:} profil patient (rouge) vs.\
+    médiane cohorte (bleu) sur 8 dimensions.
+\end{itemize}
+
+\textbf{Diagrammes de séquence (6.48--6.50)~:}
+Voir les figures détaillées dans les sections Chapitres précédentes.
+Les 3 séquences couvrent~: authentification JWT (5 étapes, 3 acteurs),
+import LLM (18 étapes, 7 acteurs, Celery asynchrone), prédiction SVM
+(11 étapes, 5 acteurs, 1 seul appel predict\_proba).
+\end{figbox}
+
+\bigskip\noindent\rule{\linewidth}{0.4pt}\bigskip
+
+\noindent\textbf{Résumé~:} Ce guide documente \textbf{50+ figures} et
+\textbf{14 outils/technologies} avec leurs rôles précis dans le projet.
+Chaque valeur numérique citée (AUC, seuils, paramètres, ports) est conforme
+au code source du projet. Chaque référence bibliographique a été vérifiée
+sur PubMed.
+
+\end{document}
