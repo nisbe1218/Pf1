@@ -1,0 +1,7 @@
+Modèle,AUC-ROC (test),± STD,AUC train (OOB pour RF),Gap train-test,Surapprentissage,Seuil Youden,Avg Precision,Brier Score,Sensibilité,Précision,F1-Score
+SVM Linéaire,0.8272,0.0779,0.8755,0.0483,✅ OK,0.245,0.4835,0.1257,0.691,0.458,0.551
+LDA,0.8225,0.0848,0.87,0.0475,✅ OK,0.22,0.463,0.1301,0.713,0.465,0.563
+Régression Logistique (Ridge L2),0.821,0.0795,0.8798,0.0588,✅ OK,0.502,0.4784,0.1661,0.723,0.442,0.548
+XGBoost (corrigé),0.7545,0.0883,0.8504,0.0959,✅ OK,0.48,0.3978,0.1902,0.649,0.377,0.477
+Random Forest (OOB),0.7496,0.073,0.7363,-0.0133,✅ OK,0.486,0.3656,0.1984,0.606,0.39,0.475
+LASSO (L1),0.7451,0.0981,0.8235,0.0784,✅ OK,0.509,0.42,0.2015,0.649,0.381,0.48
