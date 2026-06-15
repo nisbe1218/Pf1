@@ -11,12 +11,10 @@ services:
   db:
     image: postgres:16
     container_name: medical_db
-    env_file:
-      - ./backend/.env
     environment:
-      POSTGRES_DB: ${DB_NAME:-plateforme_medicale}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-nis123}
+      POSTGRES_DB: plateforme_medicale
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: nis123
     ports:
       - "5432:5432"
     volumes:
@@ -33,6 +31,9 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DB_NAME=plateforme_medicale
+      - DB_USER=postgres
+      - DB_PASSWORD=nis123
       - DB_HOST=db
       - DB_PORT=5432
       - OLLAMA_BASE_URL=http://ollama:11434
@@ -40,9 +41,9 @@ services:
       - OLLAMA_MODEL=qwen2.5:14b
       - OLLAMA_PREPROCESS_MODEL=qwen2.5:14b
       - OLLAMA_FALLBACK_MODEL=qwen2.5:14b
-      - OLLAMA_TIMEOUT_SECONDS=1500
-      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=1200
-      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=1200
+      - OLLAMA_TIMEOUT_SECONDS=2400
+      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=2400
+      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=2400
       - OLLAMA_NUM_PREDICT=500
       - OLLAMA_RETRY_NUM_PREDICT=500
       - OLLAMA_MIN_PASS2_NUM_PREDICT=300
@@ -62,11 +63,6 @@ services:
       - LLM_BATCH_SIZE=5
       - PREPROCESS_TIMEOUT_MINUTES=720
       - LLM_MAX_SAMPLE_ROWS=9999
-      - OLLAMA_PRIMARY_TIMEOUT_SECONDS=2400
-      - OLLAMA_FALLBACK_TIMEOUT_SECONDS=2400
-      - OLLAMA_TIMEOUT_SECONDS=2400
-    env_file:
-      - ./backend/.env
     depends_on:
       - db
       - ollama
@@ -81,10 +77,11 @@ services:
     volumes:
       - ./backend:/app
     environment:
+      - DB_NAME=plateforme_medicale
+      - DB_USER=postgres
+      - DB_PASSWORD=nis123
       - DB_HOST=db
       - DB_PORT=5432
-    env_file:
-      - ./backend/.env
     depends_on:
       - db
     restart: unless-stopped
@@ -99,6 +96,9 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
+      - DB_NAME=plateforme_medicale
+      - DB_USER=postgres
+      - DB_PASSWORD=nis123
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OLLAMA_BASE_URL=http://ollama:11434
@@ -127,8 +127,6 @@ services:
       - RAG_MAX_CHUNKS=1
       - LLM_BATCH_SIZE=5
       - LLM_MAX_SAMPLE_ROWS=9999
-    env_file:
-      - ./backend/.env
     depends_on:
       - redis
       - db
@@ -148,6 +146,7 @@ services:
       - "3000:3000"
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api/
+      - REACT_APP_PREPROCESS_URL=http://localhost:8000/patients/preprocess/
     depends_on:
       - backend
     restart: unless-stopped
