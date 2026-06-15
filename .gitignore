@@ -36,3 +36,13 @@ Thumbs.db
 *.swp
 *.tmp
 .claude/
+
+# Modèles ML obsolètes (seul le SVM est utilisé)
+backend/predictions/models/mortalite_adaboost*.joblib
+backend/predictions/models/mortalite_best*.joblib
+backend/predictions/models/mortalite_decision_tree*.joblib
+backend/predictions/models/mortalite_extra_trees*.joblib
+backend/predictions/models/mortalite_gradient_boosting*.joblib
+backend/predictions/models/mortalite_logistic_regression*.joblib
+backend/predictions/models/mortalite_random_forest*.joblib
+backend/predictions/models/mortalite_voting_ensemble*.joblib

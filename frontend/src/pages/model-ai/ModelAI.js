@@ -1217,7 +1217,7 @@ export default function ModelAI() {
         symbol: '●',
         action: t('modelActionHigh'),
         detail: t('modelDetailHigh'),
-        observed: `${(apiMortRates.Élevé ?? 46.5).toString().replace('.', ',')} %`,
+        observed: `${(apiMortRates.Élevé ?? 40.3).toString().replace('.', ',')} %`,
         gradient: 'linear-gradient(135deg, #a01f1f 0%, #E74C3C 50%, #f07070 100%)',
         glow: 'rgba(231,76,60,.35)',
       },
