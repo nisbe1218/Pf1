@@ -141,13 +141,14 @@ const SeverityBadge = ({ severity }) => {
 export default function Preprocessing({ onIntegrated }) {
   const { user } = useContext(AuthContext);
   const isAdminOrChef = user?.role === 'super_admin' || user?.role === 'chef_service';
+  const sessionKey = `preprocess_session_id_${user?.id ?? 'anon'}`;
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
-  const [loading, setLoading] = useState(() => !!localStorage.getItem('preprocess_session_id'));
-  const [session, setSession] = useState(() => localStorage.getItem('preprocess_session_id') || null);
+  const [loading, setLoading] = useState(() => !!localStorage.getItem(sessionKey));
+  const [session, setSession] = useState(() => localStorage.getItem(sessionKey) || null);
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState(() => {
-    const sid = localStorage.getItem('preprocess_session_id');
+    const sid = localStorage.getItem(sessionKey);
     return sid ? 'pending' : null;
   });
   const [statusMessage, setStatusMessage] = useState('');
@@ -180,7 +181,7 @@ export default function Preprocessing({ onIntegrated }) {
   };
 
   const applyFile = (f) => {
-    localStorage.removeItem('preprocess_session_id');
+    localStorage.removeItem(sessionKey);
     setReport(null); setSession(null); setStatus(null); setStatusMessage('');
     setDatasetProfile(null); setOriginalPreviewRows([]); setCorrectedPreviewRows([]);
     setPipelineInfo(null); setRouteInfo(null); setCellCorrections(null); setCorrTableTab(0);
@@ -204,7 +205,7 @@ export default function Preprocessing({ onIntegrated }) {
         const data = resp.data || {};
         setStatusMessage(data.progress_message || data.message || 'Traitement...');
         if (data.status === 'completed') {
-          localStorage.removeItem('preprocess_session_id');
+          localStorage.removeItem(sessionKey);
           setStatus('completed'); setReport(data.report || null);
           setDatasetProfile(data.dataset_profile || data.report?.dataset_profile || null);
           setOriginalPreviewRows(data.original_preview_rows || []);
@@ -218,7 +219,7 @@ export default function Preprocessing({ onIntegrated }) {
           setRouteInfo(data.report?.route || null);
           clearInterval(interval); pollIntervalRef.current = null; setLoading(false);
         } else if (data.status === 'error') {
-          localStorage.removeItem('preprocess_session_id');
+          localStorage.removeItem(sessionKey);
           setStatus('error'); setStatusMessage(data.error || 'Erreur analyse.');
           clearInterval(interval); pollIntervalRef.current = null; setLoading(false);
         }
@@ -239,7 +240,7 @@ export default function Preprocessing({ onIntegrated }) {
       const form = new FormData(); form.append('file', file);
       const resp = await api.post('patients/preprocess/analyze/', form);
       const sid = resp.data?.preprocess_id || resp.data?.id;
-      if (sid) { setSession(sid); setStatus('pending'); localStorage.setItem('preprocess_session_id', sid); }
+      if (sid) { setSession(sid); setStatus('pending'); localStorage.setItem(sessionKey, sid); }
       else { setStatus('error'); setStatusMessage('ID de session non reçu.'); setLoading(false); }
     } catch (err) { setStatus('error'); setStatusMessage(err?.response?.data?.error || 'Erreur.'); setLoading(false); }
   };
@@ -249,7 +250,7 @@ export default function Preprocessing({ onIntegrated }) {
     try {
       await api.post(`patients/preprocess/${session}/cancel/`, {});
     } catch {}
-    localStorage.removeItem('preprocess_session_id');
+    localStorage.removeItem(sessionKey);
     if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
     setStatus(null); setSession(null); setLoading(false); setStatusMessage('');
   };
